@@ -54,6 +54,11 @@ export interface FocusCardProps extends FocusFrame {
    * beside it. They sit at the card's foot, the primary last.
    */
   actions?: ReactNode;
+  /**
+   * "wide" for a card that lays a lot out side by side, such as the whole
+   * chart of accounts; most cards ask one short question and stay narrow.
+   */
+  width?: "narrow" | "wide";
 }
 
 /**
@@ -68,6 +73,7 @@ export function FocusCard({
   lead,
   children,
   actions,
+  width = "narrow",
 }: FocusCardProps) {
   const titleId = useId();
   return (
@@ -98,7 +104,12 @@ export function FocusCard({
         </Button>
       </header>
       <div className="flex flex-1 justify-center px-4 pb-16 pt-6 sm:pt-[8vh]">
-        <div className="w-full max-w-[560px]">
+        <div
+          className={cn(
+            "w-full",
+            width === "wide" ? "max-w-[1040px]" : "max-w-[560px]",
+          )}
+        >
           {steps && <Steps {...steps} />}
           <section
             aria-labelledby={titleId}

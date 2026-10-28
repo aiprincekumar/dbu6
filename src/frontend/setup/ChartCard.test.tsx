@@ -15,16 +15,19 @@ import {
 import type {
   ChartAccount,
   ChartOfAccounts,
+  CodingAgentSetupGuide,
   LlmStatus,
   ChartSuggestion,
 } from "../../shared/index";
+import { NO_CODING_AGENT_MESSAGE } from "../../shared/index";
 import { registerTypeScale } from "../type-scale";
 import { ChartCard } from "./ChartCard";
 
 /*
- * Card 1 of the first run (PLAN.md): new books pick the standard chart or
- * describe their money, tick through two-level cards and create the ticked
- * accounts, then go on to card 2. Books with a chart go to Overview.
+ * Card 1 of the first run (PLAN.md): new books see the standard chart, may
+ * first say how they earn and spend for the agent to tailor it, tick through
+ * two-level cards and use the ticked accounts, then go on to card 2. Books
+ * with a chart go to Overview.
  */
 
 let host: HTMLDivElement;
@@ -102,6 +105,22 @@ const NEW_CHART: ChartOfAccounts = {
 };
 
 const READY: LlmStatus = { ready: true, name: "Sample Agent" };
+
+const GUIDE: CodingAgentSetupGuide = {
+  missing: "No sample agent is set up.",
+  cliOnly: "Only the sample CLI will do.",
+  agents: [
+    {
+      agent: "pi",
+      name: "Sample Agent",
+      about: "A sample.",
+      install: "npm install -g sample-agent",
+      signIn: "Run `sample` in a terminal.",
+      docsUrl: "https://example.com/sample",
+    },
+  ],
+  afterInstall: "Then check again.",
+};
 
 function Where() {
   const { pathname, search } = useLocation();
@@ -192,35 +211,39 @@ describe("card 1 on new books", () => {
     await render();
 
     expect(text()).toContain("Set up your books");
-    expect(host.querySelector("h1")?.textContent).toBe(
-      "Pick your chart of accounts",
-    );
+    expect(host.querySelector("h1")?.textContent).toBe("Chart of accounts");
     const headings = Array.from(host.querySelectorAll("h3")).map(
       (heading) => heading.textContent,
     );
     expect(headings).toEqual([
-      "Assets · what you own",
-      "Liabilities · what you owe",
-      "Equity · where your books start",
-      "Income · money coming in",
-      "Expenses · money going out",
+      "Assets",
+      "Liabilities",
+      "Equity",
+      "Income",
+      "Expenses",
     ]);
     // Children starts unticked; the funds fold under Investments.
-    expect(button("Create 11 accounts")).toBeTruthy();
+    expect(button("Continue with 11 accounts →")).toBeTruthy();
     // An unticked name keeps its size beside the meta ink.
     const children = Array.from(host.querySelectorAll("label span")).find(
       (one) => one.textContent === "Children",
     );
     expect(children?.className).toContain("text-row");
     expect(children?.className).toContain("text-ink-meta");
-    expect(text()).not.toContain("Sample Fund");
-    await click(button("▸ 2 more"));
-    expect(text()).toContain("Sample Fund");
+    // A group a later step fills in says which, in place of its note.
+    expect(text()).toContain("Bank AccountsStep 2");
+    expect(text()).not.toContain("Each bank account goes here.");
+    // A card's one top account is its heading, not a row of its own.
+    expect(() => box("Assets")).toThrow();
+    // Folded accounts are named on their parent's fold, without boxes.
+    expect(() => box("Sample Fund")).toThrow();
+    await click(button("Sample Fund, Sample Stocks▸"));
+    expect(box("Sample Fund")).toBeTruthy();
     // A note is a tooltip, not a line.
     expect(text()).not.toContain("Each bank account goes here.");
 
     await click(box("Investments"));
-    await click(button("Create 8 accounts"));
+    await click(button("Continue with 8 accounts →"));
 
     const created = posted.find(
       (one) => one.path === "/setup/chart-of-accounts",
@@ -250,7 +273,7 @@ describe("card 1 on new books", () => {
     statuses = { "POST /setup/chart-of-accounts": 422 };
     await render();
 
-    await click(button("Create 11 accounts"));
+    await click(button("Continue with 11 accounts →"));
     expect(host.querySelector('[role="alert"]')?.textContent).toBe(
       "NOPII problem.",
     );
@@ -258,30 +281,49 @@ describe("card 1 on new books", () => {
     await click(box("Food"));
     expect(host.querySelector('[role="alert"]')).toBeNull();
 
-    await click(button("Create 10 accounts"));
+    await click(button("Continue with 10 accounts →"));
     expect(host.querySelector('[role="alert"]')).not.toBeNull();
-    await click(button("✦ Describe your money"));
-    expect(host.querySelector('[role="alert"]')).toBeNull();
   });
 
-  it("says why describing is off when no agent is ready", async () => {
+  it("says up front when no coding agent is set up, with Nuabase's guide", async () => {
     answers = {
       ...NEW_BOOKS,
       "GET /setup/chart-of-accounts/suggest": {
         ready: false,
         name: "Sample Agent",
-        reason: "No coding agent is set up.",
+        reason: NO_CODING_AGENT_MESSAGE,
+      } satisfies LlmStatus,
+      "GET /coding-agent/setup-guide": GUIDE,
+    };
+    await render();
+
+    expect(text()).toContain("No sample agent is set up.");
+    expect(host.querySelector("textarea")).toBeNull();
+    expect(button("Continue with 11 accounts →").disabled).toBe(false);
+    await click(button("How to set one up"));
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Only the sample CLI will do.");
+    expect(dialog?.textContent).toContain("npm install -g sample-agent");
+  });
+
+  it("says why an agent that is set up isn't working, with Settings", async () => {
+    answers = {
+      ...NEW_BOOKS,
+      "GET /setup/chart-of-accounts/suggest": {
+        ready: false,
+        name: "Sample Agent",
+        reason: "Sample Agent isn't signed in.",
       } satisfies LlmStatus,
     };
     await render();
 
-    expect(button("✦ Describe your money").disabled).toBe(true);
-    expect(text()).toContain("No coding agent is set up. Settings");
+    expect(text()).toContain(
+      "Sample Agent isn't signed in. You can check the agent in Settings.",
+    );
     expect(host.querySelector("textarea")).toBeNull();
-    expect(button("Create 11 accounts").disabled).toBe(false);
   });
 
-  it("replaces the chart with the agent's proposal, and goes back", async () => {
+  it("asks how the user earns and spends, shows the tailored chart, and goes back", async () => {
     const suggestion: ChartSuggestion = {
       proposal: {
         accounts: [
@@ -302,25 +344,30 @@ describe("card 1 on new books", () => {
     };
     await render();
 
-    await click(button("✦ Describe your money"));
-    expect(text()).toContain("✦ Sample Agent proposes accounts that fit.");
-    // Until there is a proposal, Propose is the card's one thing to do.
-    expect(() => button("Create 11 accounts")).toThrow();
+    // The question is asked first, beside the standard chart already ticked.
+    expect(text()).toContain("Personalize with Sample Agent");
+    expect(text()).not.toContain("Tailored by");
+    expect(button("Continue with 11 accounts →")).toBeTruthy();
+    expect(button("Personalize my Chart of Accounts").disabled).toBe(true);
     await type(host.querySelector("textarea")!, "Sample freelance work.");
-    await click(button("Propose accounts"));
+    await click(button("Personalize my Chart of Accounts"));
 
     const asked = posted.find(
       (one) => one.path === "/setup/chart-of-accounts/suggest",
     )?.body as { description: string; current: ChartAccount[] };
     expect(asked.description).toBe("Sample freelance work.");
     expect(asked.current).toHaveLength(11);
+    expect(text()).toContain("Tailored by Sample Agent");
     expect(text()).toContain("Freelance");
     expect(text()).toContain("1 adjustment");
-    expect(button("Create 7 accounts")).toBeTruthy();
+    expect(button("Continue with 7 accounts →")).toBeTruthy();
+    expect(button("Personalize again")).toBeTruthy();
 
-    await click(button("Standard"));
+    await click(button("Show the default accounts"));
     expect(text()).not.toContain("Freelance");
-    expect(button("Create 11 accounts")).toBeTruthy();
+    expect(button("Continue with 11 accounts →")).toBeTruthy();
+    await click(button("Show the tailored accounts"));
+    expect(button("Continue with 7 accounts →")).toBeTruthy();
   });
 
   it("says when the books can't be read, and tries again", async () => {
@@ -342,9 +389,7 @@ describe("card 1 on new books", () => {
     answers = NEW_BOOKS;
     statuses = {};
     await click(button("Try again"));
-    expect(host.querySelector("h1")?.textContent).toBe(
-      "Pick your chart of accounts",
-    );
+    expect(host.querySelector("h1")?.textContent).toBe("Chart of accounts");
   });
 });
 

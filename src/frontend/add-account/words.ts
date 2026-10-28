@@ -68,7 +68,7 @@ export function setupFrame(at: SetupStep, inBooks: number): FocusFrame {
     flow: "Set up your books",
     steps: {
       list: [
-        { label: "Chart" },
+        { label: "Chart of accounts" },
         {
           label: "Banks & cards",
           note: inBooks === 0 ? undefined : `${inBooks} added`,

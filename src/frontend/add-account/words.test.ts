@@ -123,7 +123,7 @@ describe("the frame", () => {
     const first = addFrame(url("?run=setup"), 0);
     expect(first.flow).toBe("Set up your books");
     expect(first.steps?.list.map((step) => step.label)).toEqual([
-      "Chart",
+      "Chart of accounts",
       "Banks & cards",
       "Cash & loans",
       "Review",

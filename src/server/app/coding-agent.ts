@@ -1,6 +1,7 @@
 import { TsRestApi, type SapportaEnv } from "@sapporta/server";
 import { codingAgentContract } from "../../shared/index.js";
 import {
+  agentSetupGuide,
   chooseCodingAgent,
   codingAgentSettings,
   recheckCodingAgentModels,
@@ -13,6 +14,15 @@ import { requireOwner } from "./workflow-auth.js";
 // there are, which one dbu6 uses and what its models can do are decided there.
 
 const api = new TsRestApi<SapportaEnv>();
+
+api.register(
+  "getCodingAgentSetupGuide",
+  codingAgentContract.getCodingAgentSetupGuide,
+  async ({ c }) => {
+    requireOwner(c);
+    return { status: 200, body: agentSetupGuide() };
+  },
+);
 
 api.register(
   "getCodingAgentSettings",

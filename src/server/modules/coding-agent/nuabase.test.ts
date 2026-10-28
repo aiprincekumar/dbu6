@@ -7,12 +7,40 @@ const { detectLocalAgents } = vi.hoisted(() => ({
 vi.mock("nuabase/local-agent", () => ({
   detectLocalAgents,
   localAgent: vi.fn(() => ({ with: vi.fn() })),
+  localAgentSetupGuide: () => ({
+    missing: "No sample agent is set up.",
+    cliOnly: "Only the sample CLI will do.",
+    agents: [
+      {
+        agent: "pi",
+        name: "Pi",
+        about: "A sample.",
+        install: "npm install -g sample-pi",
+        signIn: "Run `pi`.",
+        docsUrl: "https://example.com/pi",
+      },
+      {
+        agent: "sample-newer-agent",
+        name: "Newer",
+        about: "A sample.",
+        install: "npm install -g sample-newer",
+        signIn: "Run `newer`.",
+        docsUrl: "https://example.com/newer",
+      },
+    ],
+    afterInstall: "Then check again.",
+  }),
 }));
 vi.mock("nuabase", () => ({ Nua: { direct: vi.fn() } }));
 
 import { Nua } from "nuabase";
 import { z } from "zod";
-import { agentGetClient, detectAgents, reportedError } from "./nuabase.js";
+import {
+  agentGetClient,
+  agentSetupGuide,
+  detectAgents,
+  reportedError,
+} from "./nuabase.js";
 
 // As nuabase reports it, with the fields dbu6 doesn't read.
 const CLAUDE = {
@@ -25,6 +53,14 @@ const CLAUDE = {
 
 beforeEach(() => {
   detectLocalAgents.mockReset();
+});
+
+describe("agentSetupGuide", () => {
+  it("keeps Nuabase's words, leaving out agents dbu6 doesn't know", () => {
+    const guide = agentSetupGuide();
+    expect(guide.missing).toBe("No sample agent is set up.");
+    expect(guide.agents.map((setup) => setup.agent)).toEqual(["pi"]);
+  });
 });
 
 describe("detectAgents", () => {

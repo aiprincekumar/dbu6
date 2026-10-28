@@ -2,6 +2,7 @@ import { Nua } from "nuabase";
 import {
   detectLocalAgents,
   localAgent,
+  localAgentSetupGuide,
   startAgentSession,
   type AgentEffort,
   type AgentSessionStart,
@@ -9,7 +10,12 @@ import {
   type LocalAgentStatus,
 } from "nuabase/local-agent";
 import { z } from "zod";
-import { codingAgentSchema, type CodingAgent } from "../../../shared/index.js";
+import {
+  codingAgentSchema,
+  codingAgentSetupGuideSchema,
+  type CodingAgent,
+  type CodingAgentSetupGuide,
+} from "../../../shared/index.js";
 import type {
   ListAnswer,
   ListClient,
@@ -122,6 +128,20 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
         loggedIn: false,
       },
   );
+}
+
+/**
+ * Nuabase's words on installing a coding agent, with the agents dbu6 doesn't
+ * know left out.
+ */
+export function agentSetupGuide(): CodingAgentSetupGuide {
+  const guide = localAgentSetupGuide() as {
+    agents: { agent: string }[];
+  } & Record<string, unknown>;
+  return codingAgentSetupGuideSchema.parse({
+    ...guide,
+    agents: guide.agents.filter((setup) => isCodingAgent(setup.agent)),
+  });
 }
 
 export {

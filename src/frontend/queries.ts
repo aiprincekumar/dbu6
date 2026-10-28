@@ -155,6 +155,14 @@ export const codingAgentSettingsQuery = queryOptions({
   ...FRESH_QUERY,
 });
 
+/** Nuabase's guide to installing a coding agent; it changes only with dbu6. */
+export const codingAgentSetupGuideQuery = queryOptions({
+  queryKey: [...CODING_AGENT_KEY, "setup-guide"],
+  queryFn: () => codingAgentApi.getCodingAgentSetupGuide(),
+  ...FRESH_QUERY,
+  staleTime: Infinity,
+});
+
 /**
  * How a prompt would be handed off, and to which agent. It changes only when
  * an agent is installed or chosen in Settings, which refreshes it, so it is

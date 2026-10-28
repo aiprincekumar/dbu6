@@ -178,7 +178,40 @@ export const codingAgentErrorSchema = z
   })
   .passthrough();
 
+/**
+ * How to set up a coding agent, for a user with none: Nuabase's own words,
+ * since it is Nuabase that runs the agent's CLI.
+ */
+export const codingAgentSetupGuideSchema = z.object({
+  /** One line saying no supported agent is set up. */
+  missing: z.string(),
+  /** Why a desktop or browser app isn't enough. */
+  cliOnly: z.string(),
+  agents: z.array(
+    z.object({
+      agent: codingAgentSchema,
+      name: z.string(),
+      about: z.string(),
+      install: z.string(),
+      signIn: z.string(),
+      docsUrl: z.string(),
+    }),
+  ),
+  afterInstall: z.string(),
+});
+export type CodingAgentSetupGuide = z.infer<typeof codingAgentSetupGuideSchema>;
+
 export const codingAgentContract = c.router({
+  getCodingAgentSetupGuide: c.query({
+    method: "GET",
+    path: "/coding-agent/setup-guide",
+    summary:
+      "How to install and sign in to each supported coding-agent CLI, as Nuabase puts it",
+    responses: {
+      200: codingAgentSetupGuideSchema,
+      403: codingAgentErrorSchema,
+    },
+  }),
   getCodingAgentSettings: c.query({
     method: "GET",
     path: "/coding-agent",

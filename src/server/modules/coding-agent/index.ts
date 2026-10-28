@@ -13,6 +13,7 @@ export {
 export { agentHandoffAvailability, handOffPrompt } from "./handoff.js";
 export { chosenCodingAgent } from "./agents.js";
 export { startCodingAgent } from "./models.js";
+export { agentSetupGuide } from "./nuabase.js";
 export {
   chooseCodingAgent,
   codingAgentSettings,
