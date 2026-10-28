@@ -99,10 +99,7 @@ export function BalanceSheetReport() {
   };
 
   return (
-    <ReportScreenFrame
-      title="Balance Sheet"
-      subtitle="Net worth is what you own minus what you owe."
-    >
+    <ReportScreenFrame title="Balance Sheet">
       <ReportToolbar
         actions={
           <ReportRunButton loading={report.loading} onClick={report.run} />
