@@ -113,13 +113,13 @@ const GUIDE: CodingAgentSetupGuide = {
     {
       agent: "pi",
       name: "Sample Agent",
-      about: "A sample.",
+      worksWith: "A sample plan.",
       install: "npm install -g sample-agent",
       signIn: "Run `sample` in a terminal.",
       docsUrl: "https://example.com/sample",
     },
   ],
-  afterInstall: "Then check again.",
+  setupPrompt: "Install the sample CLI.",
 };
 
 function Where() {

@@ -14,7 +14,7 @@ vi.mock("nuabase/local-agent", () => ({
       {
         agent: "pi",
         name: "Pi",
-        about: "A sample.",
+        worksWith: "A sample plan.",
         install: "npm install -g sample-pi",
         signIn: "Run `pi`.",
         docsUrl: "https://example.com/pi",
@@ -22,13 +22,13 @@ vi.mock("nuabase/local-agent", () => ({
       {
         agent: "sample-newer-agent",
         name: "Newer",
-        about: "A sample.",
+        worksWith: "A sample plan.",
         install: "npm install -g sample-newer",
         signIn: "Run `newer`.",
         docsUrl: "https://example.com/newer",
       },
     ],
-    afterInstall: "Then check again.",
+    setupPrompt: "Install the sample CLI.",
   }),
 }));
 vi.mock("nuabase", () => ({ Nua: { direct: vi.fn() } }));

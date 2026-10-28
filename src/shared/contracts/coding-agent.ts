@@ -191,13 +191,14 @@ export const codingAgentSetupGuideSchema = z.object({
     z.object({
       agent: codingAgentSchema,
       name: z.string(),
-      about: z.string(),
+      worksWith: z.string(),
       install: z.string(),
       signIn: z.string(),
       docsUrl: z.string(),
     }),
   ),
-  afterInstall: z.string(),
+  /** For a desktop or browser agent to paste, which installs one. */
+  setupPrompt: z.string(),
 });
 export type CodingAgentSetupGuide = z.infer<typeof codingAgentSetupGuideSchema>;
 
