@@ -97,6 +97,7 @@ describe("upgradeProject", () => {
       "1.1.0",
       "1.2.0",
     ]);
+    expect(logged.at(-1)).toContain("Start it with `npm run dev`");
   });
 
   it("puts the old version back when the migration does not verify", async () => {
@@ -146,6 +147,19 @@ describe("upgradeProject", () => {
       version: "1.0.0",
     });
     expect(commands).toEqual([]);
+  });
+
+  it("reads `latest` as the latest published version", async () => {
+    expect(await upgrade(runner(), "latest")).toMatchObject({
+      status: "upgraded",
+      to: "1.2.0",
+    });
+    expect(commands[0]).toBe("npm view @dbu6/app version");
+  });
+
+  it("asks for an exact version when npm cannot name the latest", async () => {
+    const run: RunCommand = async () => ({ status: 1, stdout: "" });
+    await expect(upgrade(run)).rejects.toThrow(/npx dbu6 upgrade 1\.2\.3/);
   });
 
   it("refuses a range", async () => {

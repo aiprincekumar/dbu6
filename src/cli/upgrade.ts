@@ -34,7 +34,7 @@ export type UpgradeResult =
 
 export interface UpgradeOptions {
   root: string;
-  /** An exact version. Left out, the latest published one. */
+  /** An exact version. Left out, or `latest`, the latest published one. */
   version?: string;
   run: RunCommand;
   log?: (line: string) => void;
@@ -58,7 +58,10 @@ export async function upgradeProject(
     throw new Error(`${manifestPath} does not depend on ${PACKAGE}.`);
   }
   const from = installedVersion(root) ?? pin;
-  const to = options.version ?? (await latestVersion(run, root));
+  const to =
+    options.version === undefined || options.version === "latest"
+      ? await latestVersion(run, root)
+      : options.version;
   if (!EXACT_VERSION.test(to)) {
     throw new Error(
       `"${to}" is not an exact version. A project pins ${PACKAGE} exactly, as in 1.2.3.`,
@@ -110,7 +113,7 @@ export async function upgradeProject(
   const checkPassed = check.status === 0;
   log(
     checkPassed
-      ? `\nUpgraded to dbu6 ${to}.`
+      ? `\nUpgraded to dbu6 ${to}. Start it with \`npm run dev\`.`
       : `\nUpgraded to dbu6 ${to}. \`dbu6 check\` found problems, listed above; fix them before relying on this project.`,
   );
   return { status: "upgraded", from, to, checkPassed };
@@ -133,7 +136,10 @@ async function latestVersion(run: RunCommand, root: string): Promise<string> {
     capture: true,
   });
   if (status !== 0 || stdout.trim() === "") {
-    throw new Error(`Could not ask npm for the latest version of ${PACKAGE}.`);
+    throw new Error(
+      `Could not ask npm for the latest version of ${PACKAGE}. ` +
+        "Name the version instead, as in `npx dbu6 upgrade 1.2.3`.",
+    );
   }
   return stdout.trim();
 }

@@ -18,7 +18,7 @@ import { runCheck } from "./check.js";
 import { runDev } from "./dev.js";
 import { printDocs } from "./docs.js";
 import { appDir, buildFrontend } from "./frontend.js";
-import { initCommand } from "./init.js";
+import { initCommand, packageVersion } from "./init.js";
 import { runParser, testParsers } from "./parser.js";
 import {
   devFolder,
@@ -44,6 +44,7 @@ const USAGE = `dbu6 <command>
   docs [name]                  print a guide for coding agents; lists them with no name
   agent env                    give this project's coding agents a Sapporta token (.env.agent)
   init <directory>             create a project: the template, npm install, setup, migrate, first commit
+  --version                    print the installed dbu6 version
 
 The project is the folder with package.json at or above the working
 directory, or DBU6_ROOT.`;
@@ -51,15 +52,23 @@ directory, or DBU6_ROOT.`;
 /** Runs one command. Resolves to the exit code; `serve` never resolves. */
 export async function main(args: string[]): Promise<number> {
   const [command, ...rest] = args;
+  // Anywhere in the arguments, a request for help is only that: `dbu6 migrate
+  // --help` must not migrate.
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(USAGE);
+    return 0;
+  }
   switch (command) {
+    case "--version":
+    case "-v":
+      console.log(packageVersion());
+      return 0;
     case "docs":
       return printDocs(rest[0]);
     case "init":
       return initCommand(rest, runCommand);
     case undefined:
     case "help":
-    case "--help":
-    case "-h":
       console.log(USAGE);
       return command === undefined ? 1 : 0;
   }

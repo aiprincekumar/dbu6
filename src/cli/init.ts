@@ -169,7 +169,8 @@ export function projectSlug(directoryName: string): string {
   return slug === "" ? "my-books" : slug;
 }
 
-function packageVersion(): string {
+/** The version of the dbu6 running this. */
+export function packageVersion(): string {
   const manifest = JSON.parse(
     readFileSync(packageDir("package.json"), "utf8"),
   ) as { version: string };
