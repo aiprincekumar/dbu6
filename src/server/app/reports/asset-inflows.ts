@@ -109,6 +109,7 @@ export function toAssetInflowsResult(rows: AssetInflowRow[]): GridDataset {
         hiddenIdColumn("journal_id", "Journal ID"),
         hiddenIdColumn("account_id", "Account ID"),
         dateColumn("date", "Date", { width: 12 }),
+        moneyColumn("amount", "Debit", { width: 16 }),
         accountNameColumn("asset_account", "Asset Account", "account_id", {
           width: 42,
         }),
@@ -121,7 +122,6 @@ export function toAssetInflowsResult(rows: AssetInflowRow[]): GridDataset {
           width: 44,
           textDisplay: "multiLine",
         }),
-        moneyColumn("amount", "Debit", { width: 16 }),
       ],
     },
     rows,
