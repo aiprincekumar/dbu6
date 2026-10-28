@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Input } from "@sapporta/ui";
+import { RefreshCw } from "lucide-react";
 import type { AccountKind } from "../../shared/index";
 import type { AgentPrompt } from "../agent-prompt-rules";
 import { AgentButton } from "../components/agent-prompt";
@@ -86,7 +87,10 @@ export function Teach({
               {one ? "Leave it out" : "Leave them out"}
             </Button>
           )}
-          <Button onClick={onCheckAgain}>Check again</Button>
+          <Button variant="outline" onClick={onCheckAgain}>
+            <RefreshCw aria-hidden="true" />
+            Check again
+          </Button>
         </>
       }
     >
@@ -94,7 +98,7 @@ export function Teach({
         {joinNames(files.map((file) => file.file_name))}
       </p>
       <div className="mt-4">
-        <AgentButton label={goal} prompt={prompt} primary={false} />
+        <AgentButton label={goal} prompt={prompt} />
       </div>
       {stillUnreadable && (
         <p role="status" className="mt-3 text-meta text-ink-meta">

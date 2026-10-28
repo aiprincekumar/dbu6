@@ -2,6 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import {
   afterEach,
   beforeAll,
@@ -95,6 +96,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  // The textarea test's own execCommand, over the prototype's.
+  Reflect.deleteProperty(document, "execCommand");
   vi.unstubAllGlobals();
 });
 
@@ -126,12 +129,16 @@ async function rerender(
       createElement(
         QueryClientProvider,
         { client },
-        createElement(AgentButton, {
-          label: LABEL,
-          prompt,
-          afterwards,
-          ...props,
-        }),
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(AgentButton, {
+            label: LABEL,
+            prompt,
+            afterwards,
+            ...props,
+          }),
+        ),
       ),
     );
   });
@@ -169,6 +176,7 @@ async function click(label: string) {
 }
 
 const MORE = "More ways to give this to your agent";
+const PASTE_HINT = "Prompt copied to the clipboard";
 
 /** The arrow's menu, opened: its items, which render outside the host. */
 async function openMenu(): Promise<string[]> {
@@ -223,6 +231,8 @@ describe("AgentButton", () => {
     expect(clipboard).toEqual([PROMPT]);
     expect(posts).toEqual([{ prompt: PROMPT }]);
     expect(PROMPT).toContain(PLAN_FIRST_RULE);
+    // With an agent to start, a copy says so on the button, not in a dialog.
+    expect(document.body.textContent).not.toContain(PASTE_HINT);
   });
 
   it("shows the whole prompt on View prompt, in one block", async () => {
@@ -257,8 +267,45 @@ describe("AgentButton", () => {
     await click(`${LABEL}. Copies the prompt`);
 
     expect(clipboard).toEqual([PROMPT]);
-    expect(buttons()[0]).toBe("Copied. Copies the prompt");
+    expect(buttons()[0]).toBe("Copied to clipboard. Copies the prompt");
     expect(host.textContent).toContain(AFTERWARDS);
+    // Where to paste it, and that Settings can open the agent instead.
+    expect(document.body.textContent).toContain(PASTE_HINT);
+    expect(document.body.textContent).toContain(
+      "Open your coding agent in your dbu6 project folder",
+    );
+    const settings = document.querySelector('a[href="/settings"]');
+    expect(settings?.textContent).toBe("Open Settings");
+  });
+
+  it("copies through a textarea where the browser refuses the Clipboard API", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new DOMException("Write permission denied.", "NotAllowedError");
+        },
+      },
+    });
+    const copied: string[] = [];
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: (command: string) => {
+        const field = document.querySelector("textarea");
+        if (command === "copy" && field instanceof HTMLTextAreaElement) {
+          copied.push(field.value);
+        }
+        return true;
+      },
+    });
+    offers({ mode: "none" });
+    await render();
+
+    await click(`${LABEL}. Copies the prompt`);
+
+    expect(copied).toEqual([PROMPT]);
+    expect(document.body.textContent).toContain(PASTE_HINT);
+    expect(host.querySelector("textarea")).toBeNull();
   });
 
   it("gives its place to where the agent is, with a retry and the command for when it didn't open", async () => {

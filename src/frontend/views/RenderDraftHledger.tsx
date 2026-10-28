@@ -4,6 +4,7 @@ import { LookupPicker, useTableLookup } from "@sapporta/frontend/lookup";
 import { AppPage } from "@sapporta/frontend/shell";
 import { draftTransactionsApi } from "../api";
 import { Button } from "../components/ui/button";
+import { copyText } from "../clipboard";
 
 interface RenderResult {
   hledger_journal: string;
@@ -101,9 +102,7 @@ export function RenderDraftHledger() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  navigator.clipboard.writeText(result.hledger_journal)
-                }
+                onClick={() => void copyText(result.hledger_journal)}
                 waiting={result.hledger_journal ? undefined : "Nothing to copy"}
               >
                 Copy

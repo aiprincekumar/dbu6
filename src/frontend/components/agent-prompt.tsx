@@ -1,20 +1,30 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Menu } from "@base-ui/react/menu";
-import { ChevronDown, Copy, SquareTerminal } from "lucide-react";
+import {
+  ChevronDown,
+  CircleCheck,
+  Copy,
+  Settings,
+  SquareTerminal,
+} from "lucide-react";
 import { cn } from "@sapporta/ui/cn";
 import { comboboxClassNames } from "@sapporta/ui/combobox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@sapporta/ui/dialog";
 import { CODING_AGENTS, type AgentHandoff } from "../../shared/index";
 import type { AgentPrompt } from "../agent-prompt-rules";
 import { agentHandoffApi, apiRefusalMessage } from "../api";
+import { copyText } from "../clipboard";
 import { agentHandoffAvailabilityQuery } from "../queries";
-import { Button } from "./ui/button";
+import { Button, buttonVariants } from "./ui/button";
 
 /**
  * The one control for every prompt the app hands to the user's coding agent.
@@ -28,7 +38,8 @@ import { Button } from "./ui/button";
  * didn't open, and `afterwards`: what the user does next.
  *
  * Where the server can't start an agent, the button copies the prompt
- * instead, for whatever agent the user runs in the project.
+ * instead, for whatever agent the user runs in the project, and a dialog
+ * says where to paste it and that Settings can open the agent instead.
  *
  * `prompt` comes from agentPrompt (agent-prompt-rules.ts), which carries the
  * plan-first rule, so the agent's first reply is its plan and it does nothing
@@ -87,6 +98,7 @@ export function AgentButton({
   }>();
   const [justCopied, setJustCopied] = useState(false);
   const [viewing, setViewing] = useState(false);
+  const [pasteHint, setPasteHint] = useState(false);
   useEffect(() => {
     if (!justCopied) return;
     const timer = setTimeout(() => setJustCopied(false), 2000);
@@ -105,10 +117,19 @@ export function AgentButton({
       : `Command for ${agent}`;
 
   const copy = () => {
-    void navigator.clipboard.writeText(text).then(() => {
+    void copyText(text).then((done) => {
+      // Not copied: the prompt is shown, to be copied by hand.
+      if (!done) {
+        setViewing(true);
+        return;
+      }
       setCopied(text);
       setJustCopied(true);
       onActed?.("copied");
+      if (!handsOff) {
+        setViewing(false);
+        setPasteHint(true);
+      }
     });
   };
   const handOff = () =>
@@ -140,12 +161,14 @@ export function AgentButton({
             disabled={handoff.isPending}
             onClick={handsOff ? handOff : copy}
           >
-            {handsOff ? (
+            {justCopied ? (
+              <CopiedIcon />
+            ) : handsOff ? (
               <SquareTerminal aria-hidden="true" />
             ) : (
               <Copy aria-hidden="true" />
             )}
-            <span>{justCopied ? "Copied" : label}</span>
+            <span>{justCopied ? COPIED : label}</span>
             {/* Said to a screen reader; on screen the icon says it. */}
             <span className="sr-only">
               {handsOff ? `. ${where}` : ". Copies the prompt"}
@@ -222,14 +245,56 @@ export function AgentButton({
           <PromptText prompt={prompt} />
           <div className="flex justify-end">
             <Button type="button" variant="outline" size="sm" onClick={copy}>
-              <Copy aria-hidden="true" />
-              {justCopied ? "Copied" : "Copy prompt"}
+              {justCopied ? <CopiedIcon /> : <Copy aria-hidden="true" />}
+              {justCopied ? COPIED : "Copy prompt"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={pasteHint} onOpenChange={setPasteHint}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-heading">
+              Prompt copied to the clipboard
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-body text-ink-soft">
+            <p>Next:</p>
+            <ol className="list-decimal space-y-1 pl-6">
+              <li>Open your coding agent in your dbu6 project folder</li>
+              <li>Paste and run the prompt</li>
+            </ol>
+          </div>
+          <DialogDescription className="text-meta text-ink-meta">
+            Note: dbu6 can automatically open your coding agent and run the
+            prompt if you configure it in Settings.
+          </DialogDescription>
+          <DialogFooter>
+            <Link
+              to="/settings"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              <Settings aria-hidden="true" />
+              Open Settings
+            </Link>
+            <Button type="button" onClick={() => setPasteHint(false)}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+const COPIED = "Copied to clipboard";
+
+/**
+ * A copy that worked: a green check in a white disc, which reads on the
+ * green of a primary button as on the white of an outline one.
+ */
+function CopiedIcon() {
+  return <CircleCheck aria-hidden="true" className="fill-white text-primary" />;
 }
 
 /** The prompt as the agent gets it. */
@@ -315,11 +380,11 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
       variant="outline"
       size="sm"
       onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => setCopied(true));
+        void copyText(text).then(setCopied);
       }}
     >
-      <Copy />
-      {copied ? "Copied" : label}
+      {copied ? <CopiedIcon /> : <Copy />}
+      {copied ? COPIED : label}
     </Button>
   );
 }

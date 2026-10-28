@@ -784,7 +784,9 @@ describe("adding a bank or card", () => {
 
     expect(title()).toBe("dbu6 can't read this statement yet");
     expect(text()).toContain("Set up this format");
-    expect(primary()).toEqual(["Check again"]);
+    // The agent's step is the card's primary; Check again comes after it.
+    expect(primary()[0]).toContain("Set up this format");
+    expect(primary()).not.toContain("Check again");
     await click("Check again");
     expect(sent[1].files).toEqual(["sample.pdf"]);
     expect(title()).toBe("Sample Bank · ending 0012");

@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@sapporta/ui/dialog";
 import { Button } from "./ui/button";
+import { copyText } from "../clipboard";
 
 /** Journals rendered as hledger text, as the server's hledger routes answer. */
 export type RenderedHledger = {
@@ -66,7 +67,7 @@ export function HledgerDialog({
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigator.clipboard.writeText(text)}
+            onClick={() => void copyText(text)}
             waiting={text ? undefined : "Nothing to copy"}
           >
             Copy
