@@ -87,7 +87,7 @@ function toDraftBalanceAssertionsResult(
           "draft_id",
           "Open draft transaction",
         ),
-        { accountColumn },
+        { accountColumn, balanceLabel: "Drafts" },
       ),
     ],
   };

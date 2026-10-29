@@ -4,9 +4,9 @@ import { Button } from "../components/ui/button";
 import { reportsApi } from "../reports/client";
 import { balancesHref } from "../views/settings/routes";
 import { EmptyState } from "../components/empty-state";
-import { formatMoney, formatShortDate } from "../format";
+import { InfoButton } from "../views/import-statements/cards";
 import { balanceChecksPrompt } from "./agentPrompts";
-import { checkText, failingChecksText } from "./posting-checks";
+import { checkText } from "./posting-checks";
 import {
   AccountReport,
   AskYourAgent,
@@ -22,7 +22,7 @@ import { useReviewAccount } from "./ReviewAccount";
  */
 export function BalanceChecksTab() {
   const { detail } = useReviewAccount();
-  const { account, failing } = detail;
+  const { account } = detail;
   const check = postingCheck(account, "balance-checks");
 
   if (check.state === "passes") {
@@ -48,19 +48,35 @@ export function BalanceChecksTab() {
     );
   }
 
-  // A failing check is one of the detail's failing rows, in date order.
-  const first = failing[0];
+  // The count, first date and difference are the tab's badge and the
+  // report's first row, so the summary only says what the columns mean.
   return (
     <ReportTab fitsReport>
-      <ReportSummary>
-        {failingChecksText(check.count)}.{" "}
-        {check.count === 1 ? "It is" : "The first is"} on{" "}
-        {formatShortDate(first.date)}, where the drafts' running balance is{" "}
-        <span className="tnum font-mono">
-          {formatMoney(Math.abs(first.diff))}
-        </span>{" "}
-        away from the statement's.
-      </ReportSummary>
+      <div className="flex items-center gap-1">
+        <ReportSummary>
+          Your running balance (books + drafts) doesn't match your statement on
+          these dates.
+        </ReportSummary>
+        <InfoButton label="About balance checks">
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              <strong>Drafts:</strong> Your calculated balance at the end of the
+              day (<code className="font-mono">Books + Draft entries</code>
+              ).
+            </li>
+            <li>
+              <strong>Statement:</strong> The expected balance from your
+              statement. For bank accounts, this is taken directly from each
+              transaction line. For cards, dbu6 calculates it from the
+              statement's opening and closing balances.
+            </li>
+          </ul>
+          <p>
+            When all transactions are imported without gaps or duplicates, then
+            these two balances should match.
+          </p>
+        </InfoButton>
+      </div>
       {!detail.has_opening_entry && (
         <MissingOpeningBalance accountName={account.path} />
       )}

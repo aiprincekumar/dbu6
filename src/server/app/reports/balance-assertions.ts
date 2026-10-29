@@ -61,6 +61,7 @@ function toBalanceAssertionsResult(rows: BalanceAssertionRow[]): GridDataset {
         "journal_id",
         "Journal",
         openRecordLink("journal_entries", "entry_id", "Open journal entry"),
+        { balanceLabel: "Books" },
       ),
     ],
   };
