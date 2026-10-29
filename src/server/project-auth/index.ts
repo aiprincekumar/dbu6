@@ -16,7 +16,7 @@ import {
 } from "./context.js";
 import { createProjectAuthRoutes } from "./routes.js";
 import type { ProjectAuthEnv } from "./env.js";
-export { DEMO_ACCOUNT } from "./demo-account.js";
+export { DEMO_ACCOUNT, isSampleAccount } from "./demo-account.js";
 import {
   rejectAnonymousByDefault,
   requireAuthContext,
@@ -189,11 +189,13 @@ export {
   requestUsesToken,
   resolveBearerTokenPrincipal,
   revokeAuthToken,
+  tokenIsLive,
   TokenAuthError,
   TokenManagementError,
 } from "./auth-tokens.js";
 export {
   rejectAnonymousByDefault,
+  requireAppAuthContext,
   requireAuthContext,
   requireAuthorizedInteractiveWorkspaceUserData,
   requireAuthorizedSystemData,

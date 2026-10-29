@@ -343,12 +343,19 @@ has no business holding an agent's credential.
 database — the same `createAuthToken` the app's token screen calls, so no app
 has to be running — writes `.env.agent`, holding only the token, mode `0600`
 and gitignored, and revokes the token its previous run wrote, matched by name so
-a token made in the app is left alone. The file itself is `src/cli/agent-file.ts`,
-which chmods it as well as writing it: `mode` on a write applies only to a file
-it creates, and the file is a credential however it got there. `agent env`
-refuses to mint one for the sample account [the seed](#sample-data) makes — even when
-`--user` names it — because seeding replaces that account's books. Which account
-it uses is `chooseAgentAccount` in `src/cli/agent-env.ts`: the single non-sample
+a token made in the app is left alone. Handing a prompt to the coding agent
+(`handOffPrompt`, `modules/coding-agent/handoff.ts`) does the same for the
+signed-in owner, once an agent and a model can run, when `.env.agent` holds no
+token the app accepts: a missing one, or one revoked, expired or from other
+books. A token that works is left alone, whoever it is for, and nothing is
+minted for a request made with a token. Both write through
+`modules/coding-agent/agent-access.ts`, which chmods the file as well as
+writing it: `mode` on a write applies only to a file it creates, and the file is
+a credential however it got there. Its `mintAgentToken` refuses the sample
+account [the seed](#sample-data) makes (`isSampleAccount`,
+`project-auth/demo-account.ts`), because seeding replaces that account's books;
+the handoff skips it rather than fail. Which account `agent env` uses is
+`chooseAgentAccount` in `src/cli/agent-env.ts`: the single non-sample
 account, or `--user <email>` — or `<user id>`, when one email is in more than one
 workspace — when a project holds more. `--print` exports the token the
 project's file already holds, so `eval "$(dbu6 agent env --print)"` mints
@@ -582,7 +589,7 @@ process, never exported, so a terminal opened for a coding agent inherits no
 project; and its `.env.development`),
 `dev.ts`, `setup.ts`, `init.ts`, `upgrade.ts`, `check.ts`, `parser.ts`, `docs.ts`,
 `agent.ts` (the `agent env` command), `agent-env.ts` (who the token is for, and
-what the file says), `agent-file.ts` (the one file it writes, and its mode), and
+how `--print` prints it), and
 `frontend.ts`, the command's only contact with the frontend host. `src/cli`
 sits above the rest of the Node side: it alone may import both `src/server` and
 `src/frontend-host` (`scripts/import-boundaries.test.mjs`).
@@ -650,7 +657,7 @@ built, tested and understood without anything above it. Lowest first:
 | 1 | `modules/values/` | values | Money and its direction, amounts in paise and when two are the same, Account, Chrono, the text normalization transaction identity uses | I/O, statements, ledger tables |
 | 2 | `modules/statement/` | statement | Statement rows and documents (Abacus): parsing, ordering, running balances, joining a multi-part upload, and the statement's own errors | HTTP status, wire payloads, checkpoints, upload or request advice |
 | 3 | `modules/` | transaction-identity, categorization, gpay, journal-plan, statement-sources, chart-of-accounts, comment-writer, hledger-export | Transaction keys and matchers; mapping rules, the prompt, the LLM interface, and turning an answer into a ledger account id, the same-account rule included, and whether categorization is running (`categorizing.ts`); the Google Pay Takeout index and enrichment; the journal plan and the one hledger formatter; saved parsers, import presets and the auto-import plan; the starter chart of accounts and the rules a proposed chart keeps; the comment writer's prompt and the checks its answers pass; the hledger export's model, account-name escaping, and its rendering | Database access, coding-agent names, route concepts |
-| 4 | `modules/` | accounts < journals < reconciliation < drafts; coding-agent; import-presets; search | Accounts as the stores and screens look them up, and the Opening Balances account; posted journals, writing them from a plan, every journal as the hledger export reads it (`export-rows.ts`), the last reconciled checkpoint, the comments the comment writer reads and writes on every user's entries (`entry-comments.ts`), and each account's opening entry, the entries beside it, and rewriting or deleting a standalone one (`opening-entries.ts`); matching against stored drafts and journals, running balances, the balance-check rule, the opening balance each account's first check implies (`loadImpliedOpenings`), the since-checkpoint filter (its checkpoint-day rule and why: `reconciliation/checkpoint-day.md`); draft rows: saving, placing balance assertions, loading, reclassifying, clearing once posted, status, whether a bank or card has transactions of its own (`statement-activity.ts`), where an account's drafts begin (`first-drafts.ts`), the comments the comment writer reads and writes on every user's drafts (`draft-comments.ts`), and the rule requests the user makes from them (`categorization-rule-requests.ts`). The coding agent: detection, models, handoff, settings, and at its top the engine categorization runs on. The import_presets rows, read and written under the request's auth. Search over the books: which journals, drafts and accounts match, by Sapporta's table search, and what a result shows | Workflow sequencing, report columns; ledger concepts anywhere in coding-agent but its top file |
+| 4 | `modules/` | accounts < journals < reconciliation < drafts; coding-agent; import-presets; search | Accounts as the stores and screens look them up, and the Opening Balances account; posted journals, writing them from a plan, every journal as the hledger export reads it (`export-rows.ts`), the last reconciled checkpoint, the comments the comment writer reads and writes on every user's entries (`entry-comments.ts`), and each account's opening entry, the entries beside it, and rewriting or deleting a standalone one (`opening-entries.ts`); matching against stored drafts and journals, running balances, the balance-check rule, the opening balance each account's first check implies (`loadImpliedOpenings`), the since-checkpoint filter (its checkpoint-day rule and why: `reconciliation/checkpoint-day.md`); draft rows: saving, placing balance assertions, loading, reclassifying, clearing once posted, status, whether a bank or card has transactions of its own (`statement-activity.ts`), where an account's drafts begin (`first-drafts.ts`), the comments the comment writer reads and writes on every user's drafts (`draft-comments.ts`), and the rule requests the user makes from them (`categorization-rule-requests.ts`). The coding agent: detection, models, handoff, its access to the app (`.env.agent` and the token in it, `agent-access.ts`), settings, and at its top the engine categorization runs on. The import_presets rows, read and written under the request's auth. Search over the books: which journals, drafts and accounts match, by Sapporta's table search, and what a result shows | Workflow sequencing, report columns; ledger concepts anywhere in coding-agent but its top file |
 | 5 | `workflows/` | statement-import, posting, reclassification, opening-balances, import-presets, chart-of-accounts, comment-writer, hledger-export; add-account above opening-balances, import-presets and statement-import | The domain workflows, where the action happens: they sequence module calls and make the domain decisions | SQL, text formatting, HTTP; imports of each other |
 | 6 | `app/`, `runtime.ts`, `mount.ts`, `open.ts`, `config.ts`, `project-reports.ts`, `route-collisions.ts`, `report-kit.ts`, `index.ts` | app | Routes, reports (rendering only), error translation, uploads, auth guards, the Overview, Update and Review views, hosting; the project's reports and `dbu6.config.ts`; the promised exports | Queries or rules another module needs |
 
@@ -672,6 +679,13 @@ built, tested and understood without anything above it. Lowest first:
 - Sapporta's guide puts larger workflows in `src/server/modules/<domain>/`.
   dbu6 keeps them in `workflows/`, a tier of their own, on purpose; don't move
   them into `modules/`.
+
+Beneath the tiers, `project-auth/` and `authz/` are the request's auth, from
+Sapporta's starter: who is asking, agent access tokens as rows and whether
+one is valid, the sample account's identity (`demo-account.ts`), and the auth
+routes. They import only `mailer.ts`, each other and, in tests, `paths.ts`,
+so any tier may import them; dbu6's own uses of a token, such as the coding
+agent's `.env.agent`, sit in the tier that needs them.
 
 Beside the tiers, `migrate-safely.ts` and `ledger-fingerprint.ts` are the
 database's upgrade. They import only `paths.ts`, `data-lock.ts`, Sapporta and

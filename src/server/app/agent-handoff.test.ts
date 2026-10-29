@@ -5,8 +5,9 @@ import { Hono } from "hono";
 import type { SapportaEnv } from "@sapporta/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// What the handoff itself does is coding-agent/handoff.test.ts's business;
-// these tests are about the routes: access, and the refusals they pass on.
+// What the handoff itself does, its agent's token included, is
+// coding-agent/handoff.test.ts's business; these tests are about the routes:
+// access, the refusals they pass on, and whom a token is for.
 const { agentHandoffAvailability, handOffPrompt } = vi.hoisted(() => ({
   agentHandoffAvailability: vi.fn(),
   handOffPrompt: vi.fn(),
@@ -32,20 +33,31 @@ const HANDOFF = {
 
 let root: string;
 
-function app(allowed = true) {
+const OWNER = {
+  kind: "user",
+  user: { id: "05050500-owner", email: "owner@example.com" },
+};
+
+function app(allowed = true, principal: object = OWNER) {
   const hono = new Hono<SapportaEnv>();
   hono.use(async (c, next) => {
-    c.set("auth", { ability: { can: () => allowed } } as never);
+    c.set("auth", { ability: { can: () => allowed }, principal } as never);
+    c.set("sqlite", "sample sqlite" as never);
+    c.set("db", "sample db" as never);
     await next();
   });
   hono.route("/", api);
   return hono;
 }
 
-function post(hono: Hono<SapportaEnv>, prompt = "Fix this import.") {
+function post(
+  hono: Hono<SapportaEnv>,
+  prompt = "Fix this import.",
+  headers: Record<string, string> = {},
+) {
   return hono.request("/agent-handoff", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify({ prompt }),
   });
 }
@@ -98,6 +110,24 @@ describe("/agent-handoff routes", () => {
       "Write a parser for this format.",
       process.platform,
     ]);
+  });
+
+  it("hands the token's owner on: the signed-in owner, in these books", async () => {
+    await post(app());
+
+    expect(handOffPrompt.mock.calls[0].slice(2)).toEqual([
+      root,
+      { conn: { sqlite: "sample sqlite", db: "sample db" }, owner: OWNER },
+    ]);
+  });
+
+  it("hands on nobody for a request an agent made with its token", async () => {
+    const response = await post(app(), "Fix this import.", {
+      Authorization: "Bearer spat_05050500_050505",
+    });
+
+    expect(response.status).toBe(200);
+    expect(handOffPrompt.mock.calls[0][3]).toBeNull();
   });
 
   it("refuses with the reason the handoff gave", async () => {

@@ -5,12 +5,19 @@ import {
   handOffPrompt,
 } from "../modules/coding-agent/index.js";
 import { projectRoot } from "../paths.js";
+import {
+  requestUsesToken,
+  requireAppAuthContext,
+} from "../project-auth/index.js";
 import { respondWithHandoffErrors } from "./coding-agent-error-response.js";
 import { requireOwner } from "./workflow-auth.js";
 
 // Handing an agent prompt to the coding agent on this machine. Both routes
 // check access and call coding-agent/handoff.ts, which decides which agent,
-// which model and whether a terminal can be opened.
+// which model and whether a terminal can be opened, and gives the project an
+// agent token when it has no working one. The route says whom that token is
+// for: the signed-in owner, or nobody for a request made with a token, since
+// an agent does not mint itself more.
 
 const api = new TsRestApi<SapportaEnv>();
 
@@ -31,8 +38,21 @@ api.register(
   agentHandoffContract.handOffPrompt,
   async ({ c, request }) => {
     requireOwner(c);
+    const { principal } = requireAppAuthContext(c);
+    const tokenFor =
+      principal.kind === "user" && !requestUsesToken(c.req.raw.headers)
+        ? {
+            conn: { sqlite: c.get("sqlite"), db: c.get("db") },
+            owner: principal,
+          }
+        : null;
     return respondWithHandoffErrors(() =>
-      handOffPrompt(request.body.prompt, process.platform, projectRoot()),
+      handOffPrompt(
+        request.body.prompt,
+        process.platform,
+        projectRoot(),
+        tokenFor,
+      ),
     );
   },
 );

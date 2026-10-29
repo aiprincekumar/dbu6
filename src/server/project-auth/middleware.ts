@@ -8,6 +8,7 @@ import type {
   WorkspaceGlobalOnlyAuthority,
   WorkspaceUserScopedAuthority,
 } from "@sapporta/server";
+import type { AppAbility, AppWorkspaceMembership } from "../authz/types.js";
 import { requestUsesToken } from "./auth-tokens.js";
 import { authFailure } from "./errors.js";
 
@@ -118,6 +119,20 @@ export function requireAuthContext<E extends SapportaEnv>(
   const auth = c.get("auth");
   if (!auth) throwAuth("unauthenticated");
   return auth;
+}
+
+/**
+ * The request's auth with this app's ability and membership types.
+ * `SapportaEnv` holds Sapporta's own, so a route that reads the principal's
+ * workspace asks for it here rather than casting.
+ */
+export function requireAppAuthContext<E extends SapportaEnv>(
+  c: Context<E>,
+): SapportaAuthContext<AppAbility, AppWorkspaceMembership> {
+  return requireAuthContext(c) as SapportaAuthContext<
+    AppAbility,
+    AppWorkspaceMembership
+  >;
 }
 
 export function requirePrincipalUser<E extends SapportaEnv>(

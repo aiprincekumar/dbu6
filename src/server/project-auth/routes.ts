@@ -20,7 +20,7 @@ import {
 import { isValidTimeZone } from "@sapporta/shared/temporal";
 import { authFailure } from "./errors.js";
 import {
-  requireAuthContext,
+  requireAppAuthContext,
   requireAuthorizedInteractiveWorkspaceUserData,
   requireWorkspaceOwner,
   type WorkspaceUserDataAuthority,
@@ -200,15 +200,6 @@ export function createProjectAuthRoutes(options: ProjectAuthRoutesOptions) {
   });
 
   return api;
-}
-
-function requireAppAuthContext(
-  c: Context<SapportaEnv>,
-): SapportaAuthContext<AppAbility, AppWorkspaceMembership> {
-  return requireAuthContext(c) as SapportaAuthContext<
-    AppAbility,
-    AppWorkspaceMembership
-  >;
 }
 
 function requireTokenManagementAccess(

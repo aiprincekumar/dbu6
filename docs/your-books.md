@@ -16,7 +16,7 @@ my-books/
   sapporta.json           the project's name
   .env.development.example  the defaults `dbu6 setup` copies to .env.development
   .env.development        ports, mail, the auth secret; gitignored
-  .env.agent              the agent's token; gitignored, written by `dbu6 agent env`
+  .env.agent              the agent's token; gitignored, written by `dbu6 agent env` or the app
   user-config/            mapping rules and categorization prompts
   data/sqlite.db          the books; gitignored, back it up yourself
 ```
@@ -86,8 +86,9 @@ npx skills add https://github.com/jasim/sapporta-skills --skill sapporta --globa
 ```
 
 The `sapporta` command the agent uses for your books comes with dbu6, so there
-is nothing else to install. It needs a token, and one command mints it for the
-folder:
+is nothing else to install. It needs a token: the app mints one when it hands a
+prompt to your coding agent and the folder has no working token, and one
+command mints it for the folder:
 
 ```sh
 npx dbu6 agent env

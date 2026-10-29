@@ -29,8 +29,10 @@ project's root and adds `SAPPORTA_API_TOKEN` from `.env.agent` when the
 environment has none. `bin/sapporta-env.mjs` holds that, with its types beside
 it and its tests in `bin/sapporta-env.test.mjs` (`pnpm run test:scripts`).
 
-The project's own token comes from `dbu6 agent env`, which writes the
-gitignored `.env.agent` (`src/cli/agent.ts`); the prompts dbu6 hands a person's
+The project's own token is in the gitignored `.env.agent`, written by
+`dbu6 agent env` (`src/cli/agent.ts`) and, when the folder has no working
+token, by the app as it hands a prompt to the coding agent
+(`src/server/modules/coding-agent/agent-access.ts`); the prompts dbu6 hands a person's
 agent name that command and the CLI rather than installation steps, and
 `dbu6 check` reports the bin, the project's link to it, and whether
 `.env.agent` is there. The Sapporta skill is the agent's own and lives on the

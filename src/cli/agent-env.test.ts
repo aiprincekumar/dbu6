@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  AGENT_ENV_FILE,
-  AGENT_TOKEN_NAME,
   AgentEnvError,
   agentEnvExports,
-  agentEnvFile,
   chooseAgentAccount,
   VERIFY_COMMAND,
   type AgentAccount,
@@ -28,21 +25,6 @@ const DEMO: AgentAccount = {
 
 const VALUES = { apiToken: "spat_05050500_050505" };
 
-describe("agentEnvFile", () => {
-  it("writes the token alone, and where it came from", () => {
-    const file = agentEnvFile({ ...VALUES, createdFor: OWNER.email });
-
-    expect(file).toContain(`SAPPORTA_API_TOKEN=${VALUES.apiToken}`);
-    // No URL: the CLI finds the port itself, and a URL here would go stale.
-    expect(file).not.toContain("SAPPORTA_API_URL");
-    // The person who owns the token, so the file can be judged later.
-    expect(file).toContain(OWNER.email);
-    // Gitignored, and read by the shipped command only.
-    expect(file).toContain("Gitignored");
-    expect(file.endsWith("\n")).toBe(true);
-  });
-});
-
 describe("agentEnvExports", () => {
   it("prints the token's export line, for a shell to eval", () => {
     expect(agentEnvExports(VALUES)).toBe(
@@ -65,22 +47,16 @@ describe("the command agents are told to verify with", () => {
 
 describe("chooseAgentAccount", () => {
   it("takes the one account, with no question asked", () => {
-    expect(chooseAgentAccount([OWNER], { demos: [DEMO.email] })).toEqual(OWNER);
+    expect(chooseAgentAccount([OWNER])).toEqual(OWNER);
   });
 
   it("never hands the agent a sample account, even when it is the only one", () => {
-    expect(() => chooseAgentAccount([DEMO], { demos: [DEMO.email] })).toThrow(
-      AgentEnvError,
-    );
-    expect(() => chooseAgentAccount([DEMO], { demos: [DEMO.email] })).toThrow(
-      /only sample accounts/,
-    );
+    expect(() => chooseAgentAccount([DEMO])).toThrow(AgentEnvError);
+    expect(() => chooseAgentAccount([DEMO])).toThrow(/only sample accounts/);
   });
 
   it("ignores a sample account when the owner is there beside it", () => {
-    expect(chooseAgentAccount([DEMO, OWNER], { demos: [DEMO.email] })).toEqual(
-      OWNER,
-    );
+    expect(chooseAgentAccount([DEMO, OWNER])).toEqual(OWNER);
   });
 
   it("asks which account when two are real, naming both emails", () => {
@@ -90,11 +66,9 @@ describe("chooseAgentAccount", () => {
       email: "two@example.com",
     };
 
-    expect(() =>
-      chooseAgentAccount([OWNER, second], { demos: [DEMO.email] }),
-    ).toThrow(/--user <email>/);
+    expect(() => chooseAgentAccount([OWNER, second])).toThrow(/--user <email>/);
     try {
-      chooseAgentAccount([OWNER, second], { demos: [DEMO.email] });
+      chooseAgentAccount([OWNER, second]);
     } catch (error) {
       const message = (error as Error).message;
       expect(message).toContain(OWNER.email);
@@ -114,13 +88,10 @@ describe("chooseAgentAccount", () => {
     ).toEqual(second);
   });
 
-  it("refuses a sample account even when --user names it", () => {
-    expect(() =>
-      chooseAgentAccount([DEMO, OWNER], {
-        demos: [DEMO.email],
-        user: DEMO.email,
-      }),
-    ).toThrow(/sample account/);
+  it("takes a sample account --user names, which minting then refuses", () => {
+    expect(chooseAgentAccount([DEMO, OWNER], { user: DEMO.email })).toEqual(
+      DEMO,
+    );
   });
 
   it("asks which workspace when one email is in two, and takes the user id", () => {
@@ -169,12 +140,5 @@ describe("chooseAgentAccount", () => {
 
   it("tells a project with no account to sign up first", () => {
     expect(() => chooseAgentAccount([])).toThrow(/sign up/i);
-  });
-});
-
-describe("the names this command owns", () => {
-  it("marks the file and the token it writes, so both are recognisable", () => {
-    expect(AGENT_ENV_FILE).toBe(".env.agent");
-    expect(AGENT_TOKEN_NAME).toBe("dbu6 agent env");
   });
 });

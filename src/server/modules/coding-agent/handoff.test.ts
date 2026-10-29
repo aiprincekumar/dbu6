@@ -8,17 +8,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // it makes of the answer. The session's files and launcher are nuabase's, and
 // tested there. The chosen agent is read from a temporary project root's
 // user-config/.
-const { detectLocalAgents, localAgent, direct, startAgentSession } = vi.hoisted(
-  () => ({
-    detectLocalAgents: vi.fn(),
-    localAgent: vi.fn((config: object) => ({
-      // A call's client is the agent with that call's options.
-      with: (options: object) => ({ ...config, ...options }),
-    })),
-    direct: vi.fn(),
-    startAgentSession: vi.fn(),
-  }),
-);
+const {
+  detectLocalAgents,
+  localAgent,
+  direct,
+  startAgentSession,
+  ensureAgentToken,
+} = vi.hoisted(() => ({
+  detectLocalAgents: vi.fn(),
+  localAgent: vi.fn((config: object) => ({
+    // A call's client is the agent with that call's options.
+    with: (options: object) => ({ ...config, ...options }),
+  })),
+  direct: vi.fn(),
+  startAgentSession: vi.fn(),
+  ensureAgentToken: vi.fn(),
+}));
 vi.mock("nuabase/local-agent", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   detectLocalAgents,
@@ -26,6 +31,12 @@ vi.mock("nuabase/local-agent", async (importOriginal) => ({
   startAgentSession,
 }));
 vi.mock("nuabase", () => ({ Nua: { direct } }));
+// Minting the agent's token is agent-access.test.ts's business; here, only
+// when the handoff asks for one.
+vi.mock("./agent-access.js", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ensureAgentToken,
+}));
 
 // Detection and the model checks are kept, so each test loads it afresh.
 let handoff: typeof import("./handoff.js");
@@ -84,6 +95,12 @@ const PROMPT =
 
 let root: string;
 
+// Stand-ins: ensureAgentToken is stubbed, so only their identity matters.
+const TOKEN_FOR = {
+  conn: "sample conn",
+  owner: "sample owner",
+} as unknown as import("./handoff.js").AgentTokenFor;
+
 const SESSION_FILES = {
   promptPath: "/sample/tmp/agent-prompts/sample.md",
   launcherPath: "/sample/tmp/agent-prompts/sample.command",
@@ -116,6 +133,7 @@ beforeEach(async () => {
   answering("opus", "sonnet", "gpt-5.6-sol", "gpt-5.6-terra", undefined);
   startAgentSession.mockReset();
   startAgentSession.mockImplementation(started);
+  ensureAgentToken.mockReset();
   root = await mkdtemp(join(tmpdir(), "dbu6-handoff-"));
   vi.stubEnv("DBU6_ROOT", root);
   vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -178,7 +196,7 @@ describe("handOffPrompt", () => {
     detectLocalAgents.mockResolvedValue(BOTH);
     await choose("codex");
 
-    expect(await handoff.handOffPrompt(PROMPT, "linux", root)).toEqual({
+    expect(await handoff.handOffPrompt(PROMPT, "linux", root, null)).toEqual({
       agent: "codex",
       mode: "command",
       prompt_path: SESSION_FILES.promptPath,
@@ -206,7 +224,7 @@ describe("handOffPrompt", () => {
     vi.stubEnv("BETTER_AUTH_SECRET", "sample-secret");
     vi.stubEnv("SAMPLE_OTHER", "kept");
 
-    await handoff.handOffPrompt(PROMPT, "darwin", root);
+    await handoff.handOffPrompt(PROMPT, "darwin", root, null);
 
     const { env, unsetEnv } = startAgentSession.mock.calls[0][0];
     expect(env).not.toHaveProperty("SAPPORTA_API_PORT");
@@ -228,7 +246,7 @@ describe("handOffPrompt", () => {
   it("says a terminal window opened on macOS", async () => {
     detectLocalAgents.mockResolvedValue(CLAUDE_ONLY);
 
-    const written = await handoff.handOffPrompt(PROMPT, "darwin", root);
+    const written = await handoff.handOffPrompt(PROMPT, "darwin", root, null);
 
     expect(written).toMatchObject({ agent: "claude-code", mode: "terminal" });
     expect(startAgentSession).toHaveBeenCalledWith(
@@ -240,9 +258,9 @@ describe("handOffPrompt", () => {
     detectLocalAgents.mockResolvedValue(PI_ONLY);
     await choose("pi");
 
-    expect((await handoff.handOffPrompt(PROMPT, "linux", root)).agent).toBe(
-      "pi",
-    );
+    expect(
+      (await handoff.handOffPrompt(PROMPT, "linux", root, null)).agent,
+    ).toBe("pi");
     expect(startAgentSession).toHaveBeenCalledWith(
       expect.objectContaining({ agent: "pi", model: undefined }),
     );
@@ -252,24 +270,48 @@ describe("handOffPrompt", () => {
     detectLocalAgents.mockResolvedValue(CLAUDE_ONLY);
     answering("sonnet");
 
-    await handoff.handOffPrompt(PROMPT, "darwin", root);
+    await handoff.handOffPrompt(PROMPT, "darwin", root, null);
 
     expect(startAgentSession).toHaveBeenCalledWith(
       expect.objectContaining({ model: "sonnet" }),
     );
   });
 
-  it("refuses when no coding agent is installed", async () => {
+  it("gives the project a token for the owner once an agent can run, before it starts", async () => {
+    detectLocalAgents.mockResolvedValue(CLAUDE_ONLY);
+
+    await handoff.handOffPrompt(PROMPT, "darwin", root, TOKEN_FOR);
+
+    expect(ensureAgentToken).toHaveBeenCalledWith(
+      TOKEN_FOR.conn,
+      TOKEN_FOR.owner,
+      root,
+    );
+    expect(ensureAgentToken.mock.invocationCallOrder[0]).toBeLessThan(
+      startAgentSession.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("gives no token when there is nobody to give one to", async () => {
+    detectLocalAgents.mockResolvedValue(CLAUDE_ONLY);
+
+    await handoff.handOffPrompt(PROMPT, "darwin", root, null);
+
+    expect(ensureAgentToken).not.toHaveBeenCalled();
+  });
+
+  it("refuses when no coding agent is installed, and gives no token", async () => {
     detectLocalAgents.mockResolvedValue(NONE);
 
     await expect(
-      handoff.handOffPrompt(PROMPT, "darwin", root),
+      handoff.handOffPrompt(PROMPT, "darwin", root, TOKEN_FOR),
     ).rejects.toMatchObject({
       error: "no_coding_agent",
       message:
         "No coding agent found. Install Claude Code or Codex or Pi on the machine running dbu6.",
     });
     expect(startAgentSession).not.toHaveBeenCalled();
+    expect(ensureAgentToken).not.toHaveBeenCalled();
   });
 
   it("refuses when no agent is chosen and none works", async () => {
@@ -277,26 +319,27 @@ describe("handOffPrompt", () => {
     answering();
 
     await expect(
-      handoff.handOffPrompt(PROMPT, "darwin", root),
+      handoff.handOffPrompt(PROMPT, "darwin", root, null),
     ).rejects.toMatchObject({
       error: "no_coding_agent",
       message: expect.stringContaining("None of the installed coding agents"),
     });
   });
 
-  it("refuses when none of the chosen agent's models answered", async () => {
+  it("refuses when none of the chosen agent's models answered, and gives no token", async () => {
     detectLocalAgents.mockResolvedValue(CLAUDE_ONLY);
     const { saveChosenCodingAgent } = await import("./agents.js");
     await saveChosenCodingAgent("claude-code");
     answering();
 
     await expect(
-      handoff.handOffPrompt(PROMPT, "darwin", root),
+      handoff.handOffPrompt(PROMPT, "darwin", root, TOKEN_FOR),
     ).rejects.toMatchObject({
       error: "no_agent_model",
       message: expect.stringContaining("Claude Code didn't answer on"),
     });
     expect(startAgentSession).not.toHaveBeenCalled();
+    expect(ensureAgentToken).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -312,7 +355,7 @@ describe("handOffPrompt", () => {
     });
 
     await expect(
-      handoff.handOffPrompt(PROMPT, "linux", root),
+      handoff.handOffPrompt(PROMPT, "linux", root, null),
     ).rejects.toMatchObject({ error, status: 400 });
   });
 
@@ -325,7 +368,7 @@ describe("handOffPrompt", () => {
     });
 
     await expect(
-      handoff.handOffPrompt(PROMPT, "darwin", root),
+      handoff.handOffPrompt(PROMPT, "darwin", root, null),
     ).rejects.toMatchObject({
       error: "terminal_open_failed",
       status: 500,

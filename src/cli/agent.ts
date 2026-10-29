@@ -30,32 +30,26 @@ import { existsSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { userPrincipal } from "@sapporta/server";
 import {
-  createAuthToken,
   findFirstMembership,
-  listAuthTokens,
   membershipFromRow,
-  revokeAuthToken,
 } from "../server/project-auth/index.js";
-import { openDbu6Runtime } from "../server/runtime.js";
-import { migrateSafely } from "../server/migrate-safely.js";
-import { todayIn } from "../shared/index.js";
-import { DEMO_ACCOUNT } from "../server/project-auth/demo-account.js";
-import { databaseFile } from "../server/paths.js";
 import {
   AGENT_ENV_FILE,
   AGENT_TOKEN_NAME,
+  mintAgentToken,
+  readAgentToken,
+  writeAgentToken,
+} from "../server/modules/coding-agent/index.js";
+import { openDbu6Runtime } from "../server/runtime.js";
+import { migrateSafely } from "../server/migrate-safely.js";
+import { databaseFile } from "../server/paths.js";
+import {
   AgentEnvError,
   agentEnvExports,
-  agentEnvFile,
   chooseAgentAccount,
   VERIFY_COMMAND,
   type AgentAccount,
 } from "./agent-env.js";
-import {
-  agentEnvPath,
-  readAgentEnvValues,
-  writeAgentEnvFile,
-} from "./agent-file.js";
 
 const USAGE = `Usage: dbu6 agent env [--print] [--user <email>]
 
@@ -133,18 +127,14 @@ export async function agentCommand(
   const runtime = await openDbu6Runtime({ root, sendMail: false });
   try {
     const accounts = agentAccounts(runtime.conn);
-    const account = chooseAgentAccount(accounts, {
-      user,
-      demos: [DEMO_ACCOUNT.email],
-    });
-    const file = agentEnvPath(root);
+    const account = chooseAgentAccount(accounts, { user });
     if (print) {
       // The token to export is the one the project already uses: printing it
       // mints nothing, so `eval "$(dbu6 agent env --print)"` cannot leave a
       // trail of live tokens behind.
-      const stored = readAgentEnvValues(file);
-      if (stored !== null) {
-        process.stdout.write(agentEnvExports(stored));
+      const apiToken = readAgentToken(root);
+      if (apiToken !== undefined) {
+        process.stdout.write(agentEnvExports({ apiToken }));
         return 0;
       }
     }
@@ -155,52 +145,34 @@ export async function agentCommand(
         `${account.email} is no longer a member of ${account.organizationName}.`,
       );
     }
-    const workspaceMembership = membershipFromRow(membership);
-    const created = createAuthToken(
-      runtime.conn,
-      userPrincipal({
-        user: {
-          id: account.userId,
-          email: account.email,
-          name: account.name,
-          emailVerified: true,
-        },
-        membership: workspaceMembership,
-      }),
-      {
-        name: `${AGENT_TOKEN_NAME} (${todayIn(workspaceMembership.workspace.timeZone)})`,
+    const owner = userPrincipal({
+      user: {
+        id: account.userId,
+        email: account.email,
+        name: account.name,
+        emailVerified: true,
       },
-    );
+      membership: membershipFromRow(membership),
+    });
 
     if (print) {
       // Nothing stores this one, so say so: a later run of this command
       // revokes it by name, like any other token this command made.
+      const minted = mintAgentToken(runtime.conn, owner);
       process.stderr.write(
         `No ${AGENT_ENV_FILE} in this project, so this token is not stored: run \`dbu6 agent env\` to keep one there.\n`,
       );
-      process.stdout.write(agentEnvExports({ apiToken: created.rawToken }));
+      process.stdout.write(agentEnvExports(minted));
       return 0;
     }
 
-    writeAgentEnvFile(
-      file,
-      agentEnvFile({
-        apiToken: created.rawToken,
-        createdFor: account.email,
-      }),
-    );
-    const revoked = revokeEarlierAgentTokens(
-      runtime.conn,
-      account,
-      created.token.id,
-    );
-
+    const written = writeAgentToken(runtime.conn, owner, root);
     console.log(
       [
         `Wrote ${AGENT_ENV_FILE} for ${account.email}.`,
-        `  token ${created.token.id.slice(0, 8)}… (${AGENT_TOKEN_NAME})`,
-        revoked > 0
-          ? `  revoked ${revoked} earlier ${AGENT_TOKEN_NAME} token(s)`
+        `  token ${written.tokenId.slice(0, 8)}… (${AGENT_TOKEN_NAME})`,
+        written.revoked > 0
+          ? `  revoked ${written.revoked} earlier ${AGENT_TOKEN_NAME} token(s)`
           : "",
         "",
         "It is gitignored. The `sapporta` command reads the token from it and",
@@ -265,32 +237,4 @@ function agentAccounts(conn: {
     });
   }
   return accounts;
-}
-
-/**
- * Revokes the tokens earlier runs of this command made, once the new one is on
- * disk. Only its own, by name: a token a person made in the app, or one another
- * tool made, is not this command's to revoke.
- */
-function revokeEarlierAgentTokens(
-  conn: Parameters<typeof listAuthTokens>[0],
-  account: AgentAccount,
-  keepId: string,
-): number {
-  let revoked = 0;
-  for (const token of listAuthTokens(
-    conn,
-    account.userId,
-    account.organizationId,
-  )) {
-    if (token.id === keepId) continue;
-    if (token.revokedAt !== null) continue;
-    if (!token.name.startsWith(AGENT_TOKEN_NAME)) continue;
-    if (
-      revokeAuthToken(conn, account.userId, token.id, account.organizationId)
-    ) {
-      revoked += 1;
-    }
-  }
-  return revoked;
 }

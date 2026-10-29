@@ -16,7 +16,11 @@ import type {
 } from "@sapporta/shared/contracts";
 import type { AppPrincipal, AppWorkspaceMembership } from "../authz/types.js";
 import type { ProjectAuthErrorCode } from "./errors.js";
-import { findMembership, membershipFromRow } from "./workspace.js";
+import {
+  findMembership,
+  membershipFromRow,
+  type WorkspaceMembershipRow,
+} from "./workspace.js";
 
 /**
  * Agent access tokens let non-browser clients call the same protected API that
@@ -93,7 +97,50 @@ export function resolveBearerTokenPrincipal(
 ): AppPrincipal | null {
   if (!requestUsesToken(headers)) return null;
 
-  const parsed = parseBearerToken(headers.get("authorization") ?? "");
+  const bearer = (headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i);
+  if (!bearer) throw new TokenAuthError("unauthenticated");
+  const { token, user, membership } = acceptedToken(conn, bearer[1]);
+
+  markTokenUsed(conn, token.id);
+  return userPrincipal({
+    user: userFromRow(user),
+    membership: membershipFromRow(membership),
+  });
+}
+
+/**
+ * Whether this database would accept `rawToken` now: the checks a request
+ * with it passes, without the request. Its `lastUsedAt` is left as it is,
+ * since nothing used it.
+ */
+export function tokenIsLive(
+  conn: ProjectDbConnection,
+  rawToken: string,
+): boolean {
+  try {
+    acceptedToken(conn, rawToken);
+    return true;
+  } catch (err) {
+    if (err instanceof TokenAuthError) return false;
+    throw err;
+  }
+}
+
+/**
+ * The one statement of what makes a raw `spat_<tokenId>_<secret>` valid, in
+ * the order the failures are reported: a known token whose secret matches,
+ * not revoked, not expired, for a user who is still a member of the token's
+ * workspace.
+ */
+function acceptedToken(
+  conn: ProjectDbConnection,
+  rawToken: string,
+): {
+  token: PersonalAccessTokenRow;
+  user: TokenUserRow;
+  membership: WorkspaceMembershipRow;
+} {
+  const parsed = parseToken(rawToken);
   if (!parsed) throw new TokenAuthError("unauthenticated");
 
   const token = readToken(conn, parsed.id);
@@ -110,12 +157,7 @@ export function resolveBearerTokenPrincipal(
   if (!user) throw new TokenAuthError("unauthenticated");
   const membership = findMembership(conn, token.user_id, token.organization_id);
   if (!membership) throw new TokenAuthError("workspace_required");
-
-  markTokenUsed(conn, token.id);
-  return userPrincipal({
-    user: userFromRow(user),
-    membership: membershipFromRow(membership),
-  });
+  return { token, user, membership };
 }
 
 export function listAuthTokens(
@@ -281,10 +323,8 @@ export function revokeAuthToken(
  * credentials. Splitting the two lets the server find one row and compare a
  * hash without storing the raw credential.
  */
-function parseBearerToken(
-  value: string,
-): { id: string; secret: string } | null {
-  const match = value.match(/^Bearer\s+spat_([^_]+)_(.+)$/i);
+function parseToken(value: string): { id: string; secret: string } | null {
+  const match = value.match(/^spat_([^_]+)_(.+)$/i);
   if (!match) return null;
   return {
     id: match[1],

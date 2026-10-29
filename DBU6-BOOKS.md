@@ -685,6 +685,8 @@ it could belong to), it keeps the file, `dbu6 migrate` prints why, and
     token, and an old one may call port 3000, so never write these commands
     without `npx`.
 - **The token** must be in the environment as `SAPPORTA_API_TOKEN`.
+  - The app writes one when it hands a prompt to a coding agent and the
+    project has no working token.
   - `npx dbu6 agent env` gives this project one: it mints a token, writes it to
     the gitignored `.env.agent`, and revokes the one its previous run wrote.
     It names the account it used, and refuses a project that holds only the

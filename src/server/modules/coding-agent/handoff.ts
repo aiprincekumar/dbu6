@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { ProjectDbConnection } from "@sapporta/server";
 import { appSettingNames, withoutAppSettings } from "../../app-settings.js";
 import type {
   AgentHandoff,
@@ -14,6 +15,7 @@ import {
   TerminalOpenFailedError,
 } from "./errors.js";
 import { agentModels, currentCodingAgent } from "./models.js";
+import { ensureAgentToken, type AgentTokenOwner } from "./agent-access.js";
 import {
   agentSessionMode,
   startSession,
@@ -71,14 +73,24 @@ export async function agentHandoffAvailability(
   return handoffAvailability((await currentCodingAgent()).agent, platform);
 }
 
+/** Whom a handed-off agent's token is for, and the books it is minted in. */
+export interface AgentTokenFor {
+  conn: ProjectDbConnection;
+  owner: AgentTokenOwner;
+}
+
 /**
  * Writes the prompt and its launcher, and on macOS opens a terminal window
  * running it. Throws a `CodingAgentError` when the prompt can't be handed off.
+ *
+ * `tokenFor` is the signed-in owner handing the prompt off, or null when there
+ * is nobody to mint a token for (a request an agent made with its own token).
  */
 export async function handOffPrompt(
   prompt: string,
   platform: NodeJS.Platform,
   root: string,
+  tokenFor: AgentTokenFor | null,
 ): Promise<AgentHandoff> {
   const inUse = await currentCodingAgent();
   if (inUse.agent === null) throw new NoCodingAgentError(inUse.why);
@@ -88,6 +100,12 @@ export async function handOffPrompt(
   if (models.state === "no_model") {
     throw new NoAgentModelError(agent.agent, models.unavailable);
   }
+
+  // Every prompt sends its agent to the app with `npx sapporta`, which reads
+  // its token from `.env.agent`. Once an agent can run, a project whose file
+  // holds no working token gets one for the owner, so the agent starts with
+  // access instead of asking for it (agent-access.ts).
+  if (tokenFor !== null) ensureAgentToken(tokenFor.conn, tokenFor.owner, root);
 
   const started = await startSession({
     agent,

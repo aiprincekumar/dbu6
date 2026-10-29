@@ -41,8 +41,9 @@ opening balances, and reviewing what dbu6 categorized. Once something is in your
 books, it opens on Overview: the month's income, spending and savings, net worth,
 and how far each account's books go.
 
-A coding agent works in the folder when it is asked to. Give it access before
-handing it a prompt:
+A coding agent works in the folder when it is asked to. A prompt dbu6 hands it
+gives the folder an agent token when the folder has no working one; to give it
+access yourself, or check it:
 
 ```sh
 npx dbu6 agent env

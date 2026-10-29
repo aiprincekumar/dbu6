@@ -129,7 +129,9 @@ npx skills add https://github.com/jasim/sapporta-skills --skill sapporta --globa
 **The Sapporta CLI**, which the agent uses to read and change your books
 through dbu6's HTTP API. Nothing to install: dbu6 ships it, so in this folder
 `npx sapporta …` works, and it finds the app's address and the agent's token by
-itself. Mint that token after your first sign-up:
+itself. When the app hands a prompt to your coding agent and the folder has no
+working token, it mints one for the account you are signed in with. To mint it
+yourself, after your first sign-up:
 
 ```sh
 npx dbu6 agent env
@@ -143,8 +145,9 @@ command does, and proves the token works by naming the user and workspace it
 acts as. If the project holds more than one account, say which one:
 `npx dbu6 agent env --user you@example.com`.
 
-An agent given a prompt does this for itself; the two commands are here so that
-you can check its access before it starts, and
+An agent the app hands a prompt to starts with that token, and one you start
+yourself runs `agent env` when it has to; the two commands are here so that you
+can check its access before it starts, and
 [DBU6-BOOKS.md](https://github.com/jasim/dbu6/blob/main/DBU6-BOOKS.md) is the
 guide it reads next.
 

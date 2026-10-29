@@ -60,7 +60,7 @@ import {
   userConfigDir,
 } from "../server/paths.js";
 import { tryBuildingFrontend } from "./frontend.js";
-import { AGENT_ENV_FILE } from "./agent-env.js";
+import { AGENT_ENV_FILE } from "../server/modules/coding-agent/index.js";
 import {
   projectParserTests,
   runParserTest,
