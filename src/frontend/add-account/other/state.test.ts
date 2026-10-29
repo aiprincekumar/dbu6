@@ -33,8 +33,7 @@ function account(
     section: "own",
     first_activity_date: null,
     default_date: "2025-12-31",
-    suggested_amount: null,
-    statement_amount: null,
+    implied_opening: null,
     opening: null,
     ...over,
   };
@@ -46,6 +45,7 @@ const OPENING = {
   amount: 1000,
   description: "Opening balance",
   locked: null,
+  source: "manual" as const,
 };
 
 describe("the URL", () => {

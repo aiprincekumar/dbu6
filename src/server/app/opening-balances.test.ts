@@ -44,8 +44,7 @@ describe("opening balances routes", () => {
           section: "own",
           first_activity_date: "2026-02-03",
           default_date: "2026-02-02",
-          suggested_amount: 1000,
-          statement_amount: 1000,
+          implied_opening: 1000,
           opening: null,
         },
       ],
@@ -75,6 +74,8 @@ describe("opening balances routes", () => {
       amount: 1000,
       description: "Opening balance",
       locked: null,
+      // What the first draft's balance implies.
+      source: "statement",
     });
   });
 

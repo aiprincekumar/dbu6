@@ -66,8 +66,7 @@ function account(
     section: path.startsWith("Liabilities") ? "owe" : "own",
     first_activity_date: null,
     default_date: "2026-03-31",
-    suggested_amount: null,
-    statement_amount: null,
+    implied_opening: null,
     opening: null,
     ...more,
   };
@@ -79,6 +78,7 @@ const opening = (journal_id: number, amount: number, more = {}) => ({
   amount,
   description: "Opening balance",
   locked: null,
+  source: "manual" as const,
   ...more,
 });
 
@@ -107,8 +107,7 @@ const savings = account(
   "Assets:Bank:Sample Bank Savings",
   {
     section: "statement",
-    statement_amount: 12000,
-    opening: opening(23, 12000),
+    opening: opening(23, 12000, { source: "statement" }),
   },
 );
 const platinum = account(
@@ -117,8 +116,7 @@ const platinum = account(
   "Liabilities:Cards:Sample Card Platinum",
   {
     section: "statement",
-    // Its statement says 2,500 was owed; the user changed it.
-    statement_amount: -2500,
+    // Changed from what its statement says was owed.
     opening: opening(24, -3000, { locked: "shared_entry" }),
   },
 );
@@ -129,7 +127,7 @@ const gold = account(
   {
     section: "statement",
     first_activity_date: "2026-04-01",
-    suggested_amount: -3000,
+    implied_opening: -3000,
   },
 );
 

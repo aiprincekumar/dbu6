@@ -1,5 +1,9 @@
 import { Temporal } from "@sapporta/shared/temporal";
-import type { OpeningLock, OpeningSection } from "../../shared/index.js";
+import type {
+  OpeningLock,
+  OpeningSection,
+  OpeningSource,
+} from "../../shared/index.js";
 import {
   createOpeningBalancesAccount,
   findOpeningBalancesAccount,
@@ -19,11 +23,12 @@ import {
   insertJournalPlan,
   loadEntriesBesideOpening,
   loadOpeningEntries,
-  loadPostedStatementOpenings,
   rewriteOpeningEntry,
   type OpeningEntry,
 } from "../modules/journals/index.js";
 import type { Ledger } from "../modules/ledger-sql/index.js";
+import { loadImpliedOpenings } from "../modules/reconciliation/index.js";
+import { sameAmount } from "../modules/values/index.js";
 
 /*
  * Opening balances: what each asset and liability account held or owed
@@ -48,10 +53,15 @@ export type OpeningAccountType = "Asset" | "Liability";
 /** What an opening journal is called when the user says nothing more. */
 export const OPENING_DESCRIPTION = "Opening balance";
 
-/** An account's opening entry, and why it can't be changed in place. */
+/**
+ * An account's opening entry, why it can't be changed in place, and where it
+ * came from: its statements while it is the opening their first balance
+ * check implies, else entered by hand.
+ */
 export type OpeningBalance = OpeningEntry & {
   /** Null while it can be changed or removed. */
   locked: OpeningLock | null;
+  source: OpeningSource;
 };
 
 export interface OpeningBalanceAccount {
@@ -76,18 +86,8 @@ export interface OpeningBalanceAccount {
    * else null.
    */
   defaultDate: string | null;
-  /**
-   * The opening balance the first balance check implies, when the account
-   * has drafts, nothing posted but its opening entry, and a draft carrying a
-   * statement balance.
-   */
-  suggestedAmount: number | null;
-  /**
-   * The opening balance its statements imply: from its first posted balance
-   * check, or, with nothing posted but its opening entry, its first draft
-   * carrying one. Null when neither carries a balance.
-   */
-  statementAmount: number | null;
+  /** `loadImpliedOpenings`' figure; null with no balance check. */
+  impliedOpening: number | null;
   opening: OpeningBalance | null;
 }
 
@@ -107,7 +107,7 @@ export function loadOpeningBalances({
   const paths = loadHledgerAccountNames(db, auth);
   const openings = loadOpeningEntries(sqlite, auth);
   const besideOpening = loadEntriesBesideOpening(sqlite, auth);
-  const postedStatementOpenings = loadPostedStatementOpenings(sqlite, auth);
+  const impliedOpenings = loadImpliedOpenings(sqlite, auth);
   const firstDrafts = loadFirstDrafts(sqlite, auth);
   const firstCategorized = loadFirstCategorizedDraftDates(sqlite, auth);
   const equity = findOpeningBalancesAccount(db, auth);
@@ -134,6 +134,7 @@ export function loadOpeningBalances({
       const beside = besideOpening.get(account.id) ?? null;
       const drafts = firstDrafts.get(account.id) ?? null;
       const opening = openings.get(account.id) ?? null;
+      const impliedOpening = impliedOpenings.get(account.id) ?? null;
       const firstActivityDate = [
         beside?.first_date ?? null,
         drafts?.first_date ?? null,
@@ -153,15 +154,15 @@ export function loadOpeningBalances({
         defaultDate: firstActivityDate
           ? dayBefore(firstActivityDate)
           : booksStart,
-        suggestedAmount:
-          beside === null ? (drafts?.implied_opening ?? null) : null,
-        statementAmount:
-          beside === null
-            ? (drafts?.implied_opening ?? null)
-            : (postedStatementOpenings.get(account.id) ?? null),
+        impliedOpening,
         opening: opening && {
           ...opening,
           locked: lockOf(opening, beside?.entries ?? 0),
+          source:
+            impliedOpening !== null &&
+            sameAmount(opening.amount, impliedOpening)
+              ? "statement"
+              : "manual",
         },
       };
     })

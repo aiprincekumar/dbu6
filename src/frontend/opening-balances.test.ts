@@ -38,8 +38,7 @@ function account(
     section: path.startsWith("Liabilities") ? "owe" : "own",
     first_activity_date: null,
     default_date: null,
-    suggested_amount: null,
-    statement_amount: null,
+    implied_opening: null,
     opening: null,
     ...more,
   };
@@ -51,6 +50,7 @@ const opening = (amount: number, more = {}) => ({
   amount,
   description: "Opening balance",
   locked: null,
+  source: "manual" as const,
   ...more,
 });
 
@@ -143,21 +143,11 @@ describe("balanceSections", () => {
     ]);
   });
 
-  it("says a balance came from its statements only while it agrees with them", () => {
-    const recorded = (amount: number, statement: number | null) =>
-      openingSource({
-        ...card,
-        statement_amount: statement,
-        opening: opening(amount),
-      });
-    expect(recorded(-3000, -3000)).toBe("From account statement");
-    // Changed in its form: no longer what the statement implies.
-    expect(recorded(-2500, -3000)).toBe("Manually recorded");
-    // Its statements print no balance.
-    expect(recorded(-3000, null)).toBe("Manually recorded");
-    expect(openingSource({ ...epf, opening: opening(640000) })).toBe(
-      "Manually recorded",
+  it("words where a recorded balance came from", () => {
+    expect(openingSource(opening(-3000, { source: "statement" }))).toBe(
+      "From account statement",
     );
+    expect(openingSource(opening(640000))).toBe("Manually recorded");
   });
 
   it("matches a link by the account's name or its path", () => {
@@ -231,7 +221,7 @@ describe("a row's words", () => {
 describe("the dialog's fields", () => {
   it("opens an add on the suggestion and the default date, else today", () => {
     const card = account("Card", "Liabilities:Card", {
-      suggested_amount: -3000,
+      implied_opening: -3000,
       default_date: "2026-03-31",
     });
     expect(fieldsFor(card, "2026-09-25")).toEqual({

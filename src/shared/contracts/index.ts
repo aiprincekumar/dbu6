@@ -219,12 +219,14 @@ export {
   openingEntrySchema,
   openingLockSchema,
   openingSectionSchema,
+  openingSourceSchema,
   type OpeningBalanceAccount,
   type OpeningBalanceRefusal,
   type OpeningBalances,
   type OpeningEntry,
   type OpeningLock,
   type OpeningSection,
+  type OpeningSource,
 } from "./opening-balances.js";
 export {
   setupContract,

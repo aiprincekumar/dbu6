@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { cents, OPENING_JOURNALS } from "../journals/index.js";
 import { allRows, type LedgerAuth } from "../ledger-sql/index.js";
 import { assertionFailsSql, draftOrderSql } from "./balance-check.js";
 
@@ -19,7 +20,7 @@ export const baseAccountRunningBalanceCtes = `
     'journal' AS source,
     je.debit - je.credit AS delta,
     NULL AS draft_id,
-    NULL AS assertion
+    je.account_balance_assertion AS assertion
   FROM scoped_journal_entries je
   JOIN scoped_journals j ON j.id = je.journal_id
   UNION ALL
@@ -52,6 +53,49 @@ base_account_running AS (
     ) AS running_balance
   FROM base_account_activity activity
 )`;
+
+/**
+ * The opening balance each account's first balance check implies, by id: the
+ * check's balance less everything added up to and including its row, posted
+ * entries and drafts in `BASE_ACCOUNT_ACTIVITY_ORDER`. The account's opening
+ * journal is left out, both from what is added up and as a check, since it
+ * asserts the opening it records. An account with no check is not in the map.
+ */
+export function loadImpliedOpenings(
+  sqlite: Database.Database,
+  auth: LedgerAuth,
+): Map<number, number> {
+  const rows = allRows<{ account_id: number; implied: number }>(
+    sqlite,
+    auth,
+    `${OPENING_JOURNALS}
+    ${baseAccountRunningBalanceCtes}
+    , beside_opening AS (
+      SELECT
+        activity.account_id,
+        activity.assertion,
+        SUM(activity.delta) OVER (
+          PARTITION BY activity.account_id
+          ORDER BY ${BASE_ACCOUNT_ACTIVITY_ORDER}
+          ROWS UNBOUNDED PRECEDING
+        ) AS running,
+        ROW_NUMBER() OVER (
+          PARTITION BY activity.account_id, activity.assertion IS NULL
+          ORDER BY ${BASE_ACCOUNT_ACTIVITY_ORDER}
+        ) AS position
+      FROM base_account_activity activity
+      LEFT JOIN opening_journals o
+        ON activity.source = 'journal'
+        AND o.account_id = activity.account_id
+        AND o.journal_id = activity.ord_journal
+      WHERE o.journal_id IS NULL
+    )
+    SELECT account_id, assertion - running AS implied
+    FROM beside_opening
+    WHERE assertion IS NOT NULL AND position = 1`,
+  );
+  return new Map(rows.map((row) => [row.account_id, cents(row.implied)]));
+}
 
 export const failingDraftAssertionsSelect = `
 SELECT

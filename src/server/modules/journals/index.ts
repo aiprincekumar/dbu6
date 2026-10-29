@@ -14,7 +14,11 @@ export {
   type HledgerExportRows,
 } from "./export-rows.js";
 export { renderVisibleJournalsAsHledger } from "./hledger.js";
-export { insertJournalPlan, type InsertedJournals } from "./insert-plan.js";
+export {
+  cents,
+  insertJournalPlan,
+  type InsertedJournals,
+} from "./insert-plan.js";
 export {
   loadLastReconciled,
   loadPostedRowsOn,
@@ -28,7 +32,7 @@ export {
   hasJournalsBesideOpenings,
   loadEntriesBesideOpening,
   loadOpeningEntries,
-  loadPostedStatementOpenings,
+  OPENING_JOURNALS,
   rewriteOpeningEntry,
   type EntriesBesideOpening,
   type OpeningEntry,

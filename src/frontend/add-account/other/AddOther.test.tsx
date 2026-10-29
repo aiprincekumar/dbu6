@@ -67,6 +67,7 @@ beforeEach(() => {
         amount,
         description: "Opening balance",
         locked: null,
+        source: "manual",
       };
       return {
         status: 201,
@@ -115,8 +116,7 @@ function account(
     section: "own",
     first_activity_date: null,
     default_date: "2025-12-31",
-    suggested_amount: null,
-    statement_amount: null,
+    implied_opening: null,
     opening: null,
     ...over,
   };
@@ -146,6 +146,7 @@ const BALANCES: OpeningBalances = {
         amount: 10000,
         description: "Opening balance",
         locked: "has_entries",
+        source: "manual",
       },
     }),
   ],
@@ -306,6 +307,7 @@ describe("card 6, first run", () => {
       amount: 1000,
       description: "Opening balance",
       locked: null,
+      source: "manual",
     };
     await render("/add/other?run=setup");
     expect(title()).toBe("Cash, a deposit, a loan?");
@@ -445,6 +447,7 @@ describe("C1", () => {
         amount: 1000,
         description: "Opening balance",
         locked: null,
+        source: "manual",
       };
     }
     await render("/add/other");

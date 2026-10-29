@@ -316,7 +316,7 @@ function BalanceRow({
         )}
       </td>
       <td className="hidden px-3 py-2.5 text-ink-meta sm:table-cell">
-        {opening && openingSource(account)}
+        {opening && openingSource(opening)}
       </td>
       <td className="whitespace-nowrap py-1.5 pl-3 text-right">
         {opening === null ? (

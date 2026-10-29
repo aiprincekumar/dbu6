@@ -73,14 +73,14 @@ export function listOpeningBalances(ledger: Ledger): OpeningBalancesBody {
       section: account.section,
       first_activity_date: account.firstActivityDate,
       default_date: account.defaultDate,
-      suggested_amount: account.suggestedAmount,
-      statement_amount: account.statementAmount,
+      implied_opening: account.impliedOpening,
       opening: account.opening && {
         journal_id: account.opening.journal_id,
         date: account.opening.date,
         amount: account.opening.amount,
         description: account.opening.description,
         locked: account.opening.locked,
+        source: account.opening.source,
       },
     })),
   };

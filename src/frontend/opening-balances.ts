@@ -3,6 +3,7 @@ import {
   openingBalanceRefusalSchema,
   type OpeningBalanceAccount,
   type OpeningBalances,
+  type OpeningEntry,
   type OpeningLock,
   type OpeningSection,
 } from "../shared/index";
@@ -156,18 +157,14 @@ export function recordedGroups(
     .filter((one) => one.accounts.length > 0);
 }
 
-/**
- * Where a listed balance came from, as its Source column reads it: its
- * statements, while it is still the balance they imply, else entered by
- * hand. A statement balance changed in its form reads as entered by hand.
- */
-export function openingSource(account: OpeningBalanceAccount): string {
-  const { opening, statement_amount } = account;
-  return opening !== null &&
-    statement_amount !== null &&
-    Math.abs(opening.amount - statement_amount) < 0.005
-    ? "From account statement"
-    : "Manually recorded";
+/** Where a recorded balance came from, as its Source column reads it. */
+export function openingSource(opening: OpeningEntry): string {
+  switch (opening.source) {
+    case "statement":
+      return "From account statement";
+    case "manual":
+      return "Manually recorded";
+  }
 }
 
 /** The recorded balance as its table reads it; null with none. */
@@ -246,9 +243,9 @@ export function fieldsFor(
   }
   return {
     amount:
-      account.suggested_amount === null
+      account.implied_opening === null
         ? ""
-        : typedAmount(type, account.suggested_amount),
+        : typedAmount(type, account.implied_opening),
     date: account.default_date ?? today,
     note: "",
   };

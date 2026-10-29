@@ -76,8 +76,7 @@ describe("loadOpeningBalances", () => {
           section: null,
           firstActivityDate: null,
           defaultDate: null,
-          suggestedAmount: null,
-          statementAmount: null,
+          impliedOpening: null,
           opening: null,
         },
         {
@@ -88,8 +87,7 @@ describe("loadOpeningBalances", () => {
           section: "own",
           firstActivityDate: "2026-02-03",
           defaultDate: "2026-02-02",
-          suggestedAmount: 1000,
-          statementAmount: 1000,
+          impliedOpening: 1000,
           opening: null,
         },
         {
@@ -100,8 +98,7 @@ describe("loadOpeningBalances", () => {
           section: null,
           firstActivityDate: null,
           defaultDate: null,
-          suggestedAmount: null,
-          statementAmount: null,
+          impliedOpening: null,
           opening: null,
         },
         {
@@ -112,15 +109,14 @@ describe("loadOpeningBalances", () => {
           section: "owe",
           firstActivityDate: null,
           defaultDate: null,
-          suggestedAmount: null,
-          statementAmount: null,
+          impliedOpening: null,
           opening: null,
         },
       ],
     });
   });
 
-  it("dates from the first posted entry and suggests nothing once something is posted", () => {
+  it("dates from the first posted entry, and counts it in what the first check implies", () => {
     const ledger = books(`
       INSERT INTO accounts
         (id, workspace_id, scoped_to_user_id, name, parent_id, account_type, created_at, updated_at)
@@ -137,12 +133,13 @@ describe("loadOpeningBalances", () => {
     expect(account(ledger, 2)).toMatchObject({
       firstActivityDate: "2026-01-10",
       defaultDate: "2026-01-09",
-      suggestedAmount: null,
+      // 1300 less the 100 posted and the 300 in drafts.
+      impliedOpening: 900,
       opening: null,
     });
   });
 
-  it("reads what its statements imply from the first posted balance check", () => {
+  it("reads the implied opening from the first posted check, and calls a recorded one that differs manual", () => {
     const ledger = books();
     recorded(ledger, 2, "2026-01-01", 900);
     ledger.sqlite.exec(`
@@ -165,9 +162,8 @@ describe("loadOpeningBalances", () => {
     // 1300 less the 300 posted after the opening entry: 1000, not the 900
     // recorded.
     expect(account(ledger, 2)).toMatchObject({
-      suggestedAmount: null,
-      statementAmount: 1000,
-      opening: expect.objectContaining({ amount: 900 }),
+      impliedOpening: 1000,
+      opening: expect.objectContaining({ amount: 900, source: "manual" }),
     });
   });
 
@@ -205,6 +201,7 @@ describe("loadOpeningBalances", () => {
       // Its Equity line is Sample Equity, not Opening Balances.
       onOpeningBalances: false,
       locked: "has_entries",
+      source: "manual",
     });
     expect(account(ledger, 4)?.opening).toEqual({
       account_id: 4,
@@ -216,6 +213,7 @@ describe("loadOpeningBalances", () => {
       // Its Equity line is Sample Equity, not Opening Balances.
       onOpeningBalances: false,
       locked: "has_entries",
+      source: "manual",
     });
     expect(account(ledger, 1)?.opening).toBeNull();
     // Only an Equity account named Opening Balances is the default.
@@ -270,10 +268,11 @@ describe("recordOpeningBalance", () => {
     expect(
       lookupLastReconciled(ledger.sqlite, ledger.auth, "Sample Savings"),
     ).toEqual({ date: "2026-02-02", balance: 1000 });
-    // Nothing but the opening entry is posted, so the drafts' suggestion
-    // stays for the Opening balances page's edit, and the entry isn't locked.
+    // The opening entry asserts its own amount, which is no check of the
+    // statement's: the drafts' check still implies 1000, so the entry agrees
+    // with it. Nothing but the opening entry is posted, so it isn't locked.
     expect(account(ledger, 2)).toMatchObject({
-      suggestedAmount: 1000,
+      impliedOpening: 1000,
       opening: {
         journal_id: outcome.journalId,
         date: "2026-02-02",
@@ -281,6 +280,7 @@ describe("recordOpeningBalance", () => {
         description: "From the NOPII March statement",
         standalone: true,
         locked: null,
+        source: "statement",
       },
     });
     expect(loadOpeningBalances(ledger).equityAccount).toEqual(
@@ -552,16 +552,27 @@ describe("first activity and the default date", () => {
     expect(account(ledger, 4)).toMatchObject({
       firstActivityDate: "2026-02-04",
       defaultDate: "2026-02-03",
-      suggestedAmount: null,
+      impliedOpening: null,
     });
   });
 
-  it("drops the suggestion once something besides the opening entry is posted", () => {
+  it("counts what is posted before the first check in what it implies", () => {
     const ledger = books(SPENT("2026-02-01"));
 
+    // 1300 less the 100 spent and the 300 in drafts.
     expect(account(ledger, 2)).toMatchObject({
       firstActivityDate: "2026-02-01",
-      suggestedAmount: null,
+      impliedOpening: 1100,
+    });
+  });
+
+  it("calls a recorded opening manual when its statements print no balance", () => {
+    const ledger = books();
+    recorded(ledger, 4, "2026-01-01", -2500);
+
+    expect(account(ledger, 4)).toMatchObject({
+      impliedOpening: null,
+      opening: expect.objectContaining({ amount: -2500, source: "manual" }),
     });
   });
 });

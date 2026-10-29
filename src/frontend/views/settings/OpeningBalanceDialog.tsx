@@ -125,7 +125,7 @@ function DialogBody({
   // The suggestion is named until the user types over it.
   const fromSuggestion =
     adding &&
-    account.suggested_amount !== null &&
+    account.implied_opening !== null &&
     fields.amount === opened.amount;
   const readback = signReadback(type, fields.amount);
 

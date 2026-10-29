@@ -47,9 +47,10 @@ export type OpeningEntry = {
 /*
  * `opening_journals (account_id, journal_id)`: each asset and liability
  * account's opening journal, continuing `allRows`' scoped relations. The one
- * definition of an opening entry, which both queries below read.
+ * definition of an opening entry, which the queries below and
+ * reconciliation's implied openings read.
  */
-const OPENING_JOURNALS = `
+export const OPENING_JOURNALS = `
   , opening_journals AS (
     SELECT account_id, journal_id
     FROM (
@@ -165,47 +166,6 @@ export function loadEntriesBesideOpening(
     GROUP BY je.account_id`,
   );
   return new Map(rows.map(({ account_id, ...beside }) => [account_id, beside]));
-}
-
-/**
- * The opening balance each account's first posted balance check implies, by
- * id: the check's balance less every posted amount up to and including its
- * row, the opening entry left out. An account whose posted entries carry no
- * check is not in the map.
- */
-export function loadPostedStatementOpenings(
-  sqlite: Database.Database,
-  auth: LedgerAuth,
-): Map<number, number> {
-  const rows = allRows<{ account_id: number; implied: number }>(
-    sqlite,
-    auth,
-    `${OPENING_JOURNALS}
-    , beside AS (
-      SELECT
-        je.account_id,
-        je.account_balance_assertion AS assertion,
-        SUM(je.debit - je.credit) OVER (
-          PARTITION BY je.account_id
-          ORDER BY j.date, j.id, je.id
-          ROWS UNBOUNDED PRECEDING
-        ) AS total,
-        ROW_NUMBER() OVER (
-          PARTITION BY je.account_id, je.account_balance_assertion IS NULL
-          ORDER BY j.date, j.id, je.id
-        ) AS position
-      FROM scoped_journal_entries je
-      JOIN scoped_journals j ON j.id = je.journal_id
-      LEFT JOIN opening_journals o ON o.account_id = je.account_id
-      WHERE o.journal_id IS NULL OR je.journal_id <> o.journal_id
-    )
-    SELECT account_id, assertion - total AS implied
-    FROM beside
-    WHERE assertion IS NOT NULL AND position = 1`,
-  );
-  return new Map(
-    rows.map((row) => [row.account_id, Number(row.implied.toFixed(2))]),
-  );
 }
 
 /**
