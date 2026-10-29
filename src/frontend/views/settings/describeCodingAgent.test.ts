@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { AgentModels, CodingAgentStatus } from "../../../shared/index";
-import { checkingModels, describeCodingAgent } from "./describeCodingAgent";
+import {
+  agentStatusCell,
+  checkingModels,
+  describeCodingAgent,
+  summarizeCodingAgent,
+} from "./describeCodingAgent";
 
 const OPUS = { model: "opus", label: "Claude Opus" };
 const SONNET = { model: "sonnet", label: "Claude Sonnet" };
@@ -40,7 +45,7 @@ const NO_CODEX: CodingAgentStatus = {
 };
 
 describe("describeCodingAgent", () => {
-  it("says what the chosen agent does, and on which models", () => {
+  it("says nothing while the chosen agent works: the table shows its models", () => {
     expect(
       describeCodingAgent({
         agents: [CLAUDE, SIGNED_OUT_CODEX],
@@ -49,15 +54,13 @@ describe("describeCodingAgent", () => {
       }),
     ).toEqual({
       tone: "ok",
-      text: "Connected to Claude Code. It categorizes transactions, reads new bank statements, fixes import problems, and answers questions about your data.",
-      details: [
-        "Claude Code sessions run on Claude Opus, and categorization on Claude Sonnet.",
-      ],
+      text: null,
+      details: [],
       checkAgain: true,
     });
   });
 
-  it("names a model that didn't answer, and the one used instead", () => {
+  it("names a model that didn't answer", () => {
     const state = describeCodingAgent({
       agents: [
         NO_CLAUDE,
@@ -74,12 +77,11 @@ describe("describeCodingAgent", () => {
 
     expect(state.tone).toBe("ok");
     expect(state.details).toEqual([
-      "Codex sessions and categorization run on GPT-5.6 Terra.",
       "GPT-5.6 Sol isn't available: Not on this sample plan.",
     ]);
   });
 
-  it("says the models are being checked", () => {
+  it("leaves the models being checked to the table", () => {
     expect(
       describeCodingAgent({
         agents: [claude({ state: "checking" }), NO_CODEX],
@@ -88,7 +90,7 @@ describe("describeCodingAgent", () => {
       }),
     ).toEqual({
       tone: "ok",
-      text: "Connected to Claude Code. Checking which models it can use…",
+      text: null,
       details: [],
       checkAgain: false,
     });
@@ -231,5 +233,55 @@ describe("checkingModels", () => {
     expect(
       checkingModels({ agents: [CLAUDE], chosen: null, picking: true }),
     ).toBe(true);
+  });
+});
+
+describe("agentStatusCell", () => {
+  it("says each agent's state in a word or two", () => {
+    expect(agentStatusCell(CLAUDE)).toEqual({ tone: "ok", text: "Ready" });
+    expect(agentStatusCell(SIGNED_OUT_CODEX)).toEqual({
+      tone: "attention",
+      text: "Not signed in",
+    });
+    expect(agentStatusCell(NO_CODEX)).toEqual({
+      tone: "quiet",
+      text: "Not installed",
+    });
+    expect(
+      agentStatusCell(codex({ state: "no_model", unavailable: [] })),
+    ).toEqual({ tone: "attention", text: "No model answers" });
+  });
+});
+
+describe("summarizeCodingAgent", () => {
+  it("names the agent in use when it works, else what is wrong", () => {
+    expect(
+      summarizeCodingAgent({
+        agents: [CLAUDE, SIGNED_OUT_CODEX],
+        chosen: "claude-code",
+        picking: false,
+      }),
+    ).toEqual({ tone: "ok", text: "Claude Code" });
+    expect(
+      summarizeCodingAgent({
+        agents: [CLAUDE, SIGNED_OUT_CODEX],
+        chosen: "codex",
+        picking: false,
+      }),
+    ).toEqual({ tone: "attention", text: "Codex: not signed in" });
+    expect(
+      summarizeCodingAgent({
+        agents: [NO_CLAUDE, NO_CODEX],
+        chosen: null,
+        picking: false,
+      }),
+    ).toEqual({ tone: "attention", text: "None installed" });
+    expect(
+      summarizeCodingAgent({
+        agents: [CLAUDE, NO_CODEX],
+        chosen: "codex",
+        picking: false,
+      }),
+    ).toEqual({ tone: "attention", text: "Codex not installed" });
   });
 });

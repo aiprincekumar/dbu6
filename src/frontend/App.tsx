@@ -60,10 +60,12 @@ import { ExportHledger } from "./views/ExportHledger";
 import { RenderDraftHledger } from "./views/RenderDraftHledger";
 import { Settings as SettingsPage } from "./views/settings/Settings";
 import { BanksAndCards } from "./views/settings/BanksAndCards";
+import { CodingAgent } from "./views/settings/CodingAgent";
 import { OpeningBalances } from "./views/settings/OpeningBalances";
 import {
   BALANCES_SETTINGS_ROUTE,
   BANKS_SETTINGS_ROUTE,
+  CODING_AGENT_SETTINGS_ROUTE,
   EDIT_BALANCE_PATH,
   EDIT_STATEMENT_ACCOUNT_PATH,
 } from "./views/settings/routes";
@@ -189,6 +191,10 @@ function ownProtectedRoutes(reports: readonly ReportDefinition[]) {
       />
       <Route path={SEARCH_ROUTE.slice(1)} element={<SearchPage />} />
       <Route path="settings" element={<SettingsPage />} />
+      <Route
+        path={CODING_AGENT_SETTINGS_ROUTE.slice(1)}
+        element={<CodingAgent />}
+      />
       <Route path={BANKS_SETTINGS_ROUTE.slice(1)} element={<BanksAndCards />}>
         {/* One bank or card's form, each its own URL. */}
         <Route

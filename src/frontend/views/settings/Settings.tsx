@@ -1,206 +1,112 @@
-import { useId } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  FileText,
-  ListChecks,
-  RefreshCw,
-  Scale,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { usePageTitle } from "@sapporta/frontend/shell";
-import { cn } from "@sapporta/ui/cn";
-import { CODING_AGENTS, type CodingAgent } from "../../../shared/index";
-import { apiErrorMessage, apiRefusalMessage, codingAgentApi } from "../../api";
-import { LinkCard } from "../../components/link-card";
-import { LoadError } from "../../components/load-error";
 import { Screen } from "../../components/screen";
-import { Button } from "../../components/ui/button";
 import { CATEGORIZATION_RULES_ROUTE } from "../import-instructions/routes";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
-import { codingAgentSettingsQuery, refreshCodingAgent } from "../../queries";
 import {
-  checkingModels,
-  describeCodingAgent,
-  type CodingAgentState,
-} from "./describeCodingAgent";
-import { BALANCES_SETTINGS_ROUTE, BANKS_SETTINGS_ROUTE } from "./routes";
-
-// A model check takes a few seconds; the screen asks again until it's done.
-const CHECKING_POLL_MS = 2000;
+  codingAgentSettingsQuery,
+  openingBalancesQuery,
+  statementAccountsQuery,
+  transactionMappingsQuery,
+} from "../../queries";
+import { StatusText } from "./CodingAgent";
+import { summarizeCodingAgent, type StatusCell } from "./describeCodingAgent";
+import { balancesValue, banksValue, rulesValue } from "./describeSettings";
+import {
+  BALANCES_SETTINGS_ROUTE,
+  BANKS_SETTINGS_ROUTE,
+  CODING_AGENT_SETTINGS_ROUTE,
+} from "./routes";
 
 /*
- * The coding agent dbu6 uses for everything AI, installed on the server's
- * machine, and the models it runs on. Until the user picks one, dbu6 picks
- * the first installed agent that works and saves it as the choice. Below it,
- * the way to setting up accounts, to their opening balances and to their
- * categorization instructions.
+ * Settings is an index of the pages that look after how dbu6 is set up: the
+ * coding agent, the banks and cards, the opening balances and the
+ * categorization rules. Each row shows what its page holds, so the index
+ * says whether everything is set up without opening any of them.
  */
 export function Settings() {
   usePageTitle("Settings");
-  const labelId = useId();
-  const client = useQueryClient();
-  const settings = useQuery({
-    ...codingAgentSettingsQuery,
-    refetchInterval: (query) =>
-      query.state.data !== undefined && checkingModels(query.state.data)
-        ? CHECKING_POLL_MS
-        : false,
-  });
-  const choose = useMutation({
-    mutationFn: (agent: CodingAgent) =>
-      codingAgentApi.chooseCodingAgent({ body: { agent } }),
-    onSuccess: (body) => {
-      client.setQueryData(codingAgentSettingsQuery.queryKey, body);
-      void refreshCodingAgent(client);
-    },
-  });
-  const checkAgain = useMutation({
-    mutationFn: () => codingAgentApi.checkCodingAgentModels({ body: {} }),
-    onSuccess: (body) => {
-      client.setQueryData(codingAgentSettingsQuery.queryKey, body);
-    },
-  });
+  const agent = useQuery(codingAgentSettingsQuery);
+  const banks = useQuery(statementAccountsQuery);
+  const balances = useQuery(openingBalancesQuery);
+  const rules = useQuery(transactionMappingsQuery);
 
   return (
     <Screen
       width="narrow"
       header={<h1 className="text-title text-foreground">Settings</h1>}
     >
-      <section className="mt-5 space-y-3">
-        <h2 id={labelId} className="text-heading text-foreground">
-          Coding agent
-        </h2>
-        {settings.isPending && (
-          <p className="text-body text-ink-meta">Looking for coding agents…</p>
-        )}
-        {settings.isError && (
-          <LoadError
-            title="Couldn't check for coding agents"
-            message={apiErrorMessage(settings.error)}
-            retry={() => void settings.refetch()}
-          />
-        )}
-        {settings.data && (
-          <>
-            <RadioGroup<CodingAgent | null>
-              aria-labelledby={labelId}
-              className="max-w-[480px]"
-              value={settings.data.chosen}
-              disabled={choose.isPending}
-              onValueChange={(agent) => {
-                if (agent !== null) choose.mutate(agent);
-              }}
-            >
-              {settings.data.agents.map(({ agent, installed }) => (
-                <RadioGroupItem key={agent} value={agent} disabled={!installed}>
-                  {CODING_AGENTS[agent].label}
-                  {!installed && " (not installed)"}
-                </RadioGroupItem>
-              ))}
-            </RadioGroup>
-            <AgentState
-              state={describeCodingAgent(settings.data)}
-              checkAgain={() => checkAgain.mutate()}
-              checkingAgain={checkAgain.isPending}
-            />
-            {choose.isError && (
-              <p className="text-body text-destructive [overflow-wrap:anywhere]">
-                {apiRefusalMessage(choose.error)}
-              </p>
-            )}
-            {checkAgain.isError && (
-              <p className="text-body text-destructive [overflow-wrap:anywhere]">
-                {apiRefusalMessage(checkAgain.error)}
-              </p>
-            )}
-          </>
-        )}
-      </section>
-      <section className="mt-10 space-y-3">
-        <h2 className="text-heading text-foreground">Accounts</h2>
-        <div className="max-w-[480px] space-y-2">
-          <LinkCard
-            label="Banks & cards"
-            description="The banks and cards your statements come from"
-            to={BANKS_SETTINGS_ROUTE}
-            icon={ListChecks}
-          />
-          <LinkCard
-            label="Opening balances"
-            description="What each account held or owed when your books start"
-            to={BALANCES_SETTINGS_ROUTE}
-            icon={Scale}
-          />
-          <LinkCard
-            label="Automatic transaction categorization rules"
-            description="Which account each imported transaction goes to"
-            to={CATEGORIZATION_RULES_ROUTE}
-            icon={FileText}
-          />
-        </div>
-      </section>
+      <nav aria-label="Settings" className="mt-6 border-t border-sap-border">
+        <SettingsRow
+          label="Coding agent"
+          description="The agent that reads statements and categorizes transactions"
+          to={CODING_AGENT_SETTINGS_ROUTE}
+          value={valueOf(agent, summarizeCodingAgent)}
+        />
+        <SettingsRow
+          label="Banks & cards"
+          description="The accounts whose statements you import"
+          to={BANKS_SETTINGS_ROUTE}
+          value={valueOf(banks, banksValue)}
+        />
+        <SettingsRow
+          label="Opening balances"
+          description="Each asset and liability on the day your books start"
+          to={BALANCES_SETTINGS_ROUTE}
+          value={valueOf(balances, balancesValue)}
+        />
+        <SettingsRow
+          label="Categorization rules"
+          description="The account each imported transaction is posted to"
+          to={CATEGORIZATION_RULES_ROUTE}
+          value={valueOf(rules, rulesValue)}
+        />
+      </nav>
     </Screen>
   );
 }
 
-function AgentState({
-  state,
-  checkAgain,
-  checkingAgain,
+// A row's value once its query is in; nothing while it loads, and a dash
+// when it failed, which the page itself explains.
+function valueOf<T>(
+  query: { data: T | undefined; isError: boolean },
+  describe: (data: T) => StatusCell,
+): StatusCell | null {
+  if (query.data !== undefined) return describe(query.data);
+  return query.isError ? { tone: "quiet", text: "—" } : null;
+}
+
+function SettingsRow({
+  label,
+  description,
+  to,
+  value,
 }: {
-  state: CodingAgentState;
-  checkAgain: () => void;
-  checkingAgain: boolean;
+  label: string;
+  description: string;
+  to: string;
+  value: StatusCell | null;
 }) {
-  const ok = state.tone === "ok";
-  const Icon = ok ? CheckCircle2 : AlertTriangle;
   return (
-    <div className="max-w-[640px] space-y-2">
-      <p
-        className={cn(
-          "flex items-start gap-2 text-body",
-          ok ? "text-ink-soft" : "text-attention-ink",
-        )}
-      >
-        <Icon
-          aria-hidden="true"
-          className={cn("mt-0.5 size-4 shrink-0", ok && "text-money-in")}
-        />
-        <span>
-          {state.text}
-          {state.command && (
-            <>
-              {" "}
-              <code className="rounded-control bg-muted px-1.5 py-0.5 font-mono text-meta text-foreground">
-                {state.command}
-              </code>
-            </>
-          )}
+    <Link
+      to={to}
+      className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-4 border-b border-sap-border px-2 py-3 text-foreground no-underline hover:bg-sap-row-hover"
+    >
+      <span className="min-w-0">
+        <span className="block text-row font-semibold">{label}</span>
+        <span className="mt-0.5 block text-meta text-ink-soft">
+          {description}
         </span>
-      </p>
-      {state.details.map((line) => (
-        <p
-          key={line}
-          className="pl-6 text-meta text-ink-meta [overflow-wrap:anywhere]"
-        >
-          {line}
-        </p>
-      ))}
-      {state.checkAgain && (
-        <div className="pl-6">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={checkingAgain}
-            onClick={checkAgain}
-          >
-            <RefreshCw />
-            Check again
-          </Button>
-        </div>
-      )}
-    </div>
+      </span>
+      <span className="text-right text-row tabular-nums">
+        {value && <StatusText cell={value} />}
+      </span>
+      <ArrowRight
+        aria-hidden="true"
+        className="size-4 text-ink-meta"
+        strokeWidth={1.8}
+      />
+    </Link>
   );
 }

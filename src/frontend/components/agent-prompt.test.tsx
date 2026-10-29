@@ -274,8 +274,8 @@ describe("AgentButton", () => {
     expect(document.body.textContent).toContain(
       "Open your coding agent in your dbu6 project folder",
     );
-    const settings = document.querySelector('a[href="/settings"]');
-    expect(settings?.textContent).toBe("Open Settings");
+    const settings = document.querySelector('a[href="/settings/agent"]');
+    expect(settings?.textContent).toBe("Set up the coding agent");
   });
 
   it("copies through a textarea where the browser refuses the Clipboard API", async () => {

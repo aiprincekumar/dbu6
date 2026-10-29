@@ -9,12 +9,13 @@ import {
   DialogTitle,
 } from "@sapporta/ui/dialog";
 import { buttonVariants } from "../../components/ui/button";
+import { CODING_AGENT_SETTINGS_ROUTE } from "../settings/routes";
 import type { AgentUnavailable } from "./describeCategorization";
 
 /*
  * Said once per run when the coding agent couldn't be used: the entries were
  * saved without an account, and dbu6 won't ask the agent again until its
- * configuration is checked on Settings. The user comes back and runs the
+ * configuration is checked on the Coding agent page. The user comes back and runs the
  * categorization again from here.
  */
 export function AgentUnavailableDialog({
@@ -38,15 +39,15 @@ export function AgentUnavailableDialog({
           <DialogTitle>{problem?.title}</DialogTitle>
           <DialogDescription>
             The entries were saved without an account. Check the coding agent's
-            configuration on Settings, then run the categorization again.
+            configuration, then run the categorization again.
           </DialogDescription>
         </DialogHeader>
         <p className="text-meta text-ink-meta [overflow-wrap:anywhere]">
           {problem?.reason}
         </p>
         <DialogFooter>
-          <Link to="/settings" className={buttonVariants()}>
-            Open Settings
+          <Link to={CODING_AGENT_SETTINGS_ROUTE} className={buttonVariants()}>
+            Check the coding agent
           </Link>
         </DialogFooter>
       </DialogContent>

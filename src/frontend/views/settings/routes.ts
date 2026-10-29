@@ -8,6 +8,9 @@
  * and the form can be linked to on its own.
  */
 
+/** Where the coding agent dbu6 uses is chosen, and checked. */
+export const CODING_AGENT_SETTINGS_ROUTE = "/settings/agent";
+
 /**
  * Where a bank or card is listed, and a deleted one's preset goes.
  */

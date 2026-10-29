@@ -318,7 +318,7 @@ describe("card 1 on new books", () => {
     await render();
 
     expect(text()).toContain(
-      "Sample Agent isn't signed in. You can check the agent in Settings.",
+      "Sample Agent isn't signed in. You can check the agent on the Coding agent page.",
     );
     expect(host.querySelector("textarea")).toBeNull();
   });

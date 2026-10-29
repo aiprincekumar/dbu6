@@ -24,6 +24,7 @@ import type { AgentPrompt } from "../agent-prompt-rules";
 import { agentHandoffApi, apiRefusalMessage } from "../api";
 import { copyText } from "../clipboard";
 import { agentHandoffAvailabilityQuery } from "../queries";
+import { CODING_AGENT_SETTINGS_ROUTE } from "../views/settings/routes";
 import { Button, buttonVariants } from "./ui/button";
 
 /**
@@ -267,15 +268,15 @@ export function AgentButton({
           </div>
           <DialogDescription className="text-meta text-ink-meta">
             Note: dbu6 can automatically open your coding agent and run the
-            prompt if you configure it in Settings.
+            prompt once you set it up in Settings.
           </DialogDescription>
           <DialogFooter>
             <Link
-              to="/settings"
+              to={CODING_AGENT_SETTINGS_ROUTE}
               className={buttonVariants({ variant: "outline" })}
             >
               <Settings aria-hidden="true" />
-              Open Settings
+              Set up the coding agent
             </Link>
             <Button type="button" onClick={() => setPasteHint(false)}>
               OK

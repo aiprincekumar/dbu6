@@ -20,6 +20,7 @@ import {
 } from "../components/focus-card";
 import { addHref } from "../add-account/state";
 import { setupFrame } from "../add-account/words";
+import { CODING_AGENT_SETTINGS_ROUTE } from "../views/settings/routes";
 import {
   initialTicks,
   lockedAccounts,
@@ -237,11 +238,14 @@ function NoAgent({ reason }: { reason: string }) {
   }
   return (
     <p className="rounded-card border border-attention-border bg-attention-bg px-4 py-3 text-body text-attention-ink">
-      {withoutFullStop(reason)}. You can check the agent in{" "}
-      <Link to="/settings" className="underline underline-offset-4">
-        Settings
-      </Link>
-      . Until it works, you can use the default accounts below.
+      {withoutFullStop(reason)}. You can check the agent on the{" "}
+      <Link
+        to={CODING_AGENT_SETTINGS_ROUTE}
+        className="underline underline-offset-4"
+      >
+        Coding agent
+      </Link>{" "}
+      page. Until it works, you can use the default accounts below.
     </p>
   );
 }

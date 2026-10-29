@@ -7,14 +7,16 @@ import {
   type CodingAgentStatus,
 } from "../../../shared/index";
 
-// What Settings says under the agent picker: whether dbu6's AI works on this
-// machine and on which models, and if not, the one thing to do.
+// What the Coding agent page says under the agents' table: nothing while the
+// agent in use works, else the one thing to do. The table itself shows each
+// agent's state and models.
 export interface CodingAgentState {
   tone: "ok" | "attention";
-  text: string;
+  /** Null when the table says it all. */
+  text: string | null;
   /** A command to run in a terminal, shown after the text. */
   command?: string;
-  /** Lines under the text: the models, and the ones that didn't answer. */
+  /** Lines under the text: the models that didn't answer, and why. */
   details: string[];
   /**
    * Nothing is being checked, so the user can ask dbu6 to detect the agents
@@ -90,28 +92,16 @@ export function describeCodingAgent(
   switch (models.state) {
     case "not_checked":
     case "checking":
+      return { tone: "ok", text: null, details: [], checkAgain: false };
+    case "ready":
       return {
         tone: "ok",
-        text: `Connected to ${label}. Checking which models it can use…`,
-        details: [],
-        checkAgain: false,
-      };
-    case "ready": {
-      const { session, categorization } = models;
-      return {
-        tone: "ok",
-        text: `Connected to ${label}. It categorizes transactions, reads new bank statements, fixes import problems, and answers questions about your data.`,
-        details: [
-          session.model === categorization.model
-            ? `${label} sessions and categorization run on ${session.label}.`
-            : `${label} sessions run on ${session.label}, and categorization on ${categorization.label}.`,
-          ...models.unavailable.map(
-            (model) => `${model.label} isn't available: ${model.reason}`,
-          ),
-        ],
+        text: null,
+        details: models.unavailable.map(
+          (model) => `${model.label} isn't available: ${model.reason}`,
+        ),
         checkAgain: true,
       };
-    }
     case "no_model":
       return {
         tone: "attention",
@@ -122,4 +112,57 @@ export function describeCodingAgent(
         checkAgain: true,
       };
   }
+}
+
+/**
+ * A value in a status column and the ink it is drawn in: one agent's on the
+ * Coding agent page, each page's on Settings' index.
+ */
+export interface StatusCell {
+  tone: "ok" | "attention" | "quiet" | "plain";
+  text: string;
+}
+
+export function agentStatusCell(status: CodingAgentStatus): StatusCell {
+  if (!status.installed) return { tone: "quiet", text: "Not installed" };
+  if (!status.logged_in) return { tone: "attention", text: "Not signed in" };
+  switch (status.models.state) {
+    case "not_checked":
+      return { tone: "quiet", text: "Not checked" };
+    case "checking":
+      return { tone: "quiet", text: "Checking…" };
+    case "ready":
+      return { tone: "ok", text: "Ready" };
+    case "no_model":
+      return { tone: "attention", text: "No model answers" };
+  }
+}
+
+/**
+ * The agent in use and whether it works, as Settings' index shows it in its
+ * value column: "Claude Code" when it works, else what is wrong.
+ */
+export function summarizeCodingAgent(
+  settings: CodingAgentSettings,
+): StatusCell {
+  if (settings.picking) return { tone: "quiet", text: "Checking…" };
+  const inUse = codingAgentInUse(settings.agents, settings.chosen);
+  if (inUse.agent === null) {
+    switch (inUse.why.kind) {
+      case "none_installed":
+        return { tone: "attention", text: "None installed" };
+      case "none_works":
+        return { tone: "attention", text: "None works" };
+      case "chosen_missing":
+        return {
+          tone: "attention",
+          text: `${CODING_AGENTS[inUse.why.chosen].label} not installed`,
+        };
+    }
+  }
+  const label = CODING_AGENTS[inUse.agent.agent].label;
+  const cell = agentStatusCell(inUse.agent);
+  return cell.tone === "ok"
+    ? { tone: "ok", text: label }
+    : { tone: cell.tone, text: `${label}: ${cell.text.toLowerCase()}` };
 }

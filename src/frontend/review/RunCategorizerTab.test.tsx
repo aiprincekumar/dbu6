@@ -494,9 +494,9 @@ describe("Run categorizer when the coding agent can't be used", () => {
       "Claude Code didn't answer on Claude Sonnet. See Settings.",
     );
     const settings = [...(dialog?.querySelectorAll("a") ?? [])].find(
-      (a) => a.textContent === "Open Settings",
+      (a) => a.textContent === "Check the coding agent",
     );
-    expect(settings?.getAttribute("href")).toBe("/settings");
+    expect(settings?.getAttribute("href")).toBe("/settings/agent");
   });
 
   it("sums up the run with what went wrong when only some calls failed", async () => {
