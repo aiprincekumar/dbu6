@@ -189,9 +189,11 @@ export {
   requestUsesToken,
   resolveBearerTokenPrincipal,
   revokeAuthToken,
+  revokeAuthTokensWithPurpose,
   tokenIsLive,
   TokenAuthError,
   TokenManagementError,
+  type AuthTokenPurpose,
 } from "./auth-tokens.js";
 export {
   rejectAnonymousByDefault,

@@ -34,7 +34,6 @@ import {
   membershipFromRow,
 } from "../server/project-auth/index.js";
 import {
-  AGENT_TOKEN_NAME,
   mintAgentToken,
   writeAgentToken,
 } from "../server/modules/coding-agent/index.js";
@@ -157,7 +156,7 @@ export async function agentCommand(
     if (print) {
       // Nothing stores this one, so say so: a later run of this command
       // revokes it by name, like any other token this command made.
-      const minted = mintAgentToken(runtime.conn, owner);
+      const minted = mintAgentToken(runtime.conn, owner, "dbu6 agent env");
       process.stderr.write(
         `No ${AGENT_ENV_FILE} in this project, so this token is not stored: run \`dbu6 agent env\` to keep one there.\n`,
       );
@@ -165,13 +164,18 @@ export async function agentCommand(
       return 0;
     }
 
-    const written = writeAgentToken(runtime.conn, owner, root);
+    const written = writeAgentToken(
+      runtime.conn,
+      owner,
+      root,
+      "dbu6 agent env",
+    );
     console.log(
       [
         `Wrote ${AGENT_ENV_FILE} for ${account.email}.`,
-        `  token ${written.tokenId.slice(0, 8)}… (${AGENT_TOKEN_NAME})`,
+        `  token ${written.tokenId.slice(0, 8)}…`,
         written.revoked > 0
-          ? `  revoked ${written.revoked} earlier ${AGENT_TOKEN_NAME} token(s)`
+          ? `  revoked ${written.revoked} earlier coding-agent token(s)`
           : "",
         "",
         "It is gitignored. The `sapporta` command reads the token from it and",

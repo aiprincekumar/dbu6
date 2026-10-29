@@ -99,6 +99,13 @@
       "when": 1790590733538,
       "tag": "0013_categorization_rule_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793290761108,
+      "tag": "0014_agent_token_purpose",
+      "breakpoints": true
     }
   ]
 }

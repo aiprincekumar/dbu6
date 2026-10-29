@@ -6,8 +6,9 @@
  * account it is told to; and handing a prompt to the coding agent
  * (handoff.ts) does, for the signed-in owner, when the file holds no token the
  * app accepts, so a prompt's agent can reach the app without asking for one.
- * Both mint the token the way the app's token screen mints one, under one
- * name, so each revokes the tokens the other wrote before it.
+ * Both mint the token the way the app's token screen mints one, with the
+ * `coding-agent` purpose, so each revokes the tokens the other wrote before
+ * it; each names the token after itself, which is only a label.
  *
  * The file sits beside `.env.development`. The shipped `sapporta` bin reads
  * it and `dbu6 dev` does not, so the server's own process never holds the
@@ -21,18 +22,16 @@ import {
   AGENT_ENV_FILE,
   readAgentToken,
 } from "../../../../bin/sapporta-env.mjs";
-import { todayIn } from "../../../shared/index.js";
 import type { AppPrincipal } from "../../authz/types.js";
 import {
   createAuthToken,
   isSampleAccount,
-  listAuthTokens,
-  revokeAuthToken,
+  revokeAuthTokensWithPurpose,
   tokenIsLive,
 } from "../../project-auth/index.js";
 
-/** Where the token comes from, as the project explains it to a person. */
-export const AGENT_TOKEN_NAME = "dbu6 agent env";
+/** What minted an agent token, which is the name a person sees it by. */
+export type AgentTokenMinter = "dbu6 agent env" | "Prompt handoff";
 
 /** Who a token is minted for: a user, in one workspace. */
 export type AgentTokenOwner = Extract<AppPrincipal, { kind: "user" }>;
@@ -45,7 +44,8 @@ export interface MintedAgentToken {
 }
 
 /**
- * Mints a token for `owner`'s workspace, under the name dbu6 gives them.
+ * Mints a coding-agent token for `owner`'s workspace, named after what
+ * minted it.
  *
  * Never for the sample account dbu6-seed-sample-data makes: it is a real
  * account with real tokens, but the next seed replaces its books, so an agent
@@ -54,23 +54,28 @@ export interface MintedAgentToken {
 export function mintAgentToken(
   conn: ProjectDbConnection,
   owner: AgentTokenOwner,
+  mintedBy: AgentTokenMinter,
 ): MintedAgentToken {
   if (isSampleAccount(owner.user)) {
     throw new Error(
       `${owner.user.email} is the sample account dbu6-seed-sample-data makes, whose books the next run replaces. Sign up in the app and use that account.`,
     );
   }
-  const created = createAuthToken(conn, owner, {
-    name: `${AGENT_TOKEN_NAME} (${todayIn(owner.membership.workspace.timeZone)})`,
-  });
+  const created = createAuthToken(
+    conn,
+    owner,
+    { name: mintedBy },
+    { purpose: "coding-agent" },
+  );
   return { apiToken: created.rawToken, tokenId: created.token.id };
 }
 
 /**
  * Mints a token for `owner`, writes it to the project's `.env.agent`, and
- * then revokes the agent tokens dbu6 minted for them before, now that the new
- * one is on disk. Only those, by name: a token a person made in the app, or
- * one another tool made, is not dbu6's to revoke.
+ * then revokes the coding-agent tokens dbu6 minted for them before, now that
+ * the new one is on disk. Only those, by purpose: a token a person made in the
+ * app, whatever they named it, or one another tool made, is not dbu6's to
+ * revoke.
  *
  * The file is a dotenv file like `.env.development`, and its first lines say
  * where it came from so a person who finds it can tell whether to keep it. It
@@ -81,8 +86,9 @@ export function writeAgentToken(
   conn: ProjectDbConnection,
   owner: AgentTokenOwner,
   root: string,
+  mintedBy: AgentTokenMinter,
 ): MintedAgentToken & { revoked: number } {
-  const minted = mintAgentToken(conn, owner);
+  const minted = mintAgentToken(conn, owner, mintedBy);
   const file = join(root, AGENT_ENV_FILE);
   writeFileSync(
     file,
@@ -104,15 +110,13 @@ export function writeAgentToken(
   // It holds a credential either way.
   chmodSync(file, 0o600);
 
-  const userId = owner.user.id;
-  const workspaceId = owner.membership.workspace.id;
-  let revoked = 0;
-  for (const token of listAuthTokens(conn, userId, workspaceId)) {
-    if (token.id === minted.tokenId) continue;
-    if (token.revokedAt !== null) continue;
-    if (!token.name.startsWith(AGENT_TOKEN_NAME)) continue;
-    if (revokeAuthToken(conn, userId, token.id, workspaceId)) revoked += 1;
-  }
+  const revoked = revokeAuthTokensWithPurpose(
+    conn,
+    owner.user.id,
+    owner.membership.workspace.id,
+    "coding-agent",
+    minted.tokenId,
+  );
   return { ...minted, revoked };
 }
 
@@ -134,5 +138,5 @@ export function ensureAgentToken(
   if (isSampleAccount(owner.user)) return;
   const stored = readAgentToken(root);
   if (stored !== undefined && tokenIsLive(conn, stored)) return;
-  writeAgentToken(conn, owner, root);
+  writeAgentToken(conn, owner, root, "Prompt handoff");
 }

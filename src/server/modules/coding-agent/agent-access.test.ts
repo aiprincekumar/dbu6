@@ -26,7 +26,6 @@ import {
   readAgentToken,
 } from "../../../../bin/sapporta-env.mjs";
 import {
-  AGENT_TOKEN_NAME,
   ensureAgentToken,
   mintAgentToken,
   writeAgentToken,
@@ -89,26 +88,37 @@ function liveTokens(conn: ProjectDbConnection, owner: AgentTokenOwner) {
   ).filter((token) => token.revokedAt === null);
 }
 
+/** What each token was minted for, by id; `null` for one a person made. */
+function purposes(conn: ProjectDbConnection): Record<string, string | null> {
+  const rows = conn.sqlite
+    .prepare("SELECT id, purpose FROM personalAccessToken")
+    .all() as { id: string; purpose: string | null }[];
+  return Object.fromEntries(rows.map((row) => [row.id, row.purpose]));
+}
+
 function writeFile(root: string, contents: string, mode = 0o600): void {
   writeFileSync(join(root, AGENT_ENV_FILE), contents, { mode });
 }
 
 describe("mintAgentToken", () => {
-  it("mints under dbu6's name", () => {
+  it("mints a coding-agent token, named after what minted it", () => {
     const { conn, owner } = books();
 
-    const minted = mintAgentToken(conn, owner);
+    const minted = mintAgentToken(conn, owner, "dbu6 agent env");
 
     expect(minted.apiToken).toMatch(/^spat_/);
     const [token] = liveTokens(conn, owner);
     expect(token?.id).toBe(minted.tokenId);
-    expect(token?.name.startsWith(AGENT_TOKEN_NAME)).toBe(true);
+    expect(token?.name).toBe("dbu6 agent env");
+    expect(purposes(conn)[minted.tokenId]).toBe("coding-agent");
   });
 
   it("refuses the sample account, and mints nothing", () => {
     const { conn, owner } = books(DEMO_ACCOUNT.email);
 
-    expect(() => mintAgentToken(conn, owner)).toThrow(/sample account/);
+    expect(() => mintAgentToken(conn, owner, "dbu6 agent env")).toThrow(
+      /sample account/,
+    );
     expect(liveTokens(conn, owner)).toEqual([]);
   });
 });
@@ -118,7 +128,7 @@ describe("writeAgentToken", () => {
     const { conn, owner } = books();
     const root = tempRoot();
 
-    const written = writeAgentToken(conn, owner, root);
+    const written = writeAgentToken(conn, owner, root, "dbu6 agent env");
 
     const file = readFileSync(join(root, AGENT_ENV_FILE), "utf8");
     expect(file).toContain(`SAPPORTA_API_TOKEN=${written.apiToken}`);
@@ -135,7 +145,7 @@ describe("writeAgentToken", () => {
     const { conn, owner } = books();
     const root = tempRoot();
 
-    writeAgentToken(conn, owner, root);
+    writeAgentToken(conn, owner, root, "dbu6 agent env");
 
     expect(statSync(join(root, AGENT_ENV_FILE)).mode & 0o777).toBe(0o600);
   });
@@ -146,7 +156,7 @@ describe("writeAgentToken", () => {
     // A restored backup, or a file some other tool made.
     writeFile(root, "old\n", 0o644);
 
-    writeAgentToken(conn, owner, root);
+    writeAgentToken(conn, owner, root, "dbu6 agent env");
 
     expect(statSync(join(root, AGENT_ENV_FILE)).mode & 0o777).toBe(0o600);
   });
@@ -154,9 +164,9 @@ describe("writeAgentToken", () => {
   it("revokes the tokens dbu6 wrote before, once the new one is on disk", () => {
     const { conn, owner } = books();
     const root = tempRoot();
-    const first = writeAgentToken(conn, owner, root);
+    const first = writeAgentToken(conn, owner, root, "dbu6 agent env");
 
-    const second = writeAgentToken(conn, owner, root);
+    const second = writeAgentToken(conn, owner, root, "dbu6 agent env");
 
     expect(readAgentToken(root)).toBe(second.apiToken);
     expect(second.revoked).toBe(1);
@@ -170,11 +180,39 @@ describe("writeAgentToken", () => {
     const { conn, owner } = books();
     const made = createAuthToken(conn, owner, { name: "my laptop" });
 
-    writeAgentToken(conn, owner, tempRoot());
+    writeAgentToken(conn, owner, tempRoot(), "dbu6 agent env");
 
     expect(liveTokens(conn, owner).map((token) => token.id)).toContain(
       made.token.id,
     );
+  });
+
+  it("leaves an app-made token alone even when it is named like dbu6's", () => {
+    const { conn, owner } = books();
+    const made = createAuthToken(conn, owner, {
+      name: "dbu6 agent env laptop",
+    });
+
+    const written = writeAgentToken(conn, owner, tempRoot(), "dbu6 agent env");
+
+    expect(written.revoked).toBe(0);
+    expect(liveTokens(conn, owner).map((token) => token.id)).toContain(
+      made.token.id,
+    );
+  });
+
+  it("revokes a coding-agent token whatever minted it", () => {
+    const { conn, owner } = books();
+    const root = tempRoot();
+    const handedOff = writeAgentToken(conn, owner, root, "Prompt handoff");
+
+    const written = writeAgentToken(conn, owner, root, "dbu6 agent env");
+
+    expect(written.revoked).toBe(1);
+    expect(liveTokens(conn, owner).map((token) => token.id)).toEqual([
+      written.tokenId,
+    ]);
+    expect(handedOff.tokenId).not.toBe(written.tokenId);
   });
 });
 
@@ -187,7 +225,8 @@ describe("ensureAgentToken", () => {
 
     const [token] = liveTokens(conn, owner);
     expect(readAgentToken(root)).toMatch(/^spat_/);
-    expect(token?.name.startsWith(AGENT_TOKEN_NAME)).toBe(true);
+    expect(token?.name).toBe("Prompt handoff");
+    expect(purposes(conn)[token!.id]).toBe("coding-agent");
   });
 
   it("leaves a file whose token works as it is, whoever it is for, and mints nothing", () => {
@@ -208,7 +247,7 @@ describe("ensureAgentToken", () => {
   it("replaces a token that was revoked", () => {
     const { conn, owner } = books();
     const root = tempRoot();
-    const old = writeAgentToken(conn, owner, root);
+    const old = writeAgentToken(conn, owner, root, "dbu6 agent env");
     revokeAuthToken(
       conn,
       owner.user.id,

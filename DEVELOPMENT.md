@@ -342,8 +342,11 @@ has no business holding an agent's credential.
 `dbu6 agent env` (`src/cli/agent.ts`) mints that token straight into the
 database — the same `createAuthToken` the app's token screen calls, so no app
 has to be running — writes `.env.agent`, holding only the token, mode `0600`
-and gitignored, and revokes the token its previous run wrote, matched by name so
-a token made in the app is left alone. Handing a prompt to the coding agent
+and gitignored, and revokes the coding-agent tokens written before it. Those
+are known by the token row's `purpose` (`coding-agent`,
+`project-auth/auth-tokens.ts`), which only dbu6 sets, so a token made in the
+app is left alone whatever it is named; the name only says what minted the
+token, `dbu6 agent env` or `Prompt handoff`. Handing a prompt to the coding agent
 (`handOffPrompt`, `modules/coding-agent/handoff.ts`) does the same for the
 signed-in owner, once an agent and a model can run, when `.env.agent` holds no
 token the app accepts: a missing one, or one revoked, expired or from other

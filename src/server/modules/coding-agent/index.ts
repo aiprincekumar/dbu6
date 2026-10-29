@@ -17,9 +17,9 @@ export {
   type AgentTokenFor,
 } from "./handoff.js";
 export {
-  AGENT_TOKEN_NAME,
   mintAgentToken,
   writeAgentToken,
+  type AgentTokenMinter,
   type AgentTokenOwner,
 } from "./agent-access.js";
 export { chosenCodingAgent } from "./agents.js";

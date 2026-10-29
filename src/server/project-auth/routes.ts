@@ -159,12 +159,9 @@ export function createProjectAuthRoutes(options: ProjectAuthRoutesOptions) {
       const auth = requireTokenManagementAccess(c, "create");
       return {
         status: 201,
-        body: createAuthToken(
-          options.conn,
-          auth.principal,
-          request.body,
-          tokenManagementScope(auth),
-        ),
+        body: createAuthToken(options.conn, auth.principal, request.body, {
+          scope: tokenManagementScope(auth),
+        }),
       };
     } catch (err) {
       if (err instanceof TokenManagementError) {

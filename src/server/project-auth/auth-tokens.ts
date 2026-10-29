@@ -33,6 +33,14 @@ import {
  * raw token again after creation.
  */
 const TOKEN_PREFIX = "spat";
+const TOKEN_PATTERN = new RegExp(`^${TOKEN_PREFIX}_([^_]+)_(.+)$`, "i");
+
+/**
+ * The jobs dbu6 mints tokens for itself, stored in the token's `purpose`. A
+ * token with one is dbu6's to replace; a token a person made has none, and is
+ * theirs whatever they named it. `coding-agent`: the token `.env.agent` holds.
+ */
+export type AuthTokenPurpose = "coding-agent";
 
 interface PersonalAccessTokenRow {
   id: string;
@@ -68,6 +76,13 @@ export class TokenManagementError extends Error {
 export interface AuthTokenManagementScope {
   userId: string;
   organizationId: string;
+}
+
+export interface CreateAuthTokenOptions {
+  /** The workspace a token-management route is bound to. */
+  scope?: AuthTokenManagementScope;
+  /** Set only by dbu6 itself; the app's token screen sends none. */
+  purpose?: AuthTokenPurpose;
 }
 
 /**
@@ -226,7 +241,7 @@ export function createAuthToken(
   conn: ProjectDbConnection,
   principal: Extract<AppPrincipal, { kind: "user" }>,
   body: CreateAuthTokenBody,
-  scope?: AuthTokenManagementScope,
+  { scope, purpose }: CreateAuthTokenOptions = {},
 ): CreateAuthTokenResponse {
   if (scope && scope.userId !== principal.user.id) {
     throw new TokenManagementError("forbidden");
@@ -262,9 +277,10 @@ export function createAuthToken(
         createdAt,
         expiresAt,
         lastUsedAt,
-        revokedAt
+        revokedAt,
+        purpose
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
       `,
     )
     .run(
@@ -275,6 +291,7 @@ export function createAuthToken(
       hashSecret(id, secret),
       now,
       expiresAt,
+      purpose ?? null,
     );
 
   const token = readToken(conn, id);
@@ -319,12 +336,36 @@ export function revokeAuthToken(
 }
 
 /**
+ * Revokes `userId`'s live tokens in `organizationId` that dbu6 minted for
+ * `purpose`, except the one with id `keep`, and returns how many. Tokens with
+ * another purpose or none are left alone, whatever they are named.
+ */
+export function revokeAuthTokensWithPurpose(
+  conn: ProjectDbConnection,
+  userId: string,
+  organizationId: string,
+  purpose: AuthTokenPurpose,
+  keep: string,
+): number {
+  return conn.sqlite
+    .prepare(
+      `
+      UPDATE personalAccessToken
+      SET revokedAt = ?
+      WHERE userId = ? AND organizationId = ? AND purpose = ? AND id <> ?
+        AND revokedAt IS NULL
+      `,
+    )
+    .run(Date.now(), userId, organizationId, purpose, keep).changes;
+}
+
+/**
  * Token ids are public lookup handles; token secrets are the bearer
  * credentials. Splitting the two lets the server find one row and compare a
  * hash without storing the raw credential.
  */
 function parseToken(value: string): { id: string; secret: string } | null {
-  const match = value.match(/^spat_([^_]+)_(.+)$/i);
+  const match = value.match(TOKEN_PATTERN);
   if (!match) return null;
   return {
     id: match[1],

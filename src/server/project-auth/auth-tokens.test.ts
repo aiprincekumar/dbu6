@@ -10,6 +10,7 @@ import {
   requestUsesToken,
   resolveBearerTokenPrincipal,
   revokeAuthToken,
+  revokeAuthTokensWithPurpose,
   tokenIsLive,
 } from "./auth-tokens.js";
 import { findMembership, membershipFromRow } from "./workspace.js";
@@ -75,7 +76,7 @@ function books() {
     listAuthTokens(conn, "05050500-owner").find(
       (token) => token.id === made.token.id,
     )?.lastUsedAt;
-  return { conn, sqlite, made, lastUsedAt };
+  return { conn, sqlite, owner, made, lastUsedAt };
 }
 
 describe("tokenIsLive", () => {
@@ -126,5 +127,75 @@ describe("tokenIsLive", () => {
 
     expect(principal?.kind).toBe("user");
     expect(lastUsedAt()).not.toBeNull();
+  });
+});
+
+describe("revokeAuthTokensWithPurpose", () => {
+  const live = (conn: ProjectDbConnection) =>
+    listAuthTokens(conn, "05050500-owner", "05050500-org")
+      .filter((token) => token.revokedAt === null)
+      .map((token) => token.id);
+
+  it("revokes the live tokens with that purpose, except the one kept", () => {
+    const { conn, owner, made } = books();
+    const older = createAuthToken(
+      conn,
+      owner,
+      { name: "sample" },
+      { purpose: "coding-agent" },
+    );
+    const kept = createAuthToken(
+      conn,
+      owner,
+      { name: "sample" },
+      { purpose: "coding-agent" },
+    );
+
+    const revoked = revokeAuthTokensWithPurpose(
+      conn,
+      "05050500-owner",
+      "05050500-org",
+      "coding-agent",
+      kept.token.id,
+    );
+
+    expect(revoked).toBe(1);
+    expect(live(conn).sort()).toEqual([kept.token.id, made.token.id].sort());
+    expect(live(conn)).not.toContain(older.token.id);
+  });
+
+  it("leaves a token with no purpose alone, whatever it is named", () => {
+    const { conn, owner, made } = books();
+    const named = createAuthToken(conn, owner, { name: "dbu6 agent env" });
+
+    const revoked = revokeAuthTokensWithPurpose(
+      conn,
+      "05050500-owner",
+      "05050500-org",
+      "coding-agent",
+      made.token.id,
+    );
+
+    expect(revoked).toBe(0);
+    expect(live(conn)).toContain(named.token.id);
+  });
+
+  it("stores the purpose it was minted with, and none when given none", () => {
+    const { conn, sqlite, owner, made } = books();
+    const agent = createAuthToken(
+      conn,
+      owner,
+      { name: "sample" },
+      { purpose: "coding-agent" },
+    );
+    const purpose = (id: string) =>
+      (
+        sqlite
+          .prepare("SELECT purpose FROM personalAccessToken WHERE id = ?")
+          .get(id) as { purpose: string | null }
+      ).purpose;
+
+    expect(purpose(agent.token.id)).toBe("coding-agent");
+    expect(purpose(made.token.id)).toBeNull();
   });
 });
