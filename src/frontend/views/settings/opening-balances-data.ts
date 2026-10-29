@@ -16,11 +16,13 @@ import type { BalanceEntry } from "./OpeningBalanceDialog";
 /**
  * What the page hands the balance form's route: the list it read, so the form
  * opens the account from the very list behind it, and the one write a form
- * makes. Removing is the list's own.
+ * makes. Removing is the list's own: the form only asks for it.
  */
 export interface OpeningBalancesPage {
   data: OpeningBalances;
   save: (account: OpeningBalanceAccount, entry: BalanceEntry) => Promise<void>;
+  /** Closes the form and asks the list to remove the account's balance. */
+  askRemove: (account: OpeningBalanceAccount) => void;
 }
 
 export function useOpeningBalances() {

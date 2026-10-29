@@ -70,6 +70,7 @@ export interface BalanceEntry {
 export function OpeningBalanceDialog({
   editing,
   save,
+  onRemove,
   onClose,
 }: {
   /** The account and table the balance is in. */
@@ -78,6 +79,8 @@ export function OpeningBalanceDialog({
     account: OpeningBalanceAccount,
     entry: BalanceEntry,
   ) => Promise<unknown>;
+  /** Asks to remove the recorded balance; null where it can't be. */
+  onRemove: (() => void) | null;
   onClose: () => void;
 }) {
   return (
@@ -87,6 +90,7 @@ export function OpeningBalanceDialog({
           key={editing.account.account_id}
           editing={editing}
           save={save}
+          onRemove={onRemove}
           onClose={onClose}
         />
       </DialogContent>
@@ -97,6 +101,7 @@ export function OpeningBalanceDialog({
 function DialogBody({
   editing: { account, section },
   save,
+  onRemove,
   onClose,
 }: {
   editing: BalanceEditing;
@@ -104,6 +109,7 @@ function DialogBody({
     account: OpeningBalanceAccount,
     entry: BalanceEntry,
   ) => Promise<unknown>;
+  onRemove: (() => void) | null;
   onClose: () => void;
 }) {
   const ids = { amount: useId(), date: useId(), note: useId() };
@@ -156,7 +162,8 @@ function DialogBody({
         </DialogTitle>
         {!adding && section === "statement" && (
           <DialogDescription>
-            Set from its first statement. Changing it moves its balance checks.
+            This is the balance on its first statement. If you change it, your
+            books will no longer match the balances on its statements.
           </DialogDescription>
         )}
       </DialogHeader>
@@ -164,7 +171,7 @@ function DialogBody({
       <div className="mt-4 space-y-4">
         <Field
           label={amountLabel(type)}
-          hint={amountHint(type, fromSuggestion)}
+          hint={amountHint(fromSuggestion)}
           htmlFor={ids.amount}
         >
           <Input
@@ -218,6 +225,16 @@ function DialogBody({
       {problem && <ProblemLine problem={problem} />}
 
       <DialogFooter className="mt-6">
+        {!adding && onRemove && (
+          <Button
+            type="button"
+            variant="outline"
+            className="sm:mr-auto"
+            onClick={onRemove}
+          >
+            Remove balance
+          </Button>
+        )}
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel
         </Button>
@@ -268,7 +285,7 @@ function Field({
   children,
 }: {
   label: string;
-  hint: string;
+  hint: string | null;
   /** The control the label names. */
   htmlFor: string;
   children: React.ReactNode;
@@ -281,7 +298,9 @@ function Field({
       >
         {label}
       </label>
-      <span className="mt-0.5 block text-meta text-ink-meta">{hint}</span>
+      {hint && (
+        <span className="mt-0.5 block text-meta text-ink-meta">{hint}</span>
+      )}
       <div className="mt-1.5">{children}</div>
     </div>
   );

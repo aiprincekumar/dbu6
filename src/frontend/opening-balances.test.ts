@@ -13,7 +13,8 @@ import {
   lockText,
   openingFigure,
   readBalance,
-  recordedSections,
+  openingSource,
+  recordedGroups,
   signReadback,
   typedAmount,
 } from "./opening-balances";
@@ -129,15 +130,21 @@ describe("balanceSections", () => {
   it("keeps the recorded balances for the page, and the one a link names", () => {
     const recorded = { ...epf, opening: opening(640000) };
     const names = (focus: string | null) =>
-      recordedSections(books(cash, recorded, loan, card), focus).map((one) => [
+      recordedGroups(books(cash, recorded, loan, card), focus).map((one) => [
         one.section,
         one.accounts.map((a) => a.name),
       ]);
     expect(names(null)).toEqual([["own", ["EPF"]]]);
+    // A card sits with the liabilities.
     expect(names("Sample Card")).toEqual([
       ["own", ["EPF"]],
-      ["statement", ["Sample Card"]],
+      ["owe", ["Sample Card"]],
     ]);
+  });
+
+  it("says a bank or card's balance came from its statement", () => {
+    expect(openingSource(card)).toBe("From account statement");
+    expect(openingSource(epf)).toBe("Manually recorded");
   });
 
   it("matches a link by the account's name or its path", () => {
@@ -281,11 +288,8 @@ describe("the dialog's fields", () => {
   });
 
   it("hints what the amount and the date are", () => {
-    expect(amountHint("Asset", false)).toBe("What it held.");
-    expect(amountHint("Liability", false)).toBe("What you owed.");
-    expect(amountHint("Liability", true)).toBe(
-      "From its first statement's balances.",
-    );
+    expect(amountHint(false)).toBeNull();
+    expect(amountHint(true)).toBe("From its first statement's balances.");
 
     const cash = account("Cash", "Assets:Cash");
     expect(dateHint({ ...cash, first_activity_date: "2026-04-05" }, true)).toBe(

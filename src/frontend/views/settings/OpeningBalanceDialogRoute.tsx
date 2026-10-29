@@ -23,7 +23,7 @@ import { BALANCES_SETTINGS_ROUTE } from "./routes";
  */
 
 export function EditOpeningBalanceDialog() {
-  const { data, save } = useOpeningBalancesPage();
+  const { data, save, askRemove } = useOpeningBalancesPage();
   const id = parseRowId(useParams().accountId);
   const close = useFormClose(BALANCES_SETTINGS_ROUTE);
 
@@ -51,6 +51,7 @@ export function EditOpeningBalanceDialog() {
     <OpeningBalanceDialog
       editing={{ account, section }}
       save={save}
+      onRemove={account.opening ? () => askRemove(account) : null}
       onClose={close}
     />
   );

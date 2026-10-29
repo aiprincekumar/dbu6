@@ -318,16 +318,10 @@ async function click(label: string) {
   await settle();
 }
 
-/** Opens a row's "⋯" menu and picks an item. */
+/** Opens a row's form by its name; Remove is asked for from the form. */
 async function choose(name: string, item: "Edit" | "Remove") {
-  const trigger = button(`Actions for ${name}`);
-  await act(async () => {
-    trigger.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
-    trigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    trigger.click();
-  });
-  await settle();
-  await click(item);
+  await click(name);
+  if (item === "Remove") await click("Remove balance");
 }
 
 /** The input a label names; the dialog renders in a portal. */
@@ -363,8 +357,8 @@ async function type(input: HTMLInputElement, value: string) {
 
 function rowOf(name: string): HTMLTableRowElement {
   const found = [...document.querySelectorAll("tbody tr")].find(
-    // The name, over its parent path.
-    (row) => row.querySelector("td > span > span")?.textContent === name,
+    (row) =>
+      row.querySelector("td:first-child > :first-child")?.textContent === name,
   );
   if (!(found instanceof HTMLTableRowElement)) {
     throw new Error(`No row ${name} in:\n${text()}`);
@@ -386,7 +380,7 @@ const linked = (account: string) =>
   `${BALANCES_SETTINGS_ROUTE}?${new URLSearchParams({ account })}`;
 
 describe("OpeningBalances", () => {
-  it("lists the recorded balances: what you own, what you owe, then the banks and cards", async () => {
+  it("lists the recorded balances in one table, grouped into assets and liabilities", async () => {
     await renderPage([
       ...ALL,
       account(11, "Sample Home Loan", "Liabilities:Loans:Sample Home Loan", {
@@ -395,52 +389,51 @@ describe("OpeningBalances", () => {
     ]);
 
     expect(text()).toContain("Opening balances");
-    // Each row: its name and parent path, then As of and the figure.
-    const sections = [...host.querySelectorAll("section")].map((section) => [
-      section.querySelector("h3")?.textContent,
-      [...section.querySelectorAll("thead th")][2].textContent,
-      [...section.querySelectorAll("tbody tr")].map((row) => {
-        const [name, parents] = [
-          ...(row.querySelector("td > span")?.children ?? []),
-        ].map((span) => span.textContent);
-        const [, asOf, figure] = [...row.querySelectorAll("td")].map(
-          (td) => td.textContent,
-        );
-        return [name, parents ?? null, asOf, figure];
-      }),
-    ]);
+    // One table: each type's group row names its amounts, then each row's
+    // name, As of, figure and source. Banks and cards sit with their type.
+    const groups = [...host.querySelectorAll("table tbody")].map((group) => {
+      const [head, ...rows] = [...group.querySelectorAll("tr")];
+      return [
+        head.querySelector("th")?.textContent,
+        head.querySelector("td")?.textContent,
+        rows.map((row) =>
+          [...row.querySelectorAll("td")]
+            .slice(0, 4)
+            .map((td) => td.firstElementChild?.textContent ?? td.textContent),
+        ),
+      ];
+    });
     // Cash, the car loan and the gold card have none: recording one is C1's.
-    expect(sections).toEqual([
+    expect(groups).toEqual([
       [
-        "Assets · what you own",
+        "Assets",
         "Balance",
         [
-          ["EPF", "Assets > Investments", "31 Mar 2026", "6,40,000.00"],
-          ["PPF", "Assets > Investments", "31 Mar 2026", "2,10,000.00"],
+          [
+            "Sample Bank Savings",
+            "31 Mar 2026",
+            "12,000.00",
+            "From account statement",
+          ],
+          ["EPF", "31 Mar 2026", "6,40,000.00", "Manually recorded"],
+          ["PPF", "31 Mar 2026", "2,10,000.00", "Manually recorded"],
         ],
       ],
       [
-        "Liabilities · what you owe",
+        "Liabilities",
         "Owed",
         [
           [
+            "Sample Card Platinum",
+            "31 Mar 2026",
+            "3,000.00",
+            "From account statement",
+          ],
+          [
             "Sample Home Loan",
-            "Liabilities > Loans",
             "31 Mar 2026",
             "5,00,000.00",
-          ],
-        ],
-      ],
-      [
-        "Banks & cards · set by each first statement",
-        "Balance",
-        [
-          ["Sample Bank Savings", "Assets > Bank", "31 Mar 2026", "12,000.00"],
-          [
-            "Sample Card Platinum",
-            "Liabilities > Cards",
-            "31 Mar 2026",
-            "3,000.00 owed",
+            "Manually recorded",
           ],
         ],
       ],
@@ -453,22 +446,17 @@ describe("OpeningBalances", () => {
     ).toBeNull();
     expect(button("Record a balance").getAttribute("href")).toBe("/add/other");
 
-    // One action per row: the menu, or the lock and its journal entry.
-    expect(
-      rowOf("EPF").querySelector('[aria-label="Actions for EPF"]'),
-    ).not.toBeNull();
+    // A row opens its form; a locked one shows why and opens its journal.
+    expect(rowOf("EPF").querySelector("td button")?.textContent).toBe("EPF");
     const ppfRow = rowOf("PPF");
-    expect(ppfRow.querySelector('[aria-label^="Actions"]')).toBeNull();
     expect(
       ppfRow.querySelector(
         '[aria-label="Has other transactions. Change it in its journal entry."]',
       ),
     ).not.toBeNull();
-    expect(
-      ppfRow
-        .querySelector('[aria-label="Open the journal entry for PPF"]')
-        ?.getAttribute("href"),
-    ).toBe("/tables/journals?filter[id][eq]=22");
+    expect(ppfRow.querySelector("td a")?.getAttribute("href")).toBe(
+      "/tables/journals?filter[id][eq]=22",
+    );
     expect(
       rowOf("Sample Card Platinum").querySelector(
         '[aria-label="Recorded with other accounts in one entry. Change it there."]',
@@ -496,12 +484,12 @@ describe("OpeningBalances", () => {
     expect(document.querySelector("form")).toBeNull();
   });
 
-  it("says a bank's balance moves its balance checks", async () => {
+  it("says a bank's balance is its first statement's", async () => {
     await renderPage(ALL);
     await choose("Sample Bank Savings", "Edit");
 
     expect(text()).toContain(
-      "Set from its first statement. Changing it moves its balance checks.",
+      "This is the balance on its first statement. If you change it, your books will no longer match the balances on its statements.",
     );
   });
 
@@ -539,7 +527,7 @@ describe("OpeningBalances", () => {
     expect(field("As of").value).toBe("2026-03-31");
     expect(hint("As of")).toBe("When your books start.");
     await type(field("Balance"), "5,000");
-    expect(hint("Balance")).toBe("What it held.");
+    expect(hint("Balance")).toBe("");
     await click("Add balance");
 
     expect(sent).toEqual([
@@ -587,7 +575,7 @@ describe("OpeningBalances", () => {
     expect(field("Amount owed").value).toBe("3000.00");
     expect(hint("Amount owed")).toBe("From its first statement's balances.");
     await type(field("Amount owed"), "2500");
-    expect(hint("Amount owed")).toBe("What you owed.");
+    expect(hint("Amount owed")).toBe("");
   });
 
   it("keeps the dialog open with a refusal, and reads the list again", async () => {
@@ -724,7 +712,7 @@ describe("OpeningBalances", () => {
     await renderPage(ALL, balanceFormHref(4));
 
     expect(text()).toContain("Add a balance for Investments");
-    expect(text()).toContain("What it held.");
+    expect(field("Balance")).toBeDefined();
   });
 
   it("says when the link's account isn't one, or isn't here", async () => {

@@ -18,16 +18,9 @@ import {
 } from "@sapporta/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@sapporta/ui/tooltip";
 import { usePageTitle } from "@sapporta/frontend/shell";
-import type {
-  OpeningBalanceAccount,
-  OpeningSection,
-} from "../../../shared/index";
+import type { OpeningBalanceAccount } from "../../../shared/index";
 import { ADD_OTHER_ROUTE } from "../../add-account/state";
 import { apiErrorMessage } from "../../api";
-import {
-  AccountName,
-  useAccountParentPaths,
-} from "../../components/account-name";
 import { EmptyState } from "../../components/empty-state";
 import { LoadError } from "../../components/load-error";
 import { Screen, ScreenTitle } from "../../components/screen";
@@ -38,25 +31,26 @@ import {
   journalHref,
   lockText,
   openingFigure,
-  recordedSections,
+  openingSource,
+  recordedGroups,
   sectionOf,
-  type BalanceSection,
+  type BalanceGroup,
 } from "../../opening-balances";
 import {
   balanceProblem,
   ProblemLine,
   type BalanceProblem,
 } from "./OpeningBalanceDialog";
-import { RowMenu } from "./RowMenu";
-import { balanceFormHref } from "./routes";
+import { BALANCES_SETTINGS_ROUTE, balanceFormHref } from "./routes";
 import { useOpeningBalances } from "./opening-balances-data";
 
 /*
  * Settings' Opening balances: what each account held or owed when the
- * books start. Cash, investments and loans come first; the banks and cards,
- * whose first statements set theirs, below them. A balance can be changed
- * or removed here until another transaction on its account follows it, or
- * while its journal entry opens other accounts too. Recording one is C1's
+ * books start, in one table grouped into assets and liabilities, with a
+ * Source column for the banks and cards whose first statements set theirs.
+ * Clicking a row opens its form, where a balance can be changed or removed
+ * until another transaction on its account follows it, or while its journal
+ * entry opens other accounts too; after that the row opens its journal. Recording one is C1's
  * (/add/other), except the balance a link names that an account lacks: a
  * bank or card whose statements print none, which C1 doesn't list.
  *
@@ -104,14 +98,17 @@ export function OpeningBalances() {
     }
   }, [data, fetching, focus, pathname]);
 
-  const sections = data ? recordedSections(data, focus) : [];
-  const addLink = (
-    <Link
-      to={ADD_OTHER_ROUTE}
-      className="text-primary underline-offset-4 hover:underline"
-    >
+  const groups = data ? recordedGroups(data, focus) : [];
+
+  // The form's Remove: back to the list, which asks before removing.
+  const askRemove = (account: OpeningBalanceAccount) => {
+    setRemoving(account);
+    void navigate({ pathname: BALANCES_SETTINGS_ROUTE, search });
+  };
+  const addButton = (
+    <Button render={<Link to={ADD_OTHER_ROUTE} />} nativeButton={false}>
       Record a balance
-    </Link>
+    </Button>
   );
 
   return (
@@ -119,7 +116,7 @@ export function OpeningBalances() {
       width="narrow"
       header={
         <ScreenTitle title="Opening balances">
-          <p>What each account held or owed when your books start.</p>
+          <p>What each account held or owed when your books started.</p>
         </ScreenTitle>
       }
     >
@@ -136,37 +133,16 @@ export function OpeningBalances() {
         )}
         {data && (
           <>
-            {sections.length === 0 ? (
+            {groups.length === 0 ? (
               <EmptyState
                 title="No opening balances yet"
                 body="Banks and cards get theirs from their first statement."
-                action={
-                  <Button
-                    render={<Link to={ADD_OTHER_ROUTE} />}
-                    nativeButton={false}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Record a balance
-                  </Button>
-                }
+                action={addButton}
               />
             ) : (
               <>
-                <div className="space-y-6">
-                  {sections.map((section) => (
-                    <SectionTable
-                      key={section.section}
-                      section={section}
-                      focus={focus}
-                      onOpen={openForm}
-                      onRemove={setRemoving}
-                    />
-                  ))}
-                </div>
-                <p className="mt-4 text-body text-ink-soft">
-                  {addLink} for cash, a deposit, an investment or a loan.
-                </p>
+                <BalanceTable groups={groups} focus={focus} onOpen={openForm} />
+                <div className="mt-5">{addButton}</div>
               </>
             )}
             <RemoveDialog
@@ -177,7 +153,7 @@ export function OpeningBalances() {
             {/* The open form, as `/settings/balances/:accountId/edit`: it
                 reads the list above through the Outlet, so opening it reads
                 nothing again. */}
-            <Outlet context={{ data, save }} />
+            <Outlet context={{ data, save, askRemove }} />
           </>
         )}
       </div>
@@ -185,110 +161,139 @@ export function OpeningBalances() {
   );
 }
 
-function SectionTable({
-  section,
+function BalanceTable({
+  groups,
   focus,
   onOpen,
-  onRemove,
 }: {
-  section: BalanceSection;
+  groups: BalanceGroup[];
   focus: string | null;
   /** Opens the account's dialog, to add its balance or edit it. */
   onOpen: (account: OpeningBalanceAccount) => void;
-  onRemove: (account: OpeningBalanceAccount) => void;
 }) {
-  const paths = useAccountParentPaths();
   return (
-    <section>
-      <h3 className="mb-2 text-label uppercase text-ink-meta">
-        {section.term}
-        <span className="normal-case">
-          {" · "}
-          {section.caption}
-        </span>
-      </h3>
-      <div className="overflow-x-auto rounded-card border border-sap-border bg-card shadow-card">
-        {/* Fixed widths line the three tables' columns up. */}
-        <table className="w-full table-fixed text-row">
-          <thead className="text-left text-meta text-ink-meta">
-            <tr>
-              <th scope="col" className="py-2.5 pl-5 pr-3 font-medium">
-                Account
-              </th>
+    <div className="overflow-x-auto">
+      <table className="w-full table-fixed text-row">
+        <thead className="border-b border-sap-border text-left text-meta text-ink-meta">
+          <tr>
+            <th scope="col" className="py-2.5 pr-3 font-medium">
+              Account
+            </th>
+            <th
+              scope="col"
+              className="hidden w-32 px-3 py-2.5 font-medium sm:table-cell"
+            >
+              As of
+            </th>
+            {/* Each group's row names its amounts: balance or owed. */}
+            <th scope="col" className="w-[7.5rem] px-3 py-2.5 sm:w-40">
+              <span className="sr-only">Amount</span>
+            </th>
+            <th
+              scope="col"
+              className="hidden w-48 px-3 py-2.5 font-medium sm:table-cell"
+            >
+              Source
+            </th>
+            <th scope="col" className="w-[4.75rem] py-2.5 pl-3 sm:w-16">
+              <span className="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        {groups.map((group) => (
+          <tbody key={group.section}>
+            <tr className="border-b border-sap-border">
               <th
-                scope="col"
-                className="hidden w-36 px-3 py-2.5 font-medium sm:table-cell"
+                scope="rowgroup"
+                colSpan={2}
+                className="pt-6 pb-2 text-left text-label uppercase text-ink-meta"
               >
-                As of
+                {group.term}
               </th>
-              <th
-                scope="col"
-                className="w-[7.5rem] px-3 py-2.5 text-right font-medium sm:w-48"
-              >
-                {section.amountHeading}
-              </th>
-              <th scope="col" className="w-[4.75rem] py-2.5 pl-3 pr-4 sm:w-40">
-                <span className="sr-only">Actions</span>
-              </th>
+              <td className="px-3 pt-6 pb-2 text-right text-meta text-ink-meta">
+                {group.amountHeading}
+              </td>
+              <td colSpan={2} />
             </tr>
-          </thead>
-          <tbody>
-            {section.accounts.map((account) => (
+            {group.accounts.map((account) => (
               <BalanceRow
                 key={account.account_id}
                 account={account}
-                parentPath={paths.byId(account.account_id)}
-                section={section.section}
+                section={group.section}
                 focused={focuses(account, focus)}
                 onOpen={() => onOpen(account)}
-                onRemove={() => onRemove(account)}
               />
             ))}
           </tbody>
-        </table>
-      </div>
-    </section>
+        ))}
+      </table>
+    </div>
   );
 }
 
+/**
+ * One balance. Clicking the row opens its form, or, for a balance only its
+ * journal entry can change, that entry.
+ */
 function BalanceRow({
   account,
-  parentPath,
   section,
   focused,
   onOpen,
-  onRemove,
 }: {
   account: OpeningBalanceAccount;
-  parentPath: string | null;
-  section: OpeningSection;
+  section: BalanceGroup["section"];
   focused: boolean;
   onOpen: () => void;
-  onRemove: () => void;
 }) {
+  const navigate = useNavigate();
   const row = useRef<HTMLTableRowElement>(null);
   useEffect(() => {
     if (focused) row.current?.scrollIntoView?.({ block: "center" });
   }, [focused]);
 
   const { opening } = account;
+  const journal =
+    opening !== null && opening.locked !== null
+      ? journalHref(opening.journal_id)
+      : null;
+  const open = () => (journal ? void navigate(journal) : onOpen());
   const figure = openingFigure(section, account);
   const dash = <span className="text-ink-meta">—</span>;
+  const nameClass =
+    "text-left font-semibold text-foreground outline-none focus-visible:underline focus-visible:underline-offset-4";
   return (
     <tr
       ref={row}
       aria-current={focused ? "true" : undefined}
-      className={cn("border-t border-line-inner", focused && "bg-attention-bg")}
+      onClick={open}
+      className={cn(
+        "cursor-pointer border-b border-line-inner hover:bg-muted",
+        focused && "bg-attention-bg",
+      )}
     >
-      <td className="py-2.5 pl-5 pr-3 align-middle">
-        <AccountName
-          name={
-            <span className="font-semibold text-foreground">
-              {account.name}
-            </span>
-          }
-          parentPath={parentPath}
-        />
+      <td className="py-2.5 pr-3 align-middle">
+        {/* The row's click, for the keyboard. */}
+        {journal ? (
+          <Link
+            to={journal}
+            className={nameClass}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {account.name}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={nameClass}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
+          >
+            {account.name}
+          </button>
+        )}
         {/* On a phone, the column it drops. */}
         {opening && (
           <div className="text-meta text-ink-meta sm:hidden">
@@ -310,25 +315,30 @@ function BalanceRow({
           <span className="tnum font-mono">{figure}</span>
         )}
       </td>
-      <td className="whitespace-nowrap py-1.5 pl-3 pr-4 text-right">
+      <td className="hidden px-3 py-2.5 text-ink-meta sm:table-cell">
+        {opening && openingSource(account)}
+      </td>
+      <td className="whitespace-nowrap py-1.5 pl-3 text-right">
         {opening === null ? (
           <Button
             variant="outline"
             size="sm"
             aria-label={`Add a balance for ${account.name}`}
-            onClick={onOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen();
+            }}
           >
             Add
           </Button>
-        ) : opening.locked === null ? (
-          <RowMenu name={account.name} onEdit={onOpen} onRemove={onRemove} />
         ) : (
-          <span className="inline-flex items-center gap-1">
+          opening.locked !== null && (
             <Tooltip>
               <TooltipTrigger
                 delay={0}
                 aria-label={lockText(opening.locked)}
-                className="hidden h-sap-ctl w-[var(--height-sap-ctl)] items-center justify-center rounded-control text-ink-meta outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 sm:inline-flex [&_svg]:size-4"
+                render={<span />}
+                className="inline-flex h-sap-ctl w-[var(--height-sap-ctl)] items-center justify-center text-ink-meta [&_svg]:size-4"
               >
                 <Lock />
               </TooltipTrigger>
@@ -336,16 +346,7 @@ function BalanceRow({
                 {lockText(opening.locked)}
               </TooltipContent>
             </Tooltip>
-            {/* On a phone, where there is no hover, the lock is the link. */}
-            <Link
-              to={journalHref(opening.journal_id)}
-              aria-label={`Open the journal entry for ${account.name}`}
-              className="inline-flex h-sap-ctl w-[var(--height-sap-ctl)] items-center justify-center rounded-control text-ink-meta outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 sm:w-auto sm:text-meta sm:text-primary sm:underline-offset-4 sm:hover:underline [&_svg]:size-4"
-            >
-              <Lock aria-hidden="true" className="sm:hidden" />
-              <span className="hidden sm:inline">Journal entry</span>
-            </Link>
-          </span>
+          )
         )}
       </td>
     </tr>

@@ -119,23 +119,51 @@ export function balanceSections(
   })).filter((one) => one.accounts.length > 0);
 }
 
+/** One of the Opening balances table's groups: Assets or Liabilities. */
+export interface BalanceGroup {
+  /** The section its figures read as: held, or owed. */
+  section: "own" | "owe";
+  term: string;
+  /** The amount column's heading. */
+  amountHeading: string;
+  accounts: OpeningBalanceAccount[];
+}
+
 /**
- * The Opening balances page's tables: the balances recorded, and the
- * account a link names when it has none, so the link's "Record the opening
- * balance" can be done there. Recording any other is C1's.
+ * The Opening balances page's one table, grouped by type: the balances
+ * recorded, and the account a link names when it has none, so the link's
+ * "Record the opening balance" can be done there. Recording any other is
+ * C1's. Banks and cards sit with their type, in tree order.
  */
-export function recordedSections(
-  data: OpeningBalances,
+export function recordedGroups(
+  { accounts }: OpeningBalances,
   focus: string | null,
-): BalanceSection[] {
-  return balanceSections(data, focus)
-    .map((one) => ({
-      ...one,
-      accounts: one.accounts.filter(
-        (account) => account.opening !== null || focuses(account, focus),
-      ),
+): BalanceGroup[] {
+  const listed = [...accounts]
+    .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
+    .filter(
+      (account) =>
+        sectionOf(account, focus) !== null &&
+        (account.opening !== null || focuses(account, focus)),
+    );
+  return (["own", "owe"] as const)
+    .map((section) => ({
+      section,
+      term: SECTION_WORDS[section].term,
+      amountHeading: SECTION_WORDS[section].amountHeading,
+      accounts: listed.filter((account) => sectionForType(account) === section),
     }))
     .filter((one) => one.accounts.length > 0);
+}
+
+/**
+ * Where a listed balance came from, as its Source column reads it: a bank
+ * or card's first statement, or entered by hand.
+ */
+export function openingSource(account: OpeningBalanceAccount): string {
+  return account.section === "statement"
+    ? "From account statement"
+    : "Manually recorded";
 }
 
 /** The recorded balance as its table reads it; null with none. */
@@ -271,9 +299,8 @@ export function amountLabel(type: BalanceType): string {
  * Under the amount: where a prefilled suggestion came from, else what the
  * figure is. The As of field below it gives the day.
  */
-export function amountHint(type: BalanceType, fromSuggestion: boolean): string {
-  if (fromSuggestion) return "From its first statement's balances.";
-  return type === "Asset" ? "What it held." : "What you owed.";
+export function amountHint(fromSuggestion: boolean): string | null {
+  return fromSuggestion ? "From its first statement's balances." : null;
 }
 
 /** What an amount typed below zero means; null otherwise. */
