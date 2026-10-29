@@ -28,10 +28,10 @@ import { RulesPanel } from "./RulePanels";
 import { type TabItem, TabList } from "./rule-parts";
 import { categorizationRulesHref, readRulesView, type RuleTab } from "./routes";
 
-const PAGE_TITLE = "Automatic transaction categorization rules";
+const PAGE_TITLE = "Categorization rules";
 
 /*
- * Automatic transaction categorization rules: what decides a statement's
+ * Categorization rules: what decides a statement's
  * transactions' accounts on import, one tab per step in the order a
  * transaction meets them. Exact and Contains are the rules in
  * transaction_mappings.mjs, which apply to every account; AI is each bank
@@ -96,10 +96,7 @@ export function ImportInstructions() {
             )
           }
         >
-          <p>
-            When you import a bank or card statement, these decide which account
-            each transaction goes to.
-          </p>
+          <p>How to categorize your transactions.</p>
         </ScreenTitle>
       }
     >

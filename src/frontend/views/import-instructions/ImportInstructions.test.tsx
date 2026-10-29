@@ -21,7 +21,7 @@ import { ImportInstructions } from "./ImportInstructions";
 import { accountsTablePage } from "../../accounts-page.testing";
 
 /*
- * Automatic transaction categorization rules: three tabs in the order a
+ * Categorization rules: three tabs in the order a
  * transaction meets them. Exact groups the whole-description rules by
  * account, Contains lists its rules in checking order, and AI shows each
  * bank or card's notes as the files have them.
@@ -275,16 +275,12 @@ const rows = () =>
     },
   );
 
-describe("Automatic transaction categorization rules", () => {
+describe("Categorization rules", () => {
   it("shows Exact, Contains and AI in order, with their rule counts", async () => {
     await renderAt("/categorization-rules");
 
-    expect(host.querySelector("h1")?.textContent).toBe(
-      "Automatic transaction categorization rules",
-    );
-    expect(text()).toContain(
-      "When you import a bank or card statement, these decide which account each transaction goes to.",
-    );
+    expect(host.querySelector("h1")?.textContent).toBe("Categorization rules");
+    expect(text()).toContain("How to categorize your transactions.");
     expect(tabsOf(tabLists()[0])).toEqual([
       { text: "Exact11", selected: true },
       { text: "Contains3", selected: false },

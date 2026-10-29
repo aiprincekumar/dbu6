@@ -116,7 +116,7 @@ export function OpeningBalances() {
       width="narrow"
       header={
         <ScreenTitle title="Opening balances">
-          <p>What each account held or owed when your books started.</p>
+          <p>Opening balances of each account.</p>
         </ScreenTitle>
       }
     >

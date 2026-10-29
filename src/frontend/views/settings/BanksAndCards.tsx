@@ -65,7 +65,7 @@ export function BanksAndCards() {
       width="narrow"
       header={
         <ScreenTitle title="Banks & cards">
-          <p>The accounts your statements come from.</p>
+          <p>All the accounts for which you import statements.</p>
         </ScreenTitle>
       }
     >

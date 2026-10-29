@@ -64,10 +64,7 @@ export function CodingAgent() {
       width="narrow"
       header={
         <ScreenTitle title="Coding agent">
-          <p>
-            The agent reads new statements, categorizes transactions and answers
-            questions about your books.
-          </p>
+          <p>Configure the coding agent that dbu6 uses.</p>
         </ScreenTitle>
       }
     >
