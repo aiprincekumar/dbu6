@@ -34,7 +34,7 @@ export function DuplicatesTab() {
   }
 
   return (
-    <ReportTab>
+    <ReportTab fitsReport>
       <ReportSummary>
         {duplicatesText(check.count)}. Each draft below looks like another draft
         or an entry already in your books. If one is extra, select it in{" "}

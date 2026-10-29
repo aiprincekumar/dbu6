@@ -51,7 +51,7 @@ export function BalanceChecksTab() {
   // A failing check is one of the detail's failing rows, in date order.
   const first = failing[0];
   return (
-    <ReportTab>
+    <ReportTab fitsReport>
       <ReportSummary>
         {failingChecksText(check.count)}.{" "}
         {check.count === 1 ? "It is" : "The first is"} on{" "}
@@ -74,7 +74,7 @@ export function BalanceChecksTab() {
         }
       />
       <AskYourAgent
-        title="Find why the drafts miss the balance"
+        title="Investigate and fix automatically"
         prompt={balanceChecksPrompt(detail)}
       />
     </ReportTab>

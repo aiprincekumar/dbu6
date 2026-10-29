@@ -5,6 +5,7 @@ import type { AgentPrompt } from "../agent-prompt-rules";
 import { AgentButton } from "../components/agent-prompt";
 import { LoadError } from "../components/load-error";
 import { ReportResultBody, useReportResult } from "../reports/shared";
+import { cn } from "@sapporta/ui/cn";
 
 /*
  * The parts the Review tabs share (PLAN.md §11 P3): a summary, the draft
@@ -12,9 +13,30 @@ import { ReportResultBody, useReportResult } from "../reports/shared";
  * the card that says a check passes.
  */
 
-/** The tab's content, clear of the frame's edges. */
-export function ReportTab({ children }: { children: ReactNode }) {
-  return <div className="px-4 pb-6 pt-4 sm:px-6 lg:px-8">{children}</div>;
+/**
+ * The tab's content, clear of the frame's edges. With `fitsReport` the tab
+ * is no taller than the screen, so a long report scrolls inside its card and
+ * the prompt under it stays in view. On a screen too short for that, the tab
+ * keeps 28rem and the page scrolls instead, so the report never gets squeezed
+ * to a sliver.
+ */
+export function ReportTab({
+  children,
+  fitsReport = false,
+}: {
+  children: ReactNode;
+  fitsReport?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "px-4 pb-6 pt-4 sm:px-6 lg:px-8",
+        fitsReport && "flex min-h-[28rem] flex-1 flex-col",
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 export function ReportSummary({ children }: { children: ReactNode }) {
@@ -78,7 +100,7 @@ export function AccountReport({
     );
   }
   return (
-    <div className="mt-4 overflow-hidden rounded-card border border-sap-border bg-card">
+    <div className="mt-4 flex min-h-0 flex-col overflow-hidden rounded-card border border-sap-border bg-card">
       {report.result === null ? (
         <div aria-hidden="true" className="space-y-2 p-3">
           {[0, 1, 2].map((i) => (
