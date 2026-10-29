@@ -33,6 +33,17 @@ export function balanceFormHref(accountId: number): string {
 }
 
 /**
+ * One account's balance form in front of the Opening balances page, with the
+ * account's row listed behind it whether or not it has a balance yet.
+ */
+export function balanceFormOnPageHref(
+  accountId: number,
+  account: string,
+): string {
+  return `${balanceFormHref(accountId)}?${new URLSearchParams({ account })}`;
+}
+
+/**
  * The Opening balances page on one account's row (by its name or path).
  * The row is highlighted and scrolled to, and an account with no balance yet
  * goes on to its form, to record the one a problem elsewhere says it lacks.

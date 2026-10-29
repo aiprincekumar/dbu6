@@ -16,20 +16,28 @@ import { createTableRow } from "@sapporta/frontend";
 import {
   LEDGER_ACCOUNT_TYPES,
   type LedgerAccountType,
+  type OpeningBalanceAccount,
+  type OpeningSection,
 } from "../../../shared/index";
 import { ACCOUNT_TYPE_TERMS } from "../../account-type-terms";
 import { accountsApi, apiErrorMessage, removeAccount } from "../../api";
 import { AccountTreeCombobox } from "../../components/account-pickers";
 import { Button } from "../../components/ui/button";
+import { formatDate } from "../../format";
+import { openingFigure } from "../../opening-balances";
 import {
   accountChartQuery,
   accountHasEntriesQuery,
   importPresetsQuery,
+  openingBalancesQuery,
   refreshAccounts,
   type AccountRow,
 } from "../../queries";
 import { parseRowId } from "../../row-id";
-import { BANKS_SETTINGS_ROUTE } from "../settings/routes";
+import {
+  BANKS_SETTINGS_ROUTE,
+  balanceFormOnPageHref,
+} from "../settings/routes";
 import {
   NEW_ACCOUNT_DRAFT,
   deleteBlockers,
@@ -58,6 +66,11 @@ import {
  * The form says what it can see for itself: a taken name, a parent that
  * doesn't fit, and what a delete is standing on. What only the server knows —
  * posted entries and drafts — comes back as a refusal, on the field it names.
+ *
+ * An account no statement comes from (cash, a deposit, a loan) has an opening
+ * balance, kept on Settings' Opening balances. A new asset or liability is
+ * offered its own once saved, and the edit form shows the one it has, each
+ * linking to its form there.
  */
 
 type Editing = AccountRow | "new";
@@ -108,6 +121,25 @@ function DialogBody({
     ...accountHasEntriesQuery(account?.id ?? 0),
     enabled: account !== null,
   });
+  const balancesQuery = useQuery({
+    ...openingBalancesQuery,
+    enabled: account !== null,
+  });
+  // Banks and cards are left out: their first statements set theirs.
+  const balance =
+    account === null
+      ? null
+      : (balancesQuery.data?.accounts.find(
+          (one) =>
+            one.account_id === account.id &&
+            (one.section === "own" || one.section === "owe"),
+        ) ?? null);
+  // The account just created, while the form offers its opening balance.
+  const [created, setCreated] = useState<{
+    id: number;
+    name: string;
+    account_type: LedgerAccountType;
+  } | null>(null);
 
   const [draft, setDraft] = useState<AccountDraft>(() =>
     account === null ? { ...NEW_ACCOUNT_DRAFT } : draftOf(account),
@@ -189,6 +221,14 @@ function DialogBody({
       }
       await refreshAccounts(client);
       if (createdId !== null) onCreated?.(createdId);
+      if (createdId !== null && hasOpeningBalance(reading.draft.account_type)) {
+        setCreated({
+          id: createdId,
+          name: reading.draft.name,
+          account_type: reading.draft.account_type,
+        });
+        return;
+      }
       onClose();
     } catch (error) {
       setProblem({
@@ -217,6 +257,10 @@ function DialogBody({
   }
 
   const blockers = account === null ? [] : deleteBlockers(account, context);
+
+  if (created !== null) {
+    return <OfferOpeningBalance account={created} onClose={onClose} />;
+  }
 
   return (
     <form onSubmit={save} noValidate>
@@ -310,6 +354,15 @@ function DialogBody({
           )}
           {notice && <p className="mt-1 text-meta text-ink-meta">{notice}</p>}
         </Field>
+
+        {balance !== null && balance.section !== null && (
+          <div>
+            <p className="text-row font-semibold text-foreground">
+              Opening balance
+            </p>
+            <OpeningBalanceLine account={balance} section={balance.section} />
+          </div>
+        )}
       </div>
 
       {deleting === "blocked" && (
@@ -391,6 +444,78 @@ function DialogBody({
         )}
       </DialogFooter>
     </form>
+  );
+}
+
+/** What an account owns or owes has an opening balance; the rest don't. */
+function hasOpeningBalance(type: LedgerAccountType): boolean {
+  return type === "Asset" || type === "Liability";
+}
+
+/**
+ * A new asset or liability's next step: its opening balance, on its form in
+ * front of Opening balances, or not now.
+ */
+function OfferOpeningBalance({
+  account,
+  onClose,
+}: {
+  account: { id: number; name: string; account_type: LedgerAccountType };
+  onClose: () => void;
+}) {
+  return (
+    <div>
+      <DialogHeader>
+        <DialogTitle>{account.name} added</DialogTitle>
+      </DialogHeader>
+      <p className="mt-2 text-body text-ink-soft">
+        {account.account_type === "Liability"
+          ? "Record what you owed on it when your books start."
+          : "Record what it held when your books start."}
+      </p>
+      <DialogFooter className="mt-6">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Not now
+        </Button>
+        <Button
+          render={<Link to={balanceFormOnPageHref(account.id, account.name)} />}
+          nativeButton={false}
+        >
+          Record its opening balance
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
+/** The opening balance and its date, or none, and the link to its form. */
+function OpeningBalanceLine({
+  account,
+  section,
+}: {
+  account: OpeningBalanceAccount;
+  section: OpeningSection;
+}) {
+  const figure = openingFigure(section, account);
+  return (
+    <div className="mt-1.5 flex items-center gap-4 text-row">
+      {account.opening && figure !== null ? (
+        <>
+          <span className="tnum text-foreground">{figure}</span>
+          <span className="tnum text-ink-meta">
+            {formatDate(account.opening.date)}
+          </span>
+        </>
+      ) : (
+        <span className="text-ink-meta">None</span>
+      )}
+      <Link
+        to={balanceFormOnPageHref(account.account_id, account.name)}
+        className="ml-auto font-semibold text-primary underline-offset-4 hover:underline"
+      >
+        {account.opening ? "Change" : "Record"}
+      </Link>
+    </div>
   );
 }
 

@@ -22,8 +22,43 @@ import { accountsTablePage } from "../../accounts-page.testing";
  * names, and a delete that stops at what the form already knows.
  *
  * Assets (1) > Bank Accounts (2) > Sample Savings (3), Sample Wallet (4);
- * Expenses (5) > Groceries (6). Sample Savings is a bank's account.
+ * Expenses (5) > Groceries (6). Sample Savings is a bank's account; Sample
+ * Wallet has an opening balance of 5000. A new account is saved as id 7.
  */
+
+const OPENING_BALANCES = {
+  equity_account: { id: 9, name: "Opening Balances" },
+  accounts: [
+    {
+      account_id: 3,
+      name: "Sample Savings",
+      path: "Assets > Bank Accounts > Sample Savings",
+      account_type: "Asset",
+      section: "statement",
+      first_activity_date: null,
+      default_date: null,
+      suggested_amount: null,
+      opening: null,
+    },
+    {
+      account_id: 4,
+      name: "Sample Wallet",
+      path: "Assets > Bank Accounts > Sample Wallet",
+      account_type: "Asset",
+      section: "own",
+      first_activity_date: null,
+      default_date: "2026-03-31",
+      suggested_amount: null,
+      opening: {
+        journal_id: 50,
+        date: "2026-03-31",
+        amount: 5000,
+        description: "Opening balance",
+        locked: null,
+      },
+    },
+  ],
+};
 
 const CHART: AccountRow[] = [
   { id: 1, name: "Assets", parent_id: null, account_type: "Asset" },
@@ -109,6 +144,9 @@ beforeEach(() => {
           ],
         });
       }
+      if (method === "GET" && url.pathname.endsWith("/opening-balances")) {
+        return Response.json(OPENING_BALANCES);
+      }
       if (method === "GET" && url.pathname.endsWith("/journal_entries")) {
         return rowsResponse([]);
       }
@@ -118,7 +156,9 @@ beforeEach(() => {
           path: url.pathname,
           body: body === null ? null : JSON.parse(body),
         });
-        return rowsResponse([]);
+        return Response.json({
+          data: { id: 7, ...(body === null ? {} : JSON.parse(body)) },
+        });
       }
       if (accountPath && (method === "PUT" || method === "DELETE")) {
         sent.push({
@@ -276,7 +316,50 @@ describe("AccountDialog", () => {
         },
       },
     ]);
+  });
+
+  it("offers a new asset its opening balance, or closes on Not now", async () => {
+    await render("new");
+
+    await act(async () => type(field("Name"), "Sample Holiday"));
+    await save();
+
+    expect(closed).toBe(0);
+    expect(text()).toContain("Sample Holiday added");
+    expect(text()).toContain("Record what it held when your books start.");
+    expect(button("Record its opening balance").getAttribute("href")).toBe(
+      "/settings/balances/7/edit?account=Sample+Holiday",
+    );
+
+    await act(async () => button("Not now").click());
     expect(closed).toBe(1);
+  });
+
+  it("closes once a new account outside assets and liabilities is saved", async () => {
+    await render("new");
+
+    await act(async () => type(field("Name"), "Sample Holiday"));
+    await choose("Show the choices", "Groceries");
+    await save();
+
+    expect(closed).toBe(1);
+    expect(text()).not.toContain("opening balance");
+  });
+
+  it("shows an account's opening balance and links to its form", async () => {
+    await render(accountOf("Sample Wallet"));
+
+    expect(text()).toContain("Opening balance");
+    expect(text()).toContain("31 Mar 2026");
+    expect(button("Change").getAttribute("href")).toBe(
+      "/settings/balances/4/edit?account=Sample+Wallet",
+    );
+  });
+
+  it("shows no opening balance for a bank, whose statements set it", async () => {
+    await render(accountOf("Sample Savings"));
+
+    expect(text()).not.toContain("Opening balance");
   });
 
   it("takes a new account's category from the parent chosen", async () => {

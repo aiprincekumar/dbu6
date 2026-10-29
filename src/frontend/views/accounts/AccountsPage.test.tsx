@@ -403,12 +403,16 @@ async function choose(triggerLabel: string, option: string) {
   await settle();
 }
 
-/** Saves a new account from the New record form. */
+/**
+ * Saves a new account from the New record form, and passes on the opening
+ * balance an asset or liability is offered next.
+ */
 async function addAccount(name: string, parent?: string) {
   await click("New record");
   await act(async () => type(field("Name"), name));
   if (parent !== undefined) await choose("Show the choices", parent);
   await click("Save");
+  if (text().includes(`${name} added`)) await click("Not now");
 }
 
 /** The rows the grid scrolled into view, by their text. */
