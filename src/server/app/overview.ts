@@ -142,6 +142,7 @@ export function overviewReport(
         name: node.name,
         amount: node.months[current],
         average: average?.(node.months) ?? null,
+        monthly: node.months.slice(1),
       }))
       .filter(
         (category) => category.amount !== 0 || (category.average ?? 0) !== 0,

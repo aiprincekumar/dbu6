@@ -17,9 +17,7 @@ export function monthDates(month: string): {
   const yearMonth = Temporal.PlainYearMonth.from(month);
   return {
     first_date: yearMonth.toPlainDate({ day: 1 }).toString(),
-    last_date: yearMonth
-      .toPlainDate({ day: yearMonth.daysInMonth })
-      .toString(),
+    last_date: yearMonth.toPlainDate({ day: yearMonth.daysInMonth }).toString(),
   };
 }
 
@@ -78,19 +76,28 @@ export type CategoryRow = {
   amount: number;
   // Null before the books have a month to average.
   average: number | null;
+  // Its amount in each month the books cover of the twelve ending with
+  // the month shown, oldest first, for its sparkline.
+  monthly: number[];
 };
 
 /**
  * The categories, then Other for the spending they leave out, then Total,
  * so the table adds up to Spent. The categories divide the spending between
- * them, so Other is exact. It carries no count: a category with nothing
- * this month can still be in its average. It shows only when it holds
- * anything.
+ * them, so Other is exact, month by month too. It carries no count: a
+ * category with nothing this month can still be in its average. It shows
+ * only when it holds anything. The months before the books start are left
+ * out of the monthly amounts rather than drawn as zeros.
  */
 export function categoryRows(overview: PostedOverview): CategoryRow[] {
-  const { categories, figures } = overview;
+  const { categories, figures, months, first_month: firstMonth } = overview;
   if (categories.length === 0) return [];
   const averaged = figures.average !== null;
+  const start = months.findIndex(
+    (row) => firstMonth !== null && row.month >= firstMonth,
+  );
+  const covered = (amounts: readonly number[]) =>
+    start === -1 ? [] : amounts.slice(start);
   const rest = (total: number, parts: readonly number[]) =>
     cents(parts.reduce((left, part) => left - part, total));
   const other = {
@@ -104,15 +111,22 @@ export function categoryRows(overview: PostedOverview): CategoryRow[] {
           categories.map((category) => category.average ?? 0),
         )
       : null,
+    monthly: covered(
+      months.map((row, index) =>
+        rest(
+          row.spending,
+          categories.map((category) => category.monthly[index]),
+        ),
+      ),
+    ),
   };
   return [
-    ...categories.map(
-      (category): CategoryRow => ({
-        kind: "category",
-        ...category,
-        average: averaged ? category.average : null,
-      }),
-    ),
+    ...categories.map((category): CategoryRow => ({
+      kind: "category",
+      ...category,
+      average: averaged ? category.average : null,
+      monthly: covered(category.monthly),
+    })),
     ...(other.amount !== 0 || (other.average ?? 0) !== 0
       ? [{ kind: "other" as const, account_id: null, name: "Other", ...other }]
       : []),
@@ -122,37 +136,56 @@ export function categoryRows(overview: PostedOverview): CategoryRow[] {
       name: "Total",
       amount: figures.spending,
       average: figures.average?.spending ?? null,
+      monthly: covered(months.map((row) => row.spending)),
     },
   ];
 }
 
 /**
- * Each row's bar under its name: how far this month's amount and the
- * average reach, as fractions of the largest of either among the rows, so
- * every bar and tick shares one scale. Total has none, and neither has a
- * refund (a negative amount) or a missing average.
+ * Each row's meter beside its name: its share of the month's spending, as a
+ * fraction. The share is of what the rows spent, refunds left out, so a
+ * category whose spending a refund elsewhere offsets never passes the whole
+ * and the shares add up to it. Total has none, and neither has a refund (a
+ * negative amount).
  */
-export function categoryBars(
-  rows: readonly CategoryRow[],
-): ({ amount: number; average: number | null } | null)[] {
+export function categoryBars(rows: readonly CategoryRow[]): (number | null)[] {
   const parts = rows.filter((row) => row.kind !== "total");
-  const largest = Math.max(
-    0,
-    ...parts.flatMap((row) => [row.amount, row.average ?? 0]),
-  );
-  const reach = (value: number) =>
-    largest > 0 && value > 0 ? value / largest : 0;
+  const spent = parts.reduce((sum, row) => sum + Math.max(0, row.amount), 0);
   return rows.map((row) =>
-    row.kind === "total" || largest === 0
+    row.kind === "total" || spent === 0
       ? null
-      : {
-          amount: reach(row.amount),
-          average:
-            row.average === null || row.average <= 0
-              ? null
-              : reach(row.average),
-        },
+      : row.amount > 0
+        ? row.amount / spent
+        : 0,
   );
+}
+
+/** The months a sparkline has room for, the month shown at the right. */
+const SPARKLINE_MONTHS = 12;
+
+/**
+ * A row's sparkline: each month's amount and the average as fractions of
+ * the row's own scale, from zero to the highest of them, so a steady
+ * category draws flat and a lumpy one jagged, whatever their size. Months
+ * run left to right with the month shown last, at the right edge even
+ * when the books cover fewer than twelve. None before there is an average
+ * to set the month against; refunds sit at zero.
+ */
+export function sparkline(row: CategoryRow): {
+  points: { x: number; y: number }[];
+  average: number;
+} | null {
+  if (row.average === null || row.monthly.length < 2) return null;
+  const top = Math.max(row.average, ...row.monthly);
+  const at = (value: number) => (top > 0 && value > 0 ? value / top : 0);
+  const offset = SPARKLINE_MONTHS - row.monthly.length;
+  return {
+    points: row.monthly.map((amount, index) => ({
+      x: (offset + index) / (SPARKLINE_MONTHS - 1),
+      y: at(amount),
+    })),
+    average: at(row.average),
+  };
 }
 
 function cents(amount: number): number {

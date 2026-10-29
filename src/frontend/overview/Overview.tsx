@@ -13,13 +13,14 @@ import type {
 import { apiErrorMessage, overviewApi } from "../api";
 import { LoadError } from "../components/load-error";
 import { Screen } from "../components/screen";
-import { formatDate, formatMoney, formatMonth } from "../format";
+import { formatDate, formatMoney, formatMonth, plural } from "../format";
 import { typingIn } from "../keys";
 import { formatAmount } from "../report-kit";
 import { FRESH_QUERY, homeSummaryQuery } from "../queries";
 import { chartBars } from "../reports/income-expenses/chart";
 import { figures, signedAmount } from "../reports/income-expenses/figures";
 import { MonthChart } from "../reports/income-expenses/MonthChart";
+import { shadeColor, shades } from "../reports/income-expenses/shade";
 import {
   accountLedgerHref,
   balanceSheetHref,
@@ -37,10 +38,12 @@ import {
   averageLabel,
   categoryBars,
   categoryRows,
+  type CategoryRow,
   monthDates,
   monthForKey,
   monthSteps,
   otherWorthChange,
+  sparkline,
   waitingLabel,
 } from "./state";
 
@@ -350,9 +353,17 @@ function Categories({ overview }: { overview: PostedOverview }) {
     first_date: monthDates(overview.months[0].month).first_date,
     last_date: dates.last_date,
   };
-  const averaged = overview.figures.average !== null;
+  const { average } = overview.figures;
   const rows = categoryRows(overview);
   const bars = categoryBars(rows);
+  // The bars' room: as wide as the longest of them this month, so the names
+  // sit close to their bars.
+  const room = Math.max(MIN_BAR, ...bars.map((bar) => (bar ?? 0) * FULL_BAR));
+  // Each category's bar is shaded by its amount, as Income and Expenses
+  // shades it; Other, being a mix, stays at the lightest.
+  const tones = shades(
+    rows.map((row) => (row.kind === "category" ? row.amount : 0)),
+  );
   return (
     <Card
       title="Spending by category"
@@ -375,7 +386,11 @@ function Categories({ overview }: { overview: PostedOverview }) {
             <tr className="text-meta text-ink-meta">
               <th className="w-full pb-2 text-left font-normal">Category</th>
               <Th>{formatMonth(overview.month)}</Th>
-              {averaged && <Th>Average</Th>}
+              {average && (
+                <Th className="text-left">
+                  Last {plural(rows[rows.length - 1].monthly.length, "month")}
+                </Th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -412,7 +427,8 @@ function Categories({ overview }: { overview: PostedOverview }) {
                       <CategoryName
                         name={row.name}
                         bar={bar}
-                        soft={row.kind === "other"}
+                        room={room}
+                        tone={tones[index] ?? 0}
                       />
                     ) : (
                       <Link
@@ -426,7 +442,8 @@ function Categories({ overview }: { overview: PostedOverview }) {
                         <CategoryName
                           name={row.name}
                           bar={bar}
-                          soft={row.kind === "other"}
+                          room={room}
+                          tone={tones[index] ?? 0}
                         />
                       </Link>
                     )}
@@ -450,10 +467,10 @@ function Categories({ overview }: { overview: PostedOverview }) {
                       </Link>
                     )}
                   </Td>
-                  {averaged && (
-                    <Td className="text-ink-soft">
-                      {row.average === null ? "—" : spent(row.average)}
-                    </Td>
+                  {average && (
+                    <td className="py-2 pl-6 align-middle">
+                      <Sparkline row={row} />
+                    </td>
                   )}
                 </tr>
               );
@@ -465,60 +482,103 @@ function Categories({ overview }: { overview: PostedOverview }) {
   );
 }
 
-/** A category's name, and under it its share of the month. */
+/**
+ * A category's name after a short bar as long as its share of the month's
+ * spending, so what each category took reads down the column beside its
+ * name. The bar has no track: an empty one would outweigh a small share.
+ * Total has an empty space in its place, so its name lines up with theirs.
+ */
+/** A bar's length in pixels for the whole month's spending, and at least. */
+const FULL_BAR = 80;
+const MIN_BAR = 3;
+
 function CategoryName({
   name,
   bar,
-  soft,
+  room,
+  tone,
 }: {
   name: string;
   bar: ReturnType<typeof categoryBars>[number];
-  soft: boolean;
+  // The width in pixels the bars share, so the names line up.
+  room: number;
+  // Its shade, from 0 for the least to 1 for the most.
+  tone: number;
 }) {
   return (
-    <>
-      <span className="block truncate">{name}</span>
-      {bar && (
-        <SpendBar amount={bar.amount} average={bar.average} soft={soft} />
-      )}
-    </>
+    <span className="flex items-center gap-2.5">
+      <span
+        aria-hidden="true"
+        className="relative h-1.5 shrink-0"
+        style={{ width: room }}
+      >
+        {bar !== null && bar > 0 && (
+          <span
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{
+              // A sliver stays visible; nothing at all draws nothing.
+              width: Math.max(MIN_BAR, bar * FULL_BAR),
+              background: shadeColor("spending", tone),
+            }}
+          />
+        )}
+      </span>
+      <span className="truncate">{name}</span>
+    </span>
   );
 }
 
+/** A sparkline's size in pixels, and room at its edges for the dot. */
+const SPARK = { width: 112, height: 20, inset: 3 };
+
 /**
- * A category's share of the month under its name: a bar for this month and
- * a tick at the average, on one scale across the table, like the chart's
- * dashed average line. The figures stay in their columns.
+ * A row's months as a line, oldest at the left, with a dashed line at the
+ * average and a dot on the month shown, so a month off its usual stands
+ * out.
  */
-function SpendBar({
-  amount,
-  average,
-  soft,
-}: {
-  amount: number;
-  average: number | null;
-  // Other's bar is lighter, as its name is.
-  soft: boolean;
-}) {
+function Sparkline({ row }: { row: CategoryRow }) {
+  const line = sparkline(row);
+  if (line === null || row.average === null) return null;
+  const { width, height, inset } = SPARK;
+  const x = (fraction: number) => inset + fraction * (width - 2 * inset);
+  const y = (fraction: number) =>
+    height - inset - fraction * (height - 2 * inset);
+  const last = line.points[line.points.length - 1];
   return (
-    <span aria-hidden="true" className="relative mt-1 block h-1.5">
-      {amount > 0 && (
-        <span
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{
-            // A sliver stays visible; nothing at all draws nothing.
-            width: `max(2px, ${amount * 100}%)`,
-            background: soft ? "var(--spend-least)" : "var(--spend-most)",
-          }}
+    <>
+      <span className="sr-only">Average {spent(row.average)}</span>
+      <svg
+        aria-hidden="true"
+        width={width}
+        height={height}
+        className="block overflow-visible"
+      >
+        <line
+          x1={x(0)}
+          x2={x(1)}
+          y1={y(line.average)}
+          y2={y(line.average)}
+          stroke="var(--ink-meta)"
+          strokeWidth={1}
+          strokeDasharray="2 2"
         />
-      )}
-      {average !== null && (
-        <span
-          className="absolute -inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-foreground"
-          style={{ left: `${average * 100}%` }}
+        <polyline
+          points={line.points
+            .map((point) => `${x(point.x)},${y(point.y)}`)
+            .join(" ")}
+          fill="none"
+          stroke="var(--ink-soft)"
+          strokeWidth={1.25}
+          strokeLinejoin="round"
         />
-      )}
-    </span>
+        <circle
+          cx={x(last.x)}
+          cy={y(last.y)}
+          r={2.5}
+          fill="var(--spend-most)"
+        />
+      </svg>
+    </>
   );
 }
 

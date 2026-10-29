@@ -31,6 +31,8 @@ export const overviewCategorySchema = z.object({
   amount: z.number(),
   // Over the same months as the figures' average; null when there are none.
   average: z.number().nullable(),
+  // Its amount in each of the twelve months `months` lists, zero-filled.
+  monthly: z.array(z.number()),
 });
 export type OverviewCategory = z.infer<typeof overviewCategorySchema>;
 

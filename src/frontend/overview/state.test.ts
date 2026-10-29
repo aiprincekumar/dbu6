@@ -4,10 +4,12 @@ import {
   averageLabel,
   categoryBars,
   categoryRows,
+  type CategoryRow,
   monthDates,
   monthForKey,
   monthSteps,
   otherWorthChange,
+  sparkline,
   waitingLabel,
 } from "./state";
 
@@ -82,6 +84,8 @@ describe("categoryRows", () => {
   ) =>
     ({
       categories,
+      months: [] as PostedOverview["months"],
+      first_month: null as string | null,
       figures: {
         income: 0,
         spending,
@@ -92,12 +96,55 @@ describe("categoryRows", () => {
   const summary = (rows: ReturnType<typeof categoryRows>) =>
     rows.map((row) => [row.name, row.amount, row.average]);
 
+  it("gives every row its months from the books' first, Other's exact", () => {
+    const rows = categoryRows({
+      ...overview(
+        [
+          {
+            account_id: 1,
+            name: "Housing",
+            amount: 3000,
+            average: 3000,
+            monthly: [0, 3000, 3000, 3000],
+          },
+        ],
+        4000,
+        3500,
+      ),
+      // The books start in February: January's zeros are not drawn.
+      months: [
+        { month: "2026-01", income: 0, spending: 0 },
+        { month: "2026-02", income: 0, spending: 3000 },
+        { month: "2026-03", income: 0, spending: 4000 },
+        { month: "2026-04", income: 0, spending: 4000 },
+      ],
+      first_month: "2026-02",
+    });
+    expect(rows.map((row) => [row.name, row.monthly])).toEqual([
+      ["Housing", [3000, 3000, 3000]],
+      ["Other", [0, 1000, 1000]],
+      ["Total", [3000, 4000, 4000]],
+    ]);
+  });
+
   it("adds Other and Total, so the table adds up to the spending", () => {
     const rows = categoryRows(
       overview(
         [
-          { account_id: 1, name: "Housing", amount: 3000, average: 3000 },
-          { account_id: 2, name: "Food", amount: 1500, average: 2000 },
+          {
+            account_id: 1,
+            name: "Housing",
+            amount: 3000,
+            average: 3000,
+            monthly: [],
+          },
+          {
+            account_id: 2,
+            name: "Food",
+            amount: 1500,
+            average: 2000,
+            monthly: [],
+          },
         ],
         5000,
         6000,
@@ -116,7 +163,15 @@ describe("categoryRows", () => {
     // is in Other's.
     const rows = categoryRows(
       overview(
-        [{ account_id: 1, name: "Housing", amount: 3000, average: 3000 }],
+        [
+          {
+            account_id: 1,
+            name: "Housing",
+            amount: 3000,
+            average: 3000,
+            monthly: [],
+          },
+        ],
         3000,
         4000,
       ),
@@ -132,8 +187,20 @@ describe("categoryRows", () => {
     const rows = categoryRows(
       overview(
         [
-          { account_id: 1, name: "Housing", amount: 3000.1, average: 0.2 },
-          { account_id: 2, name: "Refunds", amount: -0.1, average: 0.1 },
+          {
+            account_id: 1,
+            name: "Housing",
+            amount: 3000.1,
+            average: 0.2,
+            monthly: [],
+          },
+          {
+            account_id: 2,
+            name: "Refunds",
+            amount: -0.1,
+            average: 0.1,
+            monthly: [],
+          },
         ],
         3000,
         0.3,
@@ -149,7 +216,15 @@ describe("categoryRows", () => {
   it("has no averages before the books have a month to average", () => {
     const rows = categoryRows(
       overview(
-        [{ account_id: 1, name: "Housing", amount: 3000, average: null }],
+        [
+          {
+            account_id: 1,
+            name: "Housing",
+            amount: 3000,
+            average: null,
+            monthly: [],
+          },
+        ],
         4000,
         null,
       ),
@@ -170,31 +245,69 @@ describe("categoryBars", () => {
   const row = (
     kind: "category" | "other" | "total",
     amount: number,
-    average: number | null,
-  ) => ({ kind, account_id: null, name: kind, amount, average });
+  ): CategoryRow => ({
+    kind,
+    account_id: null,
+    name: kind,
+    amount,
+    average: null,
+    monthly: [],
+  });
 
-  it("puts bars and ticks on one scale, the largest of either, Total aside", () => {
+  it("gives each row its share of the month's spending, Total aside", () => {
     expect(
       categoryBars([
-        row("category", 1000, 2000),
-        row("category", 500, null),
-        row("other", 250, 0),
-        row("total", 1750, 2000),
+        row("category", 1000),
+        row("category", 750),
+        row("other", 250),
+        row("total", 2000),
       ]),
-    ).toEqual([
-      { amount: 0.5, average: 1 },
-      { amount: 0.25, average: null },
-      { amount: 0.125, average: null },
-      null,
-    ]);
+    ).toEqual([0.5, 0.375, 0.125, null]);
   });
 
   it("draws nothing for a refund, and no bars when nothing was spent", () => {
-    expect(categoryBars([row("category", -500, 1000)])).toEqual([
-      { amount: 0, average: 1 },
-    ]);
+    // The refund leaves the share of what was spent; it is all Food's.
     expect(
-      categoryBars([row("category", -500, null), row("total", -500, null)]),
-    ).toEqual([null, null]);
+      categoryBars([
+        row("category", -500),
+        row("category", 500),
+        row("total", 0),
+      ]),
+    ).toEqual([0, 1, null]);
+    expect(categoryBars([row("category", -500), row("total", -500)])).toEqual([
+      null,
+      null,
+    ]);
+  });
+});
+
+describe("sparkline", () => {
+  const row = (monthly: number[], average: number | null): CategoryRow => ({
+    kind: "category",
+    account_id: 1,
+    name: "Food",
+    amount: monthly[monthly.length - 1] ?? 0,
+    average,
+    monthly,
+  });
+
+  it("scales the months and average to the highest of them, the month shown last", () => {
+    const line = sparkline(row([1000, 2000, 4000], 1500));
+    expect(line?.average).toBe(0.375);
+    // Three months sit at the right of twelve slots.
+    expect(line?.points).toEqual([
+      { x: 9 / 11, y: 0.25 },
+      { x: 10 / 11, y: 0.5 },
+      { x: 1, y: 1 },
+    ]);
+  });
+
+  it("puts refunds at zero, and draws nothing before there is an average", () => {
+    expect(
+      sparkline(row([-500, 1000], 1000))?.points.map((point) => point.y),
+    ).toEqual([0, 1]);
+    expect(sparkline(row([1000], 1000))).toBeNull();
+    expect(sparkline(row([1000, 2000], null))).toBeNull();
+    expect(sparkline(row([0, 0], 0))?.average).toBe(0);
   });
 });
