@@ -6,7 +6,7 @@ import type {
   HomeSummary,
 } from "../../shared/index";
 import {
-  ADD_MENU,
+  ADD_BANK_OR_CARD,
   updateState,
   statementsHref,
   waitingInUpdate,
@@ -183,11 +183,8 @@ describe("updateState", () => {
     expect(statementsHref({ any_imported: true })).toBe("/add");
   });
 
-  it("adds a bank or card through /add, and anything else through C1", () => {
-    expect(ADD_MENU).toEqual([
-      { label: "Bank or card", to: "/add" },
-      { label: "Cash, deposit, investment or loan", to: "/add/other" },
-    ]);
+  it("adds a bank or card through /add", () => {
+    expect(ADD_BANK_OR_CARD).toEqual({ label: "Add bank or card", to: "/add" });
   });
 });
 

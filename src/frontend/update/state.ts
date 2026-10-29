@@ -7,7 +7,7 @@ import {
 } from "../../shared/index";
 import type { StatusTone } from "../components/status-chip";
 import { RECONCILIATION_DIFFERENCES_HREF } from "../reports/links";
-import { ADD_OTHER_ROUTE, ADD_ROUTE, addHref } from "../add-account/state";
+import { ADD_ROUTE, addHref } from "../add-account/state";
 import { reviewHref, REVIEW_ROUTE } from "../review/routes";
 import { SETUP_ROUTE } from "../setup/routes";
 import { joinNames, plural } from "../format";
@@ -33,11 +33,11 @@ export function statementsHref(summary: Pick<HomeSummary, "any_imported">) {
   return summary.any_imported ? ADD_ROUTE : addHref({ setup: true });
 }
 
-/** "+ Add", beside "Your accounts": /add's cards, or C1. */
-export const ADD_MENU: readonly UpdateLink[] = [
-  { label: "Bank or card", to: ADD_ROUTE },
-  { label: "Cash, deposit, investment or loan", to: ADD_OTHER_ROUTE },
-];
+/** "+ Add bank or card", beside "Banks & cards": /add's cards. */
+export const ADD_BANK_OR_CARD: UpdateLink = {
+  label: "Add bank or card",
+  to: ADD_ROUTE,
+};
 
 export type UpdateStateId =
   "no-chart" | "nothing-imported" | "drafts" | "import-new";

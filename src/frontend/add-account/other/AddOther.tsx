@@ -15,7 +15,7 @@ import {
   type FocusFrame,
 } from "../../components/focus-card";
 import { SETUP_HAND_OFF_HREF } from "../../review/routes";
-import { UPDATE_ROUTE } from "../../update/routes";
+import { BALANCES_SETTINGS_ROUTE } from "../../views/settings/routes";
 import { accountsInBooks, setupFrame } from "../words";
 import { RecordBalance } from "./RecordBalance";
 import {
@@ -35,7 +35,7 @@ import {
  * the URL's (`otherCard`); the list of accounts is the books'.
  */
 export function AddOther() {
-  usePageTitle("Add a balance");
+  usePageTitle("Record an opening balance");
   const [params] = useSearchParams();
   const url = readOtherUrl(params);
   const navigate = useNavigate();
@@ -51,7 +51,7 @@ export function AddOther() {
         "other",
         statements.data ? accountsInBooks(statements.data) : 0,
       )
-    : { flow: "Add a balance" };
+    : { flow: "Record an opening balance" };
 
   if (otherCard(url) === "anything-else") {
     return <AnythingElse frame={frame} data={balances.data} />;
@@ -163,7 +163,9 @@ function NothingLeft({
           </Button>
           <Button
             render={
-              <Link to={url.setup ? SETUP_HAND_OFF_HREF : UPDATE_ROUTE} />
+              <Link
+                to={url.setup ? SETUP_HAND_OFF_HREF : BALANCES_SETTINGS_ROUTE}
+              />
             }
             nativeButton={false}
           >

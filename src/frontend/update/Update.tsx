@@ -1,7 +1,5 @@
 import { Link } from "react-router-dom";
-import { Menu } from "@base-ui/react/menu";
 import { ChevronRight, CreditCard, Landmark, Plus } from "lucide-react";
-import { comboboxClassNames } from "@sapporta/ui/combobox";
 import { cn } from "@sapporta/ui/cn";
 import { useQuery } from "@tanstack/react-query";
 import { dayLabel, type HomeAccount } from "../../shared/index";
@@ -9,7 +7,7 @@ import { useAuthStore } from "@sapporta/frontend/auth";
 import { usePageTitle } from "@sapporta/frontend/shell";
 import { apiErrorMessage } from "../api";
 import { AccountParentPath } from "../components/account-name";
-import { Button, buttonVariants } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import { LoadError } from "../components/load-error";
 import { Screen } from "../components/screen";
 import { NextStepCard } from "../components/next-step-card";
@@ -21,7 +19,7 @@ import { BANKS_SETTINGS_ROUTE } from "../views/settings/routes";
 import { formatDate } from "../format";
 import {
   accountStatus,
-  ADD_MENU,
+  ADD_BANK_OR_CARD,
   statementsHref,
   updateState,
   type UpdateCard,
@@ -80,16 +78,26 @@ export function Update() {
         ) : (
           <div
             aria-hidden="true"
-            className="h-[132px] rounded-card border border-sap-border bg-card"
+            className="h-[104px] rounded-card bg-sap-nested"
           />
         )}
       </div>
 
       {(view === null || view.listsAccounts) && (
-        <section className="mt-4 rounded-card border border-sap-border bg-card shadow-card">
-          <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-5">
-            <h2 className="text-heading text-foreground">Your accounts</h2>
-            {summary && <AddMenu />}
+        <section className="mt-10">
+          <div className="flex items-center justify-between gap-3 pb-3">
+            <h2 className="text-heading text-foreground">Banks &amp; cards</h2>
+            {summary && (
+              <Button
+                render={<Link to={ADD_BANK_OR_CARD.to} />}
+                nativeButton={false}
+                variant="outline"
+                size="sm"
+              >
+                <Plus />
+                {ADD_BANK_OR_CARD.label}
+              </Button>
+            )}
           </div>
           {summary ? (
             <AccountTable
@@ -97,7 +105,7 @@ export function Update() {
               statementsTo={statementsHref(summary)}
             />
           ) : error ? null : (
-            <ul aria-hidden="true" className="px-4 pb-5">
+            <ul aria-hidden="true" className="border-t border-line-inner">
               {[0, 1, 2].map((i) => (
                 <li
                   key={i}
@@ -128,45 +136,6 @@ export function StepCard({ card }: { card: UpdateCard }) {
   );
 }
 
-/** "+ Add": a bank or card through /add, anything else through C1. */
-function AddMenu() {
-  return (
-    <Menu.Root>
-      <Menu.Trigger
-        className={cn(
-          buttonVariants({ variant: "outline", size: "sm" }),
-          "data-popup-open:bg-muted",
-        )}
-      >
-        <Plus />
-        Add
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          className={comboboxClassNames.positioner}
-          align="end"
-          sideOffset={4}
-        >
-          <Menu.Popup
-            className={cn(comboboxClassNames.popup, "w-auto min-w-40 p-1")}
-          >
-            {ADD_MENU.map((item) => (
-              <Menu.LinkItem
-                key={item.to}
-                className={cn(comboboxClassNames.item, "no-underline")}
-                render={<Link to={item.to} />}
-                closeOnClick
-              >
-                {item.label}
-              </Menu.LinkItem>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  );
-}
-
 function AccountTable({
   accounts,
   statementsTo,
@@ -176,18 +145,18 @@ function AccountTable({
   statementsTo: string;
 }) {
   return (
-    <div className="border-t border-line-inner pb-2">
+    <div>
       <div
         aria-hidden="true"
-        className="mx-2 flex items-center gap-3 px-4 pb-1 pt-2.5 text-meta text-ink-meta"
+        className="flex items-center gap-3 border-b border-line-inner px-2 pb-2 text-meta text-ink-meta"
       >
-        <span className="w-9 shrink-0" />
+        <span className="w-5 shrink-0" />
         <span className={NAME_COLUMN}>Account</span>
         <span className={DATE_COLUMN}>Imported until</span>
         <span className="flex-1" />
         <span className="w-4 shrink-0" />
       </div>
-      <ul>
+      <ul className="divide-y divide-line-inner border-b border-line-inner">
         {accounts.map((account) => (
           <AccountRow
             key={account.account_id}
@@ -203,10 +172,10 @@ function AccountTable({
 /*
  * The columns keep the same widths in the header and each row. The name's is
  * fixed rather than stretching, so each date sits close to its account; the
- * status takes the rest of the row.
+ * status takes the rest of the row, or a line of its own on a phone.
  */
-const NAME_COLUMN = "w-40 min-w-0 shrink-0 sm:w-56";
-const DATE_COLUMN = "w-28 shrink-0 text-right";
+const NAME_COLUMN = "w-36 min-w-0 shrink-0 sm:w-56";
+const DATE_COLUMN = "w-24 shrink-0 text-right sm:w-28";
 
 /**
  * One account. The whole row opens its ledger: the name's link stretches over
@@ -227,22 +196,21 @@ function AccountRow({
   return (
     <li
       className={cn(
-        "relative mx-2 flex items-center gap-3 rounded-control px-4 py-3",
+        "relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-3 sm:flex-nowrap",
         ledger && "hover:bg-sap-row-hover",
       )}
     >
-      <span
+      <Icon
         aria-hidden="true"
-        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-tile-bg text-ink-soft"
-      >
-        <Icon className="size-[18px]" strokeWidth={1.75} />
-      </span>
+        className="size-5 shrink-0 text-ink-meta"
+        strokeWidth={1.75}
+      />
       <div className={NAME_COLUMN}>
         {account.in_ledger && ledger ? (
           <Link
             to={ledger}
             title={account.path}
-            className="block truncate font-semibold text-foreground no-underline outline-none after:absolute after:inset-0 after:rounded-control after:content-[''] focus-visible:after:ring-[3px] focus-visible:after:ring-ring/40"
+            className="block truncate font-semibold text-foreground no-underline outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-[3px] focus-visible:after:ring-ring/40"
           >
             {account.name}
           </Link>
@@ -269,9 +237,9 @@ function AccountRow({
       <span className={DATE_COLUMN}>
         <ImportedUntil account={account} />
       </span>
-      <div className="flex min-w-0 flex-1 justify-end">
-        {status &&
-          (status.to ? (
+      {status && (
+        <div className="order-last flex min-w-0 basis-full pl-8 sm:order-none sm:flex-1 sm:basis-auto sm:justify-end sm:pl-0">
+          {status.to ? (
             <Link
               to={status.to}
               className="relative z-10 -my-2 inline-flex min-h-sap-ctl shrink-0 items-center rounded-control no-underline outline-none hover:[&>span]:underline hover:[&>span]:underline-offset-4 focus-visible:ring-[3px] focus-visible:ring-ring/40"
@@ -282,9 +250,10 @@ function AccountRow({
             <StatusChip tone={status.tone} className="shrink-0">
               {status.label}
             </StatusChip>
-          ))}
-      </div>
-      <span aria-hidden="true" className="w-4 shrink-0">
+          )}
+        </div>
+      )}
+      <span aria-hidden="true" className="ml-auto w-4 shrink-0">
         {ledger && <ChevronRight className="size-4 text-ink-meta" />}
       </span>
     </li>

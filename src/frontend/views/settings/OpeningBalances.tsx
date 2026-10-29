@@ -110,7 +110,7 @@ export function OpeningBalances() {
       to={ADD_OTHER_ROUTE}
       className="text-primary underline-offset-4 hover:underline"
     >
-      Add a balance
+      Record a balance
     </Link>
   );
 
@@ -147,7 +147,7 @@ export function OpeningBalances() {
                     variant="outline"
                     size="sm"
                   >
-                    Add a balance
+                    Record a balance
                   </Button>
                 }
               />

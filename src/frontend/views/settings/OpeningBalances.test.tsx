@@ -451,7 +451,7 @@ describe("OpeningBalances", () => {
     expect(
       document.querySelector('[aria-label^="Add a balance for"]'),
     ).toBeNull();
-    expect(button("Add a balance").getAttribute("href")).toBe("/add/other");
+    expect(button("Record a balance").getAttribute("href")).toBe("/add/other");
 
     // One action per row: the menu, or the lock and its journal entry.
     expect(
@@ -744,7 +744,7 @@ describe("OpeningBalances", () => {
     await renderPage([cash, loan, gold]);
 
     expect(text()).toContain("No opening balances yet");
-    expect(button("Add a balance").getAttribute("href")).toBe("/add/other");
+    expect(button("Record a balance").getAttribute("href")).toBe("/add/other");
     expect(document.querySelector("table")).toBeNull();
   });
 
