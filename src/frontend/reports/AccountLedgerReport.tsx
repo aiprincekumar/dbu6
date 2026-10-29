@@ -1,12 +1,11 @@
 import {
   accountLedgerRow,
+  AccountTreeCombobox,
   apiErrorMessage,
   Button,
   HledgerDialog,
   type RenderedHledger,
   type LedgerLinkInput,
-  LookupPicker,
-  type LookupValue,
   type ReportCellLinkResolvers,
   ReportPeriodField,
   ReportResultBody,
@@ -19,7 +18,7 @@ import {
   useSearchParams,
   useState,
   useAccountParentPaths,
-  useTableLookup,
+  useId,
 } from "../report-kit";
 import { reportsApi } from "./client";
 
@@ -36,9 +35,9 @@ export function AccountLedgerReport() {
   const { period, dates, setPeriod } = useReportPeriod({
     defaultPreset: "last-3-months",
   });
-  const accountLookup = useTableLookup("accounts");
+  const pickerId = useId();
   const parentPaths = useAccountParentPaths();
-  const selectedAccount = lookupValueFromParam(accountId);
+  const selectedAccount = accountIdFromParam(accountId);
   const hasAccount = accountId !== "";
   const report = useReportResult(
     ["account-ledger", accountId, dates],
@@ -105,16 +104,18 @@ export function AccountLedgerReport() {
           </>
         }
       >
-        <label className="flex items-center gap-2 text-sap-data">
-          <span className="text-sap-muted">account:</span>
-          <LookupPicker
-            lookup={accountLookup}
+        <div className="flex items-center gap-2 text-sap-data">
+          <label htmlFor={pickerId} className="text-sap-muted">
+            account:
+          </label>
+          <AccountTreeCombobox
+            id={pickerId}
             value={selectedAccount}
             onChange={(value) => setAccount(value == null ? "" : String(value))}
             placeholder="Select account"
-            className="h-sap-ctl min-w-[140px] rounded-[5px] text-sap-emph"
+            className="min-w-[280px]"
           />
-        </label>
+        </div>
         <ReportPeriodField period={period} onChange={setPeriod} />
       </ReportToolbar>
       <ReportResultBody<LedgerLinkInput>
@@ -137,10 +138,7 @@ export function AccountLedgerReport() {
   );
 }
 
-function lookupValueFromParam(value: string): LookupValue | null {
-  if (value === "") return null;
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) && String(numericValue) === value
-    ? numericValue
-    : value;
+function accountIdFromParam(value: string): number | null {
+  const id = Number(value);
+  return value !== "" && Number.isInteger(id) ? id : null;
 }

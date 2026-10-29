@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, FileText, AlertCircle } from "lucide-react";
-import { LookupPicker, useTableLookup } from "@sapporta/frontend/lookup";
 import { AppPage } from "@sapporta/frontend/shell";
 import { draftTransactionsApi } from "../api";
+import { AccountTreeCombobox } from "../components/account-pickers";
 import { Button } from "../components/ui/button";
 import { copyText } from "../clipboard";
 
@@ -13,7 +13,6 @@ interface RenderResult {
 }
 
 export function RenderDraftHledger() {
-  const accountLookup = useTableLookup("accounts");
   const [baseAccountId, setBaseAccountId] = useState<string | null>(null);
   const [result, setResult] = useState<RenderResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,9 +54,8 @@ export function RenderDraftHledger() {
             >
               Base account
             </label>
-            <LookupPicker
+            <AccountTreeCombobox
               id="render-draft-base-account"
-              lookup={accountLookup}
               value={baseAccountId === null ? null : Number(baseAccountId)}
               onChange={(id) =>
                 setBaseAccountId(id === null ? null : String(id))

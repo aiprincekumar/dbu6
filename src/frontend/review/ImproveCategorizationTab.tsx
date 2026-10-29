@@ -10,7 +10,6 @@ import {
   type SchemaTableRowsByLevel,
   type TGridSession,
 } from "@sapporta/frontend";
-import { LookupPicker, useTableLookup } from "@sapporta/frontend/lookup";
 import {
   ROW_MULTISELECT_LIST,
   rowKeyOfRowId,
@@ -23,6 +22,7 @@ import {
 } from "@sapporta/shared/filter";
 import { apiErrorMessage, categorizationRuleRequestsApi } from "../api";
 import { AccountParentPath } from "../components/account-name";
+import { AccountTreeCombobox } from "../components/account-pickers";
 import type { AgentPrompt } from "../agent-prompt-rules";
 import { AgentButton } from "../components/agent-prompt";
 import { Field } from "../components/focus-card";
@@ -564,7 +564,6 @@ function DraftRule({
   inRuleRequests: number;
   onAdded: () => void;
 }) {
-  const accountLookup = useTableLookup<number>("accounts");
   const [accountId, setAccountId] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [missingAccount, setMissingAccount] = useState(false);
@@ -630,9 +629,8 @@ function DraftRule({
         Which account should these go to?
       </h2>
       <Field id="rule-account" label="Account">
-        <LookupPicker
+        <AccountTreeCombobox
           id="rule-account"
-          lookup={accountLookup}
           value={accountId}
           onChange={(id) => {
             setAccountId(id);
@@ -640,8 +638,8 @@ function DraftRule({
           }}
           placeholder="Choose an account"
           disabled={add.isPending}
-          ariaInvalid={missingAccount}
-          ariaDescribedBy={missingAccount ? "rule-account-error" : undefined}
+          invalid={missingAccount}
+          describedBy={missingAccount ? "rule-account-error" : undefined}
           className="w-full"
         />
         {missingAccount && (

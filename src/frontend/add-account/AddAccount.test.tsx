@@ -384,22 +384,25 @@ describe("adding a bank or card", () => {
     await render("/add?from=2025-01");
     await drop("jan.xls", "feb.xls");
 
-    const trigger = host.querySelector<HTMLElement>(
-      '[aria-label="Open popup"]',
+    const under = [...host.querySelectorAll("label")].find(
+      (one) => one.textContent === "Under",
     );
-    if (trigger === null) throw new Error(`No parent picker in: ${text()}`);
+    const trigger = (under && document.getElementById(under.htmlFor))
+      ?.closest('[role="group"]')
+      ?.querySelector<HTMLElement>('[aria-label="Show the choices"]');
+    if (!trigger) throw new Error(`No parent picker in: ${text()}`);
     await act(async () => {
       trigger.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
       trigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       trigger.click();
     });
     await settle();
-    // The usual parent, chosen, comes first.
+    // The Asset branch of the chart's tree.
     expect(
       [...document.querySelectorAll('[role="option"]')].map(
         (one) => one.textContent,
       ),
-    ).toEqual(["Bank Accounts", "Assets"]);
+    ).toEqual(["Assets", "Bank Accounts"]);
   });
 
   it("shows the add's steps while it runs, then hands off", async () => {

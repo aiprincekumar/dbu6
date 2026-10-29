@@ -2,7 +2,6 @@ import { useId, useRef, useState, type ReactNode } from "react";
 import { Input } from "@sapporta/ui";
 import { cn } from "@sapporta/ui/cn";
 import { BookOpen, CirclePlus } from "lucide-react";
-import { LookupPicker } from "@sapporta/frontend/lookup";
 import type {
   AccountKind,
   AddAccountCandidate,
@@ -16,7 +15,8 @@ import { formatBalance, formatDate } from "../format";
 import {
   AccountCombobox,
   InstitutionCombobox,
-  useStatementParentLookup,
+  AccountTreeCombobox,
+  statementParentEligible,
 } from "../components/account-pickers";
 import {
   confirmDraft,
@@ -178,7 +178,9 @@ export function Confirm({
           draft={draft}
           data={data}
           update={update}
-          open={draft.institution.trim() === "" || problem === bankProblem(kind)}
+          open={
+            draft.institution.trim() === "" || problem === bankProblem(kind)
+          }
         />
       )}
       <StatementFacts
@@ -189,7 +191,9 @@ export function Confirm({
       />
       {fixed ? (
         <IntoBox heading={importHeading(account.transactions, "into")}>
-          <p className="text-[17px] font-semibold text-foreground">{fixed.name}</p>
+          <p className="text-[17px] font-semibold text-foreground">
+            {fixed.name}
+          </p>
         </IntoBox>
       ) : usingExisting ? (
         <ExistingAccount
@@ -304,9 +308,7 @@ function IntoBox({
     <section
       className={cn(
         "rounded-control border px-5 pb-4 pt-5",
-        creates
-          ? "border-money-in-border bg-money-in-bg"
-          : "border-sap-border",
+        creates ? "border-money-in-border bg-money-in-bg" : "border-sap-border",
       )}
     >
       <BoxHeading
@@ -355,21 +357,18 @@ function NewAccount({
   update: (draft: ConfirmDraft) => void;
 }) {
   const ids = { parent: useId(), name: useId() };
-  const parentLookup = useStatementParentLookup(kind);
   return (
     <IntoBox heading={heading} creates>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
         <div className="space-y-1.5 sm:w-[42%]">
           <SegmentLabel id={ids.parent}>Under</SegmentLabel>
-          <LookupPicker
+          <AccountTreeCombobox
             id={ids.parent}
-            lookup={parentLookup}
+            eligible={statementParentEligible(kind)}
             value={draft.parentId}
             onChange={(parentId) => update({ ...draft, parentId })}
-            selectedCaption="below"
             placeholder="Pick an account"
-            allowClear={false}
-            className="w-full [&_[role=group]]:h-10 [&_[role=group]]:bg-card [&_input]:text-body"
+            className="w-full [&_[role=group]]:h-10 [&_input]:text-body [&_[role=group]>span]:text-body"
           />
         </div>
         <span

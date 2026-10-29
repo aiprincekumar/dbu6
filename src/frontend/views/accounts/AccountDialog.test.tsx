@@ -14,7 +14,6 @@ import {
 } from "vitest";
 import { AccountDialog } from "./AccountDialog";
 import type { AccountRow } from "./account-form";
-import { accountsLookup } from "../../accounts-page.testing";
 
 /*
  * The Accounts page's edit form on screen: a new account on the table API,
@@ -51,7 +50,6 @@ let root: Root;
 let sent: Sent[];
 let refusal: { error: string; code: string; field: string | null } | null;
 let closed: number;
-let lookups: URL[];
 
 beforeAll(() => {
   (
@@ -73,7 +71,6 @@ beforeEach(() => {
   sent = [];
   refusal = null;
   closed = 0;
-  lookups = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -89,10 +86,6 @@ beforeEach(() => {
 
       if (method === "GET" && url.pathname.endsWith("/tables/accounts")) {
         return rowsResponse(CHART);
-      }
-      if (url.pathname.endsWith("/tables/accounts/_lookup")) {
-        lookups.push(url);
-        return Response.json(accountsLookup(CHART, url));
       }
       if (method === "GET" && url.pathname.endsWith("/import-presets")) {
         return Response.json({
@@ -243,6 +236,13 @@ function options(): HTMLElement[] {
   return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
 }
 
+/** The open list's options that can be picked, by their text. */
+function pickable(): string[] {
+  return options()
+    .filter((one) => !one.hasAttribute("data-disabled"))
+    .map((one) => one.textContent ?? "");
+}
+
 /** Opens the combobox a control names, and picks an option by its text. */
 async function choose(triggerLabel: string, option: string) {
   await open(triggerLabel);
@@ -282,7 +282,7 @@ describe("AccountDialog", () => {
     await render("new");
 
     await act(async () => type(field("Name"), "Sample Holiday"));
-    await choose("Open popup", "Groceries");
+    await choose("Show the choices", "Groceries");
 
     await save();
 
@@ -302,7 +302,7 @@ describe("AccountDialog", () => {
   it("clears the parent to make a top-level account", async () => {
     await render(accountOf("Groceries"));
 
-    await act(async () => button("Clear selection").click());
+    await act(async () => button("Make it a top-level account").click());
     await settle();
     await save();
 
@@ -316,26 +316,51 @@ describe("AccountDialog", () => {
   });
 
   it("offers a fixed type's accounts as parents, outside its own branch", async () => {
-    // Bank Accounts holds a bank, so it stays an Asset.
+    // Bank Accounts holds a bank, so it stays an Asset. It shows where it
+    // sits, greyed, and nothing under it is listed.
     await render(accountOf("Bank Accounts"));
 
-    expect(await open("Open popup")).toEqual(["Assets"]);
-    // The last search, once the form knows the type is fixed.
-    const search = lookups.filter((url) => !url.searchParams.has("ids")).at(-1);
-    expect(search?.searchParams.get("filter[account_type][eq]")).toBe("Asset");
-    expect(search?.searchParams.get("notUnder")).toBe("2");
+    expect(await open("Show the choices")).toEqual([
+      "Assets",
+      "Bank Accounts (this account)",
+    ]);
+    expect(pickable()).toEqual(["Assets"]);
   });
 
   it("offers any account as a parent while the type is free", async () => {
     await render(accountOf("Groceries"));
 
-    // Its own parent, chosen, comes first.
-    expect(await open("Open popup")).toEqual([
-      "Expenses",
+    // The chart's tree, top accounts by type.
+    expect(await open("Show the choices")).toEqual([
       "Assets",
       "Bank Accounts",
       "Sample Savings",
       "Sample Wallet",
+      "Expenses",
+      "Groceries (this account)",
+    ]);
+    expect(pickable()).not.toContain("Groceries (this account)");
+  });
+
+  it("shows the chosen parent's path in the field, and its own type", async () => {
+    await render(accountOf("Sample Wallet"));
+
+    expect(text()).toContain("Assets ›");
+    expect(field("Belongs under").value).toBe("Bank Accounts");
+    // The path names the type, so no Category field shows.
+    expect(text()).not.toContain("Category");
+  });
+
+  it("lists a search's matches with their paths", async () => {
+    await render("new");
+
+    await open("Show the choices");
+    await act(async () => type(field("Belongs under"), "sample"));
+    await settle();
+
+    expect(options().map((one) => one.textContent)).toEqual([
+      "Assets › Bank Accounts › Sample Savings",
+      "Assets › Bank Accounts › Sample Wallet",
     ]);
   });
 

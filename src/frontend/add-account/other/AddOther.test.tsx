@@ -152,13 +152,13 @@ const BALANCES: OpeningBalances = {
 
 // The books' accounts, which the choices' parent paths come from.
 const ACCOUNT_ROWS = [
-  { id: 10, name: "Assets", parent_id: null },
-  { id: 11, name: "Liabilities", parent_id: null },
-  { id: 12, name: "Loans", parent_id: 11 },
-  { id: 1, name: "Bank Accounts", parent_id: 10 },
-  { id: 2, name: "Cash", parent_id: 10 },
-  { id: 3, name: "Sample Car Loan", parent_id: 12 },
-  { id: 4, name: "Sample Savings", parent_id: 1 },
+  { id: 10, name: "Assets", parent_id: null, account_type: "Asset" },
+  { id: 11, name: "Liabilities", parent_id: null, account_type: "Liability" },
+  { id: 12, name: "Loans", parent_id: 11, account_type: "Liability" },
+  { id: 1, name: "Bank Accounts", parent_id: 10, account_type: "Asset" },
+  { id: 2, name: "Cash", parent_id: 10, account_type: "Asset" },
+  { id: 3, name: "Sample Car Loan", parent_id: 12, account_type: "Liability" },
+  { id: 4, name: "Sample Savings", parent_id: 1, account_type: "Asset" },
 ];
 const ACCOUNTS_TABLE = accountsTablePage(ACCOUNT_ROWS);
 
@@ -330,13 +330,22 @@ describe("C1", () => {
         .click(),
     );
     await settle();
-    const offered = [
+    // In the chart's tree, the accounts above them there only to place them.
+    const options = [
       ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].map((el) => el.textContent);
-    expect(offered).toEqual([
-      "CashAssets",
-      "Sample Car LoanLiabilities > Loans",
+    ];
+    expect(options.map((el) => el.textContent)).toEqual([
+      "Assets",
+      "Cash",
+      "Liabilities",
+      "Loans",
+      "Sample Car Loan",
     ]);
+    expect(
+      options
+        .filter((el) => !el.hasAttribute("data-disabled"))
+        .map((el) => el.textContent),
+    ).toEqual(["Cash", "Sample Car Loan"]);
   });
 
   it("records what an asset held, on its default day, and comes back to card 6", async () => {
@@ -365,8 +374,8 @@ describe("C1", () => {
     expect(() => button("Back")).toThrow();
     await pick("Sample Car Loan");
     expect(title()).toBe("What did you owe on Sample Car Loan?");
-    // The chosen account's parents, under the picker.
-    expect(text()).toContain("Liabilities > Loans");
+    // The chosen account's parents, before its name in the picker.
+    expect(text()).toContain("Liabilities › Loans ›");
     expect(field("As of")?.value).toBe("2026-04-09");
     expect(text()).toContain("Before its first transaction on");
 

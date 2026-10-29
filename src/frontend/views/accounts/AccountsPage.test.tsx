@@ -407,7 +407,7 @@ async function choose(triggerLabel: string, option: string) {
 async function addAccount(name: string, parent?: string) {
   await click("New record");
   await act(async () => type(field("Name"), name));
-  if (parent !== undefined) await choose("Open popup", parent);
+  if (parent !== undefined) await choose("Show the choices", parent);
   await click("Save");
 }
 

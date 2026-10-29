@@ -13,13 +13,13 @@ import {
   DialogTitle,
 } from "@sapporta/ui/dialog";
 import { createTableRow } from "@sapporta/frontend";
-import { LookupPicker, useTableLookup } from "@sapporta/frontend/lookup";
 import {
   LEDGER_ACCOUNT_TYPES,
   type LedgerAccountType,
 } from "../../../shared/index";
 import { ACCOUNT_TYPE_TERMS } from "../../account-type-terms";
 import { accountsApi, apiErrorMessage, removeAccount } from "../../api";
+import { AccountTreeCombobox } from "../../components/account-pickers";
 import { Button } from "../../components/ui/button";
 import {
   accountChartQuery,
@@ -145,12 +145,8 @@ function DialogBody({
   // A fixed type keeps the parent to accounts of that type; otherwise any
   // account will do, and the type follows the one chosen. Never the account
   // itself or one under it, which would make a loop.
-  const parentLookup = useTableLookup<number>("accounts", {
-    filter: lock.locked
-      ? [{ column: "account_type", op: "eq", value: draft.account_type }]
-      : [],
-    notUnder: account?.id,
-  });
+  const parentEligible = (one: { account_type: LedgerAccountType }) =>
+    !lock.locked || one.account_type === draft.account_type;
   const parent =
     context.chart.find((one) => one.id === draft.parent_id) ?? null;
   const notice =
@@ -247,68 +243,77 @@ function DialogBody({
 
         <Field label="Belongs under" htmlFor={ids.parent}>
           {/* Cleared, it is a top-level account. */}
-          <LookupPicker
+          <AccountTreeCombobox
             id={ids.parent}
-            lookup={parentLookup}
+            eligible={parentEligible}
+            self={account?.id}
             value={draft.parent_id}
             onChange={(parent_id) =>
               set(withParent(draft, parent_id, context.chart))
             }
-            selectedCaption="below"
             placeholder="None — this is a top-level account"
-            ariaInvalid={problem?.field === "parent_id"}
-            className="w-full"
+            clearLabel="Make it a top-level account"
+            invalid={problem?.field === "parent_id"}
           />
+          {/* The path in the field names the type, so a picked parent
+              needs no Category field, unless the type is fixed. */}
+          {parent !== null && !lock.locked && notice && (
+            <p className="mt-1 text-meta text-ink-meta">{notice}</p>
+          )}
         </Field>
 
-        <Field label="Category" htmlFor={ids.type}>
-          {lock.locked || parent !== null ? (
-            <div
-              id={ids.type}
-              className="flex h-sap-ctl w-full items-center justify-between rounded-md border border-input bg-muted px-3 text-sap-emph text-ink-meta"
-            >
-              {ACCOUNT_TYPE_TERMS[draft.account_type].term}
-              {lock.locked && <Lock aria-hidden="true" className="size-3.5" />}
-            </div>
-          ) : (
-            <TypeCombobox
-              id={ids.type}
-              value={draft.account_type}
-              onChange={(account_type) =>
-                set(
-                  withType(
-                    draft,
-                    account_type,
-                    context.chart,
-                    account?.id ?? null,
-                  ),
-                )
-              }
-              invalid={problem?.field === "account_type"}
-            />
-          )}
-          {lock.locked && (
-            <p className="mt-1 text-meta text-ink-meta">
-              {lock.reason === "opening_balances"
-                ? "Fixed"
-                : lock.reason === "bank_or_card"
-                  ? "Set by its statements"
-                  : "Set by the bank or card under it"}
-              {lock.reason !== "opening_balances" && (
-                <>
-                  {" · "}
-                  <Link
-                    to={BANKS_SETTINGS_ROUTE}
-                    className="text-primary underline-offset-4 hover:underline"
-                  >
-                    Banks &amp; cards
-                  </Link>
-                </>
-              )}
-            </p>
-          )}
-          {notice && <p className="mt-1 text-meta text-ink-meta">{notice}</p>}
-        </Field>
+        {(lock.locked || parent === null) && (
+          <Field label="Category" htmlFor={ids.type}>
+            {lock.locked ? (
+              <div
+                id={ids.type}
+                className="flex h-sap-ctl w-full items-center justify-between rounded-md border border-input bg-muted px-3 text-sap-emph text-ink-meta"
+              >
+                {ACCOUNT_TYPE_TERMS[draft.account_type].term}
+                {lock.locked && (
+                  <Lock aria-hidden="true" className="size-3.5" />
+                )}
+              </div>
+            ) : (
+              <TypeCombobox
+                id={ids.type}
+                value={draft.account_type}
+                onChange={(account_type) =>
+                  set(
+                    withType(
+                      draft,
+                      account_type,
+                      context.chart,
+                      account?.id ?? null,
+                    ),
+                  )
+                }
+                invalid={problem?.field === "account_type"}
+              />
+            )}
+            {lock.locked && (
+              <p className="mt-1 text-meta text-ink-meta">
+                {lock.reason === "opening_balances"
+                  ? "Fixed"
+                  : lock.reason === "bank_or_card"
+                    ? "Set by its statements"
+                    : "Set by the bank or card under it"}
+                {lock.reason !== "opening_balances" && (
+                  <>
+                    {" · "}
+                    <Link
+                      to={BANKS_SETTINGS_ROUTE}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Banks &amp; cards
+                    </Link>
+                  </>
+                )}
+              </p>
+            )}
+            {notice && <p className="mt-1 text-meta text-ink-meta">{notice}</p>}
+          </Field>
+        )}
       </div>
 
       {deleting === "blocked" && (

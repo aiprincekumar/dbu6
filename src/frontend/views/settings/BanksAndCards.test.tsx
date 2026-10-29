@@ -357,19 +357,31 @@ describe("BanksAndCards", () => {
     await renderPage([savings, card]);
     await choose("Sample Bank Savings", "Edit");
 
-    const trigger = button("Open popup");
+    // The Under field's own; the Bank field has one too.
+    const trigger = field("Under")
+      .closest('[role="group"]')
+      ?.querySelector<HTMLElement>('[aria-label="Show the choices"]');
+    if (!trigger) throw new Error(`No Under trigger in:\n${text()}`);
     await act(async () => {
       trigger.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
       trigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       trigger.click();
     });
     await settle();
-    // Its parent, chosen, comes first.
+    // The Asset branch of the tree, with itself greyed where it sits.
+    const options = [
+      ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+    ];
+    expect(options.map((one) => one.textContent)).toEqual([
+      "Assets",
+      "Bank Accounts",
+      "Sample Bank Savings (this account)",
+    ]);
     expect(
-      [...document.querySelectorAll('[role="option"]')].map(
-        (one) => one.textContent,
-      ),
-    ).toEqual(["Bank Accounts", "Assets"]);
+      options
+        .filter((one) => !one.hasAttribute("data-disabled"))
+        .map((one) => one.textContent),
+    ).toEqual(["Assets", "Bank Accounts"]);
   });
 
   it("asks for the number in view when the bank has another account", async () => {
