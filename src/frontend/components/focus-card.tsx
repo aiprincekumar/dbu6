@@ -81,10 +81,15 @@ export function FocusCard({
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-sap-border bg-card px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Brand />
-          <span className="text-row font-semibold tracking-[-0.01em] text-foreground max-sm:sr-only">
-            dbu6
-          </span>
+          <Link
+            to="/"
+            className="-mx-1 flex shrink-0 items-center gap-2.5 rounded-control px-1 py-1 hover:bg-sap-nav-hover"
+          >
+            <Brand />
+            <span className="text-row font-semibold tracking-[-0.01em] text-foreground max-sm:sr-only">
+              dbu6
+            </span>
+          </Link>
           <span aria-hidden="true" className="text-ink-meta max-sm:hidden">
             /
           </span>
