@@ -4,14 +4,13 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { Combobox, comboboxClassNames } from "@sapporta/ui/combobox";
 import { cn } from "@sapporta/ui/cn";
 import {
-  LEDGER_ACCOUNT_TYPE,
+  ACCOUNT_PATH_SEPARATOR,
   LEDGER_ACCOUNT_TYPES,
   knownInstitution,
-  type AccountKind,
   type ChartChoice,
-  type LedgerAccountType,
 } from "../../shared/index";
-import { accountChartQuery } from "../queries";
+import { accountChartQuery, type AccountRow } from "../queries";
+import { useAccountParentPaths } from "./account-name";
 
 /*
  * The forms' pickers, on Base UI's Combobox with Sapporta's style tokens.
@@ -21,98 +20,56 @@ import { accountChartQuery } from "../queries";
  * their paths. `InstitutionCombobox` picks a bank by name.
  */
 
-/** The accounts a bank or card of `kind` can sit under: those of its type. */
-export function statementParentEligible(kind: AccountKind) {
-  return (account: ChartAccount) =>
-    account.account_type === LEDGER_ACCOUNT_TYPE[kind];
-}
-
-/** An account as the picker reads it from the chart. */
-export interface ChartAccount {
-  id: number;
-  name: string;
-  parent_id: number | null;
-  account_type: LedgerAccountType;
-}
-
-// One account in the list: where it sits, and whether it can be picked. An
-// account that can't is drawn only to place the ones under it that can.
+// One account in the list: how deep it sits, and whether it can be picked.
+// An account that can't is drawn only to place the ones under it that can.
 interface TreeItem {
-  account: ChartAccount;
+  account: AccountRow;
   depth: number;
-  ancestors: readonly string[];
   pickable: boolean;
   self: boolean;
 }
 
-function chartAccount(row: Record<string, unknown>): ChartAccount | null {
-  const { id, name, parent_id, account_type } = row;
-  if (typeof id !== "number" || typeof name !== "string") return null;
-  if (!LEDGER_ACCOUNT_TYPES.includes(account_type as LedgerAccountType)) {
-    return null;
-  }
-  return {
-    id,
-    name,
-    parent_id: typeof parent_id === "number" ? parent_id : null,
-    account_type: account_type as LedgerAccountType,
-  };
-}
-
 /**
- * The chart in tree order, top accounts by type and then by name, children
- * by name under their parent. Kept are the accounts `eligible` lets through,
- * the ones above them, and `self` with its branch, which can't be picked.
+ * The chart in tree order: top accounts by type, children under their
+ * parent, each level in the chart's own name order. Kept are the accounts
+ * `eligible` lets through, the ones above them, and `self`, which can't be
+ * picked and is drawn without its branch.
  */
 function treeItems(
-  rows: readonly Record<string, unknown>[],
-  eligible: (account: ChartAccount) => boolean,
+  accounts: readonly AccountRow[],
+  eligible: (account: AccountRow) => boolean,
   self: number | undefined,
 ): TreeItem[] {
-  const accounts = rows
-    .map(chartAccount)
-    .filter((one): one is ChartAccount => one !== null);
-  const children = new Map<number | null, ChartAccount[]>();
+  const children = new Map<number | null, AccountRow[]>();
   for (const account of accounts) {
     const siblings = children.get(account.parent_id) ?? [];
     siblings.push(account);
     children.set(account.parent_id, siblings);
   }
-  const typeOrder = (account: ChartAccount) =>
+  const typeOrder = (account: AccountRow) =>
     LEDGER_ACCOUNT_TYPES.indexOf(account.account_type);
   const roots = [...(children.get(null) ?? [])].sort(
-    (a, b) => typeOrder(a) - typeOrder(b) || a.name.localeCompare(b.name),
+    (a, b) => typeOrder(a) - typeOrder(b),
   );
 
   const items: TreeItem[] = [];
   // Returns whether anything at or under `account` was kept.
-  const walk = (
-    account: ChartAccount,
-    ancestors: readonly string[],
-    inSelf: boolean,
-  ): boolean => {
+  const walk = (account: AccountRow, depth: number): boolean => {
     const isSelf = account.id === self;
-    const blocked = inSelf || isSelf;
-    const pickable = !blocked && eligible(account);
-    const item: TreeItem = {
-      account,
-      depth: ancestors.length,
-      ancestors,
-      pickable,
-      self: isSelf,
-    };
+    const pickable = !isSelf && eligible(account);
     const at = items.length;
-    items.push(item);
+    items.push({ account, depth, pickable, self: isSelf });
     let kept = pickable || isSelf;
-    for (const child of children.get(account.id) ?? []) {
-      // Under itself, only the account is drawn: its branch moves with it.
-      if (isSelf) break;
-      if (walk(child, [...ancestors, account.name], blocked)) kept = true;
+    // Under itself, only the account is drawn: its branch moves with it.
+    if (!isSelf) {
+      for (const child of children.get(account.id) ?? []) {
+        if (walk(child, depth + 1)) kept = true;
+      }
     }
     if (!kept) items.splice(at, 1);
     return kept;
   };
-  for (const root of roots) walk(root, [], false);
+  for (const root of roots) walk(root, 0);
   return items;
 }
 
@@ -201,10 +158,6 @@ function Field({
   );
 }
 
-const PATH_MARK = " › ";
-
-const anyAccount = () => true;
-
 /**
  * One account from the chart, by id, among those `eligible` lets through.
  * With `self`, the account being edited is shown, greyed, where it sits, and
@@ -226,7 +179,7 @@ export function AccountTreeCombobox({
 }: {
   id: string;
   /** The accounts that can be picked; leave it out for any account. */
-  eligible?: (account: ChartAccount) => boolean;
+  eligible?: (account: AccountRow) => boolean;
   self?: number;
   value: number | null;
   onChange: (id: number | null) => void;
@@ -240,7 +193,8 @@ export function AccountTreeCombobox({
   className?: string;
 }) {
   const { data } = useQuery(accountChartQuery);
-  const items = treeItems(data?.rows ?? [], eligible ?? anyAccount, self);
+  const paths = useAccountParentPaths();
+  const items = treeItems(data?.rows ?? [], eligible ?? (() => true), self);
   const selected =
     value === null
       ? null
@@ -255,10 +209,12 @@ export function AccountTreeCombobox({
           item.pickable && item.account.name.toLowerCase().includes(needle),
       )
     : items;
+  const selectedPath =
+    selected === null ? null : paths.byId(selected.account.id);
   const prefix =
-    selected === null || searching || selected.ancestors.length === 0
+    selectedPath === null || searching
       ? undefined
-      : selected.ancestors.join(PATH_MARK) + PATH_MARK.trimEnd();
+      : selectedPath + ACCOUNT_PATH_SEPARATOR.trimEnd();
   return (
     <div className={className}>
       <Combobox.Root<TreeItem>
@@ -307,9 +263,9 @@ export function AccountTreeCombobox({
               }
             >
               <span className="min-w-0 truncate">
-                {searching && item.ancestors.length > 0 && (
+                {searching && paths.byId(item.account.id) !== null && (
                   <span className="text-ink-meta">
-                    {item.ancestors.join(PATH_MARK) + PATH_MARK}
+                    {paths.byId(item.account.id) + ACCOUNT_PATH_SEPARATOR}
                   </span>
                 )}
                 {item.account.name}

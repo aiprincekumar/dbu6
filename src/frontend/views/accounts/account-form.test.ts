@@ -12,8 +12,8 @@ import {
   withParent,
   withType,
   type AccountFormContext,
-  type AccountRow,
 } from "./account-form";
+import type { AccountRow } from "../../queries";
 
 /*
  * The edit form's own logic: Assets (1) > Bank Accounts (2) > Sample Savings

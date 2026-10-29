@@ -16,9 +16,8 @@ import { apiErrorMessage } from "../../api";
 import { Disclosure } from "../../components/disclosure";
 import { Button } from "../../components/ui/button";
 import {
+  AccountCombobox,
   InstitutionCombobox,
-  AccountTreeCombobox,
-  statementParentEligible,
 } from "../../components/account-pickers";
 import {
   draftOf,
@@ -135,9 +134,9 @@ function DialogBody({
       hint="The parent account grouping it belongs to in your chart."
       htmlFor={ids.parent}
     >
-      <AccountTreeCombobox
+      <AccountCombobox
         id={ids.parent}
-        eligible={statementParentEligible(draft.kind)}
+        choices={data.parents[draft.kind]}
         self={row.account_id}
         value={draft.parentId}
         onChange={(parentId) => set({ parentId })}

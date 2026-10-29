@@ -5,7 +5,7 @@ import {
   type LabelSlotProps,
 } from "@sapporta/frontend/lookup";
 import { cn } from "@sapporta/ui/cn";
-import { accountChartQuery } from "../queries";
+import { accountChartQuery, type AccountRow } from "../queries";
 
 /*
  * An account's name as the screens show it outside the account tree: the
@@ -90,7 +90,7 @@ export function useAccountParentPaths(): AccountParentPaths {
 }
 
 type Chart = {
-  rows: readonly Record<string, unknown>[];
+  rows: readonly AccountRow[];
   parentPaths: Readonly<Record<string, unknown>>;
 };
 

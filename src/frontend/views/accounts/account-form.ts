@@ -2,13 +2,12 @@
 // its `export * from './form'` meets the build's `form.js` stub, which has no
 // declarations beside it. The package publishes this subpath for it.
 import { fieldIssuesForSubmissionError } from "@sapporta/frontend/form";
-import type { Row } from "@sapporta/shared/contracts";
 import {
-  LEDGER_ACCOUNT_TYPES,
   OPENING_BALANCES_NAME,
   type LedgerAccountType,
 } from "../../../shared/index";
 import { ACCOUNT_TYPE_TERMS } from "../../account-type-terms";
+import type { AccountRow } from "../../queries";
 
 /*
  * The Accounts page's edit form as values the user is typing: what it can
@@ -19,14 +18,6 @@ import { ACCOUNT_TYPE_TERMS } from "../../account-type-terms";
  * says before sending — a name that is taken, a parent that doesn't fit, a
  * type that follows a statement, and what is under an account.
  */
-
-/** One account, as the chart query reads it. */
-export interface AccountRow {
-  id: number;
-  name: string;
-  parent_id: number | null;
-  account_type: LedgerAccountType;
-}
 
 export interface AccountDraft {
   name: string;
@@ -97,8 +88,7 @@ export function accountBranch(
 /**
  * Whether `parentId` may be the parent of an account sitting in `self`'s
  * place: an account of `accountType`, not the account itself or anything
- * under it. The parent picker offers the same set through the accounts
- * lookup (`account_type` filter, `notUnder`).
+ * under it. With the type locked, the parent picker offers this set.
  */
 export function parentFits(
   chart: readonly AccountRow[],
@@ -331,29 +321,4 @@ function isFormField(value: unknown): value is AccountFormField {
 
 function withArticle(type: LedgerAccountType): string {
   return type === "Asset" || type === "Expense" ? `an ${type}` : `a ${type}`;
-}
-
-/**
- * A row from the accounts table as the form reads one, or null when it lacks
- * a column. Both ways in — the chart's page of rows and the one row an edit
- * URL names — land here, so the form is handed the same four columns either
- * way.
- */
-export function accountRow(row: Row): AccountRow | null {
-  const { id, name, parent_id, account_type } = row;
-  if (
-    typeof id !== "number" ||
-    typeof name !== "string" ||
-    typeof account_type !== "string" ||
-    !(LEDGER_ACCOUNT_TYPES as readonly string[]).includes(account_type) ||
-    (parent_id !== null && typeof parent_id !== "number")
-  ) {
-    return null;
-  }
-  return {
-    id,
-    name,
-    parent_id: parent_id === null ? null : parent_id,
-    account_type: account_type as LedgerAccountType,
-  };
 }

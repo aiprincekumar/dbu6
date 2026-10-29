@@ -13,7 +13,8 @@ import {
   vi,
 } from "vitest";
 import { AccountDialog } from "./AccountDialog";
-import type { AccountRow } from "./account-form";
+import type { AccountRow } from "../../queries";
+import { accountsTablePage } from "../../accounts-page.testing";
 
 /*
  * The Accounts page's edit form on screen: a new account on the table API,
@@ -85,7 +86,7 @@ beforeEach(() => {
       const accountPath = /\/accounts\/\d+$/.test(url.pathname);
 
       if (method === "GET" && url.pathname.endsWith("/tables/accounts")) {
-        return rowsResponse(CHART);
+        return Response.json(accountsTablePage(CHART));
       }
       if (method === "GET" && url.pathname.endsWith("/import-presets")) {
         return Response.json({
@@ -345,10 +346,10 @@ describe("AccountDialog", () => {
   it("shows the chosen parent's path in the field, and its own type", async () => {
     await render(accountOf("Sample Wallet"));
 
-    expect(text()).toContain("Assets ›");
+    expect(text()).toContain("Assets >");
     expect(field("Belongs under").value).toBe("Bank Accounts");
-    // The path names the type, so no Category field shows.
-    expect(text()).not.toContain("Category");
+    // A top account's name need not name its type, so Category shows it.
+    expect(text()).toContain("CategoryAssets");
   });
 
   it("lists a search's matches with their paths", async () => {
@@ -359,8 +360,8 @@ describe("AccountDialog", () => {
     await settle();
 
     expect(options().map((one) => one.textContent)).toEqual([
-      "Assets › Bank Accounts › Sample Savings",
-      "Assets › Bank Accounts › Sample Wallet",
+      "Assets > Bank Accounts > Sample Savings",
+      "Assets > Bank Accounts > Sample Wallet",
     ]);
   });
 

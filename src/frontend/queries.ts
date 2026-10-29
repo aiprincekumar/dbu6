@@ -5,9 +5,13 @@ import {
   queryOptions,
   type QueryClient,
 } from "@tanstack/react-query";
-import type { DateSpan } from "../shared/index";
+import {
+  LEDGER_ACCOUNT_TYPES,
+  type DateSpan,
+  type LedgerAccountType,
+} from "../shared/index";
 import { ApiError } from "@sapporta/shared/client";
-import { MAX_PAGE_SIZE } from "@sapporta/shared/contracts";
+import { MAX_PAGE_SIZE, type Row } from "@sapporta/shared/contracts";
 import { mintFilterId } from "@sapporta/shared/filter";
 import { fetchTableRows, reloadTGridRows } from "@sapporta/frontend";
 import { invalidateRows } from "@sapporta/frontend/lookup";
@@ -249,12 +253,44 @@ export function refreshDraftStatus(client: QueryClient): Promise<void> {
   return client.invalidateQueries({ queryKey: DRAFT_STATUS_KEY });
 }
 
+/** One account, as the chart reads it: the four columns every screen uses. */
+export interface AccountRow {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  account_type: LedgerAccountType;
+}
+
 /**
- * Every account in the books, which the edit form's parent choices are made
- * from, with each one's parent path as the server computes it (the accounts
- * table's `parentPath`), by id. One page is not enough — the parent wanted
- * may be the last account in the books — so it asks for the table API's
- * largest page.
+ * A row from the accounts table as the screens read one, or null when it
+ * lacks a column. The chart's rows and the one row an edit URL names both
+ * land here, so every screen is handed the same four columns.
+ */
+export function accountRow(row: Row): AccountRow | null {
+  const { id, name, parent_id, account_type } = row;
+  if (
+    typeof id !== "number" ||
+    typeof name !== "string" ||
+    typeof account_type !== "string" ||
+    !(LEDGER_ACCOUNT_TYPES as readonly string[]).includes(account_type) ||
+    (parent_id !== null && typeof parent_id !== "number")
+  ) {
+    return null;
+  }
+  return {
+    id,
+    name,
+    parent_id: parent_id === null ? null : parent_id,
+    account_type: account_type as LedgerAccountType,
+  };
+}
+
+/**
+ * Every account in the books, which the pickers and the edit form's parent
+ * choices are made from, with each one's parent path as the server computes
+ * it (the accounts table's `parentPath`), by id. One page is not enough — the
+ * parent wanted may be the last account in the books — so it asks for the
+ * table API's largest page.
  */
 export const accountChartQuery = queryOptions({
   queryKey: [...tableQueryKeys.table("accounts"), "chart"],
@@ -266,7 +302,9 @@ export const accountChartQuery = queryOptions({
       computed: ["parentPath"],
     });
     return {
-      rows: page.data,
+      rows: page.data
+        .map(accountRow)
+        .filter((one): one is AccountRow => one !== null),
       parentPaths: page.computed?.parentPath ?? {},
     };
   },

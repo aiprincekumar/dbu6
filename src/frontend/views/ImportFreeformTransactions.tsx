@@ -18,12 +18,6 @@ import { AccountName, useAccountParentPaths } from "../components/account-name";
 import { freeformTransactionsPrompt } from "./freeform-transactions/freeformTransactionsPrompt";
 import { AgentButton } from "../components/agent-prompt";
 
-interface LedgerAccount {
-  id: number;
-  name: string;
-  account_type: string;
-}
-
 // Each kind lists only the ledger accounts of its type.
 const KINDS: { kind: AccountKind; label: string }[] = [
   { kind: "bank", label: "Bank account" },
@@ -38,7 +32,7 @@ export function ImportFreeformTransactions() {
   const kindLabelId = useId();
   // Every account in the books, the read the parent paths come from too.
   const accountsQuery = useQuery(accountChartQuery);
-  const ledgerAccounts = (accountsQuery.data?.rows ?? []).flatMap(ledgerAccount);
+  const ledgerAccounts = accountsQuery.data?.rows ?? [];
   const paths = useAccountParentPaths();
   const accountsError = accountsQuery.isError
     ? apiErrorMessage(accountsQuery.error)
@@ -165,16 +159,6 @@ export function ImportFreeformTransactions() {
       </ol>
     </Screen>
   );
-}
-
-/** A row of the accounts table as this screen needs it; none if not one. */
-function ledgerAccount(row: Record<string, unknown>): LedgerAccount[] {
-  const { id, name, account_type } = row;
-  return typeof id === "number" &&
-    typeof name === "string" &&
-    typeof account_type === "string"
-    ? [{ id, name, account_type }]
-    : [];
 }
 
 function Step({

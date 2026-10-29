@@ -133,20 +133,35 @@ const ALL = [cash, investments, epf, ppf, loan, savings, platinum, gold];
 
 // The books' accounts, which each row's parent path comes from.
 const ACCOUNT_ROWS = [
-  { id: 100, name: "Assets", parent_id: null },
-  { id: 101, name: "Liabilities", parent_id: null },
-  { id: 3, name: "Cash", parent_id: 100 },
-  { id: 4, name: "Investments", parent_id: 100 },
-  { id: 5, name: "EPF", parent_id: 4 },
-  { id: 6, name: "PPF", parent_id: 4 },
-  { id: 102, name: "Loans", parent_id: 101 },
-  { id: 7, name: "Sample Car Loan", parent_id: 102 },
-  { id: 11, name: "Sample Home Loan", parent_id: 102 },
-  { id: 103, name: "Bank", parent_id: 100 },
-  { id: 8, name: "Sample Bank Savings", parent_id: 103 },
-  { id: 104, name: "Cards", parent_id: 101 },
-  { id: 9, name: "Sample Card Platinum", parent_id: 104 },
-  { id: 10, name: "Sample Card Gold", parent_id: 104 },
+  { id: 100, name: "Assets", parent_id: null, account_type: "Asset" },
+  { id: 101, name: "Liabilities", parent_id: null, account_type: "Liability" },
+  { id: 3, name: "Cash", parent_id: 100, account_type: "Asset" },
+  { id: 4, name: "Investments", parent_id: 100, account_type: "Asset" },
+  { id: 5, name: "EPF", parent_id: 4, account_type: "Asset" },
+  { id: 6, name: "PPF", parent_id: 4, account_type: "Asset" },
+  { id: 102, name: "Loans", parent_id: 101, account_type: "Liability" },
+  { id: 7, name: "Sample Car Loan", parent_id: 102, account_type: "Liability" },
+  {
+    id: 11,
+    name: "Sample Home Loan",
+    parent_id: 102,
+    account_type: "Liability",
+  },
+  { id: 103, name: "Bank", parent_id: 100, account_type: "Asset" },
+  { id: 8, name: "Sample Bank Savings", parent_id: 103, account_type: "Asset" },
+  { id: 104, name: "Cards", parent_id: 101, account_type: "Liability" },
+  {
+    id: 9,
+    name: "Sample Card Platinum",
+    parent_id: 104,
+    account_type: "Liability",
+  },
+  {
+    id: 10,
+    name: "Sample Card Gold",
+    parent_id: 104,
+    account_type: "Liability",
+  },
 ];
 
 beforeEach(() => {

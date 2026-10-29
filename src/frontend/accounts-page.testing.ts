@@ -1,7 +1,12 @@
 import { ACCOUNT_PATH_SEPARATOR } from "../shared/index";
 
 /** An account as the tests hand it to the stand-in server. */
-type PathAccount = { id: number; name: string; parent_id: number | null };
+type PathAccount = {
+  id: number;
+  name: string;
+  parent_id: number | null;
+  account_type: string;
+};
 
 /** Each account's parent path by id, as the server's `treePath()` gives it. */
 function parentPaths(

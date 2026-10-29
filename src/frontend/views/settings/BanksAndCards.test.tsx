@@ -87,8 +87,25 @@ function books(rows: StatementAccountRow[]): StatementAccounts {
     ],
     accounts: rows,
     parents: {
-      bank: [{ id: 2, name: "Bank Accounts", path: "Assets:Bank Accounts" }],
-      card: [{ id: 4, name: "Credit Cards", path: "Liabilities:Credit Cards" }],
+      // Every account of the kind's type, as the server lists them.
+      bank: [
+        { id: 1, name: "Assets", path: "Assets" },
+        { id: 2, name: "Bank Accounts", path: "Assets:Bank Accounts" },
+        {
+          id: 8,
+          name: "Sample Bank Savings",
+          path: "Assets:Bank Accounts:Sample Bank Savings",
+        },
+      ],
+      card: [
+        { id: 3, name: "Liabilities", path: "Liabilities" },
+        { id: 4, name: "Credit Cards", path: "Liabilities:Credit Cards" },
+        {
+          id: 9,
+          name: "Sample Card",
+          path: "Liabilities:Credit Cards:Sample Card",
+        },
+      ],
     },
     default_parents: { bank: 2, card: 4 },
     mixed_parents: { bank: false, card: false },

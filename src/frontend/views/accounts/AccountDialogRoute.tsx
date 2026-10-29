@@ -4,10 +4,9 @@ import { ApiError } from "@sapporta/shared/client";
 import { apiErrorMessage } from "../../api";
 import { DialogNotice } from "../../components/dialog-notice";
 import { useFormClose } from "../../form-route";
-import { accountQuery } from "../../queries";
+import { accountQuery, accountRow } from "../../queries";
 import { parseRowId } from "../../row-id";
 import { AccountDialog } from "./AccountDialog";
-import { accountRow } from "./account-form";
 import { ACCOUNTS_ROUTE, type AccountsOutletContext } from "./routes";
 
 /*

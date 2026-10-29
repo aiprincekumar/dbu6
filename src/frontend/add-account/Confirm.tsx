@@ -15,8 +15,6 @@ import { formatBalance, formatDate } from "../format";
 import {
   AccountCombobox,
   InstitutionCombobox,
-  AccountTreeCombobox,
-  statementParentEligible,
 } from "../components/account-pickers";
 import {
   confirmDraft,
@@ -207,6 +205,7 @@ export function Confirm({
         <NewAccount
           heading={importHeading(account.transactions, "new")}
           kind={kind}
+          data={data}
           draft={draft}
           update={update}
         />
@@ -348,11 +347,13 @@ function BoxHeading({
 function NewAccount({
   heading,
   kind,
+  data,
   draft,
   update,
 }: {
   heading: string;
   kind: AccountKind;
+  data: StatementAccounts;
   draft: ConfirmDraft;
   update: (draft: ConfirmDraft) => void;
 }) {
@@ -362,9 +363,9 @@ function NewAccount({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
         <div className="space-y-1.5 sm:w-[42%]">
           <SegmentLabel id={ids.parent}>Under</SegmentLabel>
-          <AccountTreeCombobox
+          <AccountCombobox
             id={ids.parent}
-            eligible={statementParentEligible(kind)}
+            choices={data.parents[kind]}
             value={draft.parentId}
             onChange={(parentId) => update({ ...draft, parentId })}
             placeholder="Pick an account"

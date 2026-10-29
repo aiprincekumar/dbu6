@@ -375,7 +375,7 @@ describe("C1", () => {
     await pick("Sample Car Loan");
     expect(title()).toBe("What did you owe on Sample Car Loan?");
     // The chosen account's parents, before its name in the picker.
-    expect(text()).toContain("Liabilities › Loans ›");
+    expect(text()).toContain("Liabilities > Loans >");
     expect(field("As of")?.value).toBe("2026-04-09");
     expect(text()).toContain("Before its first transaction on");
 

@@ -122,10 +122,10 @@ const RULES: TransactionMappingsView = {
 
 // The books' accounts, which the rules' parent paths come from.
 const ACCOUNTS = [
-  { id: 1, name: "Expenses", parent_id: null, account_type: "expense" },
-  { id: 2, name: "Kitchen", parent_id: 1, account_type: "expense" },
-  { id: 3, name: "Groceries", parent_id: 2, account_type: "expense" },
-  { id: 4, name: "Dining", parent_id: 1, account_type: "expense" },
+  { id: 1, name: "Expenses", parent_id: null, account_type: "Expense" },
+  { id: 2, name: "Kitchen", parent_id: 1, account_type: "Expense" },
+  { id: 3, name: "Groceries", parent_id: 2, account_type: "Expense" },
+  { id: 4, name: "Dining", parent_id: 1, account_type: "Expense" },
 ];
 
 function respond(url: URL): unknown {

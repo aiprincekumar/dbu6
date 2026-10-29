@@ -118,10 +118,8 @@ export {
   useAccountParentPaths,
   type AccountParentPaths,
 } from "./components/account-name";
-export {
-  AccountTreeCombobox,
-  type ChartAccount,
-} from "./components/account-pickers";
+export { AccountTreeCombobox } from "./components/account-pickers";
+export { type AccountRow } from "./queries";
 
 // --- Formatters ---
 export {

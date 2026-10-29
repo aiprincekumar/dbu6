@@ -14,7 +14,7 @@ import {
 } from "vitest";
 import { EditAccountDialog, NewAccountDialog } from "./AccountDialogRoute";
 import { editAccountHref, NEW_ACCOUNT_ROUTE } from "./routes";
-import type { AccountRow } from "./account-form";
+import type { AccountRow } from "../../queries";
 import { accountsLookup } from "../../accounts-page.testing";
 
 /*
