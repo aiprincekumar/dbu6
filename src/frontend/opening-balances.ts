@@ -157,11 +157,15 @@ export function recordedGroups(
 }
 
 /**
- * Where a listed balance came from, as its Source column reads it: a bank
- * or card's first statement, or entered by hand.
+ * Where a listed balance came from, as its Source column reads it: its
+ * statements, while it is still the balance they imply, else entered by
+ * hand. A statement balance changed in its form reads as entered by hand.
  */
 export function openingSource(account: OpeningBalanceAccount): string {
-  return account.section === "statement"
+  const { opening, statement_amount } = account;
+  return opening !== null &&
+    statement_amount !== null &&
+    Math.abs(opening.amount - statement_amount) < 0.005
     ? "From account statement"
     : "Manually recorded";
 }

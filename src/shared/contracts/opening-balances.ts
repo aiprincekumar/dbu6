@@ -56,6 +56,10 @@ export const openingBalanceAccountSchema = z.object({
   // What the first balance check implies, while nothing but the opening
   // entry is posted on the account; null otherwise.
   suggested_amount: z.number().nullable(),
+  // The opening balance its statements imply: from its first posted
+  // balance check, else, with nothing posted, its first draft carrying one;
+  // null when neither carries a balance.
+  statement_amount: z.number().nullable(),
   // Null until the account has an opening entry.
   opening: openingEntrySchema.nullable(),
 });

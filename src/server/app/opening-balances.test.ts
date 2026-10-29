@@ -45,6 +45,7 @@ describe("opening balances routes", () => {
           first_activity_date: "2026-02-03",
           default_date: "2026-02-02",
           suggested_amount: 1000,
+          statement_amount: 1000,
           opening: null,
         },
       ],

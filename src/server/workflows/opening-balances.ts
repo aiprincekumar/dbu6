@@ -19,6 +19,7 @@ import {
   insertJournalPlan,
   loadEntriesBesideOpening,
   loadOpeningEntries,
+  loadPostedStatementOpenings,
   rewriteOpeningEntry,
   type OpeningEntry,
 } from "../modules/journals/index.js";
@@ -81,6 +82,12 @@ export interface OpeningBalanceAccount {
    * statement balance.
    */
   suggestedAmount: number | null;
+  /**
+   * The opening balance its statements imply: from its first posted balance
+   * check, or, with nothing posted but its opening entry, its first draft
+   * carrying one. Null when neither carries a balance.
+   */
+  statementAmount: number | null;
   opening: OpeningBalance | null;
 }
 
@@ -100,6 +107,7 @@ export function loadOpeningBalances({
   const paths = loadHledgerAccountNames(db, auth);
   const openings = loadOpeningEntries(sqlite, auth);
   const besideOpening = loadEntriesBesideOpening(sqlite, auth);
+  const postedStatementOpenings = loadPostedStatementOpenings(sqlite, auth);
   const firstDrafts = loadFirstDrafts(sqlite, auth);
   const firstCategorized = loadFirstCategorizedDraftDates(sqlite, auth);
   const equity = findOpeningBalancesAccount(db, auth);
@@ -147,6 +155,10 @@ export function loadOpeningBalances({
           : booksStart,
         suggestedAmount:
           beside === null ? (drafts?.implied_opening ?? null) : null,
+        statementAmount:
+          beside === null
+            ? (drafts?.implied_opening ?? null)
+            : (postedStatementOpenings.get(account.id) ?? null),
         opening: opening && {
           ...opening,
           locked: lockOf(opening, beside?.entries ?? 0),

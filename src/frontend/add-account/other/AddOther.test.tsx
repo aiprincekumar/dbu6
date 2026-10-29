@@ -116,6 +116,7 @@ function account(
     first_activity_date: null,
     default_date: "2025-12-31",
     suggested_amount: null,
+    statement_amount: null,
     opening: null,
     ...over,
   };

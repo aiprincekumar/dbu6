@@ -77,6 +77,7 @@ describe("loadOpeningBalances", () => {
           firstActivityDate: null,
           defaultDate: null,
           suggestedAmount: null,
+          statementAmount: null,
           opening: null,
         },
         {
@@ -88,6 +89,7 @@ describe("loadOpeningBalances", () => {
           firstActivityDate: "2026-02-03",
           defaultDate: "2026-02-02",
           suggestedAmount: 1000,
+          statementAmount: 1000,
           opening: null,
         },
         {
@@ -99,6 +101,7 @@ describe("loadOpeningBalances", () => {
           firstActivityDate: null,
           defaultDate: null,
           suggestedAmount: null,
+          statementAmount: null,
           opening: null,
         },
         {
@@ -110,6 +113,7 @@ describe("loadOpeningBalances", () => {
           firstActivityDate: null,
           defaultDate: null,
           suggestedAmount: null,
+          statementAmount: null,
           opening: null,
         },
       ],
@@ -135,6 +139,35 @@ describe("loadOpeningBalances", () => {
       defaultDate: "2026-01-09",
       suggestedAmount: null,
       opening: null,
+    });
+  });
+
+  it("reads what its statements imply from the first posted balance check", () => {
+    const ledger = books();
+    recorded(ledger, 2, "2026-01-01", 900);
+    ledger.sqlite.exec(`
+      INSERT INTO accounts
+        (id, workspace_id, scoped_to_user_id, name, parent_id, account_type, created_at, updated_at)
+      VALUES (60, 'workspace', 'user', 'Sample Salary', NULL, 'Revenue', '', '');
+      INSERT INTO journals (id, workspace_id, scoped_to_user_id, date, description, created_at, updated_at)
+      VALUES
+        (20, 'workspace', 'user', '2026-01-10', 'Deposits', '', ''),
+        (21, 'workspace', 'user', '2026-01-11', 'Deposits', '', '');
+      INSERT INTO journal_entries
+        (id, workspace_id, scoped_to_user_id, journal_id, account_id, debit, credit, account_balance_assertion, created_at, updated_at)
+      VALUES
+        (201, 'workspace', 'user', 20, 2, 100, 0, NULL, '', ''),
+        (202, 'workspace', 'user', 20, 60, 0, 100, NULL, '', ''),
+        (203, 'workspace', 'user', 21, 2, 200, 0, 1300, '', ''),
+        (204, 'workspace', 'user', 21, 60, 0, 200, NULL, '', '');
+    `);
+
+    // 1300 less the 300 posted after the opening entry: 1000, not the 900
+    // recorded.
+    expect(account(ledger, 2)).toMatchObject({
+      suggestedAmount: null,
+      statementAmount: 1000,
+      opening: expect.objectContaining({ amount: 900 }),
     });
   });
 

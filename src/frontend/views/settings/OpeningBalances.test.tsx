@@ -67,6 +67,7 @@ function account(
     first_activity_date: null,
     default_date: "2026-03-31",
     suggested_amount: null,
+    statement_amount: null,
     opening: null,
     ...more,
   };
@@ -106,6 +107,7 @@ const savings = account(
   "Assets:Bank:Sample Bank Savings",
   {
     section: "statement",
+    statement_amount: 12000,
     opening: opening(23, 12000),
   },
 );
@@ -115,6 +117,8 @@ const platinum = account(
   "Liabilities:Cards:Sample Card Platinum",
   {
     section: "statement",
+    // Its statement says 2,500 was owed; the user changed it.
+    statement_amount: -2500,
     opening: opening(24, -3000, { locked: "shared_entry" }),
   },
 );
@@ -427,7 +431,7 @@ describe("OpeningBalances", () => {
             "Sample Card Platinum",
             "31 Mar 2026",
             "3,000.00",
-            "From account statement",
+            "Manually recorded",
           ],
           [
             "Sample Home Loan",

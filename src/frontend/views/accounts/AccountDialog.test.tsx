@@ -38,6 +38,7 @@ const OPENING_BALANCES = {
       first_activity_date: null,
       default_date: null,
       suggested_amount: null,
+      statement_amount: null,
       opening: null,
     },
     {
@@ -49,6 +50,7 @@ const OPENING_BALANCES = {
       first_activity_date: null,
       default_date: "2026-03-31",
       suggested_amount: null,
+      statement_amount: null,
       opening: {
         journal_id: 50,
         date: "2026-03-31",

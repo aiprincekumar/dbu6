@@ -28,6 +28,7 @@ export {
   hasJournalsBesideOpenings,
   loadEntriesBesideOpening,
   loadOpeningEntries,
+  loadPostedStatementOpenings,
   rewriteOpeningEntry,
   type EntriesBesideOpening,
   type OpeningEntry,

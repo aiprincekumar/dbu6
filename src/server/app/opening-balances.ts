@@ -74,6 +74,7 @@ export function listOpeningBalances(ledger: Ledger): OpeningBalancesBody {
       first_activity_date: account.firstActivityDate,
       default_date: account.defaultDate,
       suggested_amount: account.suggestedAmount,
+      statement_amount: account.statementAmount,
       opening: account.opening && {
         journal_id: account.opening.journal_id,
         date: account.opening.date,
