@@ -8,6 +8,7 @@ import { after, describe, it } from "node:test";
 import {
   AGENT_ENV_FILE,
   findProjectRoot,
+  readAgentToken,
   sapportaEnvironment,
 } from "./sapporta-env.mjs";
 
@@ -143,5 +144,26 @@ describe("sapportaEnvironment", () => {
     );
     const blank = project({ [AGENT_ENV_FILE]: "SAPPORTA_API_TOKEN=\n" });
     assert.deepEqual(sapportaEnvironment({ root: blank, shellEnv: {} }), {});
+  });
+});
+
+describe("readAgentToken", () => {
+  it("reads the token alone, ignoring an older file's URL", () => {
+    const root = project({
+      [AGENT_ENV_FILE]:
+        "# comment\nSAPPORTA_API_URL=http://localhost:1\nSAPPORTA_API_TOKEN=spat_sample_050505\n",
+    });
+
+    assert.equal(readAgentToken(root), "spat_sample_050505");
+  });
+
+  it("answers undefined with no file, no token, or a blank one", () => {
+    assert.equal(readAgentToken(tempDir()), undefined);
+    const noToken = project({
+      [AGENT_ENV_FILE]: "SAPPORTA_API_URL=http://localhost:1\n",
+    });
+    assert.equal(readAgentToken(noToken), undefined);
+    const blank = project({ [AGENT_ENV_FILE]: "SAPPORTA_API_TOKEN=\n" });
+    assert.equal(readAgentToken(blank), undefined);
   });
 });

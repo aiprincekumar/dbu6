@@ -17,10 +17,8 @@ export {
   type AgentTokenFor,
 } from "./handoff.js";
 export {
-  AGENT_ENV_FILE,
   AGENT_TOKEN_NAME,
   mintAgentToken,
-  readAgentToken,
   writeAgentToken,
   type AgentTokenOwner,
 } from "./agent-access.js";

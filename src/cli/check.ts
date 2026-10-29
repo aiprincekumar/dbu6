@@ -60,7 +60,7 @@ import {
   userConfigDir,
 } from "../server/paths.js";
 import { tryBuildingFrontend } from "./frontend.js";
-import { AGENT_ENV_FILE } from "../server/modules/coding-agent/index.js";
+import { AGENT_ENV_FILE, readAgentToken } from "../../bin/sapporta-env.mjs";
 import {
   projectParserTests,
   runParserTest,
@@ -180,16 +180,15 @@ async function checkSapportaCli(root?: string): Promise<CheckLine[]> {
   }
   if (root !== undefined) {
     lines.push(checkSapportaOnPath(root, wrapper));
-    const agentEnv = join(root, AGENT_ENV_FILE);
     lines.push(
-      existsSync(agentEnv)
+      readAgentToken(root) !== undefined
         ? ok(
             "Agent token",
-            `${AGENT_ENV_FILE} exists; \`npx sapporta\` reads its token by itself`,
+            `${AGENT_ENV_FILE} holds one; \`npx sapporta\` reads it by itself`,
           )
         : info(
             "Agent token",
-            `no ${AGENT_ENV_FILE}; run \`dbu6 agent env\` to give this project's coding agents one`,
+            `no token in ${AGENT_ENV_FILE}; run \`dbu6 agent env\` to give this project's coding agents one`,
           ),
     );
   }

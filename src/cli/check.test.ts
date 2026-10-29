@@ -226,6 +226,17 @@ describe("checkTools", () => {
     expect(line!.detail).toContain("dbu6 agent env");
   });
 
+  it("does not take a file with no token in it as one", async () => {
+    write(".env.agent", "SAPPORTA_API_TOKEN=\n");
+
+    const [line] = (await checkTools(root)).filter(
+      (entry) => entry.name === "Agent token",
+    );
+
+    expect(line).toMatchObject({ status: "info" });
+    expect(line!.detail).toContain("dbu6 agent env");
+  }, 30_000);
+
   it("takes a project that has one as ready for an agent", async () => {
     write(".env.agent", "SAPPORTA_API_TOKEN=spat_05050500_050505\n");
 

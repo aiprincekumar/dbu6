@@ -34,12 +34,11 @@ import {
   membershipFromRow,
 } from "../server/project-auth/index.js";
 import {
-  AGENT_ENV_FILE,
   AGENT_TOKEN_NAME,
   mintAgentToken,
-  readAgentToken,
   writeAgentToken,
 } from "../server/modules/coding-agent/index.js";
+import { AGENT_ENV_FILE, readAgentToken } from "../../bin/sapporta-env.mjs";
 import { openDbu6Runtime } from "../server/runtime.js";
 import { migrateSafely } from "../server/migrate-safely.js";
 import { databaseFile } from "../server/paths.js";

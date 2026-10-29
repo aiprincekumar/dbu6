@@ -23,10 +23,12 @@ import {
 } from "../../project-auth/index.js";
 import {
   AGENT_ENV_FILE,
+  readAgentToken,
+} from "../../../../bin/sapporta-env.mjs";
+import {
   AGENT_TOKEN_NAME,
   ensureAgentToken,
   mintAgentToken,
-  readAgentToken,
   writeAgentToken,
   type AgentTokenOwner,
 } from "./agent-access.js";
@@ -90,39 +92,6 @@ function liveTokens(conn: ProjectDbConnection, owner: AgentTokenOwner) {
 function writeFile(root: string, contents: string, mode = 0o600): void {
   writeFileSync(join(root, AGENT_ENV_FILE), contents, { mode });
 }
-
-describe("readAgentToken", () => {
-  it("reads the token a project holds", () => {
-    const root = tempRoot();
-    writeFile(root, `# comment\nSAPPORTA_API_TOKEN=${SAMPLE_TOKEN}\n`);
-
-    expect(readAgentToken(root)).toBe(SAMPLE_TOKEN);
-  });
-
-  it("reads an older file that still holds a URL, and ignores the URL", () => {
-    const root = tempRoot();
-    writeFile(
-      root,
-      `SAPPORTA_API_URL=http://localhost:1\nSAPPORTA_API_TOKEN=${SAMPLE_TOKEN}\n`,
-    );
-
-    expect(readAgentToken(root)).toBe(SAMPLE_TOKEN);
-  });
-
-  it("answers undefined for a file that is not there", () => {
-    expect(readAgentToken(tempRoot())).toBeUndefined();
-  });
-
-  it("answers undefined when the token is missing or blank", () => {
-    const noToken = tempRoot();
-    writeFile(noToken, "SAPPORTA_API_URL=http://localhost:1\n");
-    expect(readAgentToken(noToken)).toBeUndefined();
-
-    const blank = tempRoot();
-    writeFile(blank, "SAPPORTA_API_TOKEN=\n");
-    expect(readAgentToken(blank)).toBeUndefined();
-  });
-});
 
 describe("mintAgentToken", () => {
   it("mints under dbu6's name", () => {

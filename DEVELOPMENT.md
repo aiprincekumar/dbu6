@@ -364,8 +364,14 @@ nothing.
 `dbu6 check`'s Tools section runs the shipped wrapper's `--version`, resolves the
 project's own `node_modules/.bin/sapporta` — the entry `npx sapporta …` runs —
 to that wrapper rather than `@sapporta/server`'s bin, and reports whether
-`.env.agent` exists, so a broken, missing or impersonated CLI cannot reach a
-person's agent unnoticed.
+`.env.agent` holds a token, so a broken, missing or impersonated CLI cannot
+reach a person's agent unnoticed.
+
+`bin/sapporta-env.mjs` is the one definition of the file's name and of what
+counts as its token (`AGENT_ENV_FILE`, `readAgentToken`): the bin must run
+with no build and import nothing, so the rule lives there, and the server and
+`src/cli` import it, the one file outside `src/` they may
+(`scripts/import-boundaries.test.mjs`).
 
 ## Project layout
 

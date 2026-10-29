@@ -20,10 +20,29 @@ import { dirname, join } from "node:path";
 import { parseEnv } from "node:util";
 
 /**
- * The agent's file, written by `dbu6 agent env` and gitignored. It is kept out
- * of `.env.development`, which the server loads into its own process.
+ * The agent's file, written by `dbu6 agent env` and by the app when it hands
+ * a prompt to the coding agent (src/server/modules/coding-agent/agent-access.ts),
+ * and gitignored. It is kept out of `.env.development`, which the server loads
+ * into its own process. This file is its one definition, and the server and
+ * `dbu6 check` import it from here.
  */
 export const AGENT_ENV_FILE = ".env.agent";
+
+/**
+ * The token the project's `.env.agent` holds, or undefined when the file is
+ * absent or its token is missing or blank. Nothing else is read from the file:
+ * an older one also holds a `SAPPORTA_API_URL`, which would outrank the port
+ * the app runs on now.
+ */
+export function readAgentToken(
+  root,
+  fileExists = existsSync,
+  readFile = (path) => readFileSync(path, "utf8"),
+) {
+  const path = join(root, AGENT_ENV_FILE);
+  if (!fileExists(path)) return undefined;
+  return readString(parseEnv(readFile(path)).SAPPORTA_API_TOKEN);
+}
 
 const MAX_MARKER_WALK = 100;
 
@@ -58,8 +77,7 @@ function findUp(start, marker, fileExists) {
  * The environment the `sapporta` CLI runs with: the shell's own, plus
  * `SAPPORTA_API_TOKEN` from `.env.agent` when the shell sets none. A token
  * already in the environment is the deliberate, per-invocation choice and
- * wins. Nothing else is taken from the file: an older one also holds a
- * `SAPPORTA_API_URL`, which would outrank the port the app runs on now.
+ * wins.
  */
 export function sapportaEnvironment({
   root,
@@ -69,9 +87,7 @@ export function sapportaEnvironment({
 }) {
   const env = { ...shellEnv };
   if (readString(shellEnv.SAPPORTA_API_TOKEN) !== undefined) return env;
-  const path = join(root, AGENT_ENV_FILE);
-  if (!fileExists(path)) return env;
-  const token = readString(parseEnv(readFile(path)).SAPPORTA_API_TOKEN);
+  const token = readAgentToken(root, fileExists, readFile);
   if (token !== undefined) env.SAPPORTA_API_TOKEN = token;
   return env;
 }

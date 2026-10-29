@@ -2,11 +2,17 @@
 // `bin/sapporta.mjs` loads it before anything else and a project may hold dbu6
 // without a build.
 //
-// Nothing at runtime reads this file, and `pnpm typecheck` covers `src/` only,
-// so these types are for editors and for anyone importing the module rather
-// than a check the build enforces: keep them in step with the code by hand.
+// Nothing at runtime reads this file. `pnpm typecheck` checks `src/`'s use of
+// the module against these types, but never these types against the code:
+// keep them in step with it by hand.
 
 export declare const AGENT_ENV_FILE: ".env.agent";
+
+export declare function readAgentToken(
+  root: string,
+  fileExists?: (path: string) => boolean,
+  readFile?: (path: string) => string,
+): string | undefined;
 
 export declare function findProjectRoot(
   start: string,

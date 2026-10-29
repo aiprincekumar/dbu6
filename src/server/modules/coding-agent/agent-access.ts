@@ -14,10 +14,13 @@
  * token: writing the file, and asking whether the token in it still works, is
  * all the server does with it. It is gitignored.
  */
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseEnv } from "node:util";
 import type { ProjectDbConnection } from "@sapporta/server";
+import {
+  AGENT_ENV_FILE,
+  readAgentToken,
+} from "../../../../bin/sapporta-env.mjs";
 import { todayIn } from "../../../shared/index.js";
 import type { AppPrincipal } from "../../authz/types.js";
 import {
@@ -27,9 +30,6 @@ import {
   revokeAuthToken,
   tokenIsLive,
 } from "../../project-auth/index.js";
-
-/** The file the agent reads its token from. */
-export const AGENT_ENV_FILE = ".env.agent";
 
 /** Where the token comes from, as the project explains it to a person. */
 export const AGENT_TOKEN_NAME = "dbu6 agent env";
@@ -42,19 +42,6 @@ export interface MintedAgentToken {
   /** The raw token, which the database never returns again. */
   apiToken: string;
   tokenId: string;
-}
-
-/**
- * The token the project's file holds, or undefined when the file is absent or
- * its token is missing or blank. An older file also holds a
- * `SAPPORTA_API_URL`, which is ignored.
- */
-export function readAgentToken(root: string): string | undefined {
-  const file = join(root, AGENT_ENV_FILE);
-  if (!existsSync(file)) return undefined;
-  const apiToken = parseEnv(readFileSync(file, "utf8")).SAPPORTA_API_TOKEN;
-  if (apiToken === undefined || apiToken === "") return undefined;
-  return apiToken;
 }
 
 /**
