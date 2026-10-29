@@ -186,6 +186,7 @@ export {
 export {
   createAuthToken,
   listAuthTokens,
+  requestUsesToken,
   resolveBearerTokenPrincipal,
   revokeAuthToken,
   TokenAuthError,
