@@ -116,8 +116,8 @@ export function FocusCard({
             width === "wide"
               ? "max-w-[1040px]"
               : width === "medium"
-                ? "max-w-[720px]"
-                : "max-w-[560px]",
+                ? "max-w-[872px]"
+                : "max-w-[720px]",
           )}
         >
           {steps && <Steps {...steps} />}

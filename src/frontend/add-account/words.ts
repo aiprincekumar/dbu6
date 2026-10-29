@@ -61,7 +61,8 @@ const SETUP_STEPS: readonly SetupStep[] = ["chart", "banks", "other"];
 /**
  * The frame of a first-run card: the flow, and its steps with the banks
  * and cards in the books counted, so a return to /add counts the same.
- * Review, the last step, is the app's own page.
+ * Reviewing the drafts comes after, on the app's own page, so it is not
+ * one of these steps.
  */
 export function setupFrame(at: SetupStep, inBooks: number): FocusFrame {
   return {
@@ -74,7 +75,6 @@ export function setupFrame(at: SetupStep, inBooks: number): FocusFrame {
           note: inBooks === 0 ? undefined : `${inBooks} added`,
         },
         { label: "Cash & loans" },
-        { label: "Review" },
       ],
       at: SETUP_STEPS.indexOf(at),
     },

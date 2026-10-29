@@ -127,7 +127,6 @@ describe("the frame", () => {
       "Chart of accounts",
       "Banks & cards",
       "Cash & loans",
-      "Review",
     ]);
     expect(first.steps?.at).toBe(1);
     expect(first.steps?.list[1].note).toBeUndefined();
