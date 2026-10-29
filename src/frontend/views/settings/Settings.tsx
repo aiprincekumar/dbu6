@@ -40,25 +40,25 @@ export function Settings() {
       <nav aria-label="Settings" className="mt-6 border-t border-sap-border">
         <SettingsRow
           label="Coding agent"
-          description="The agent that reads statements and categorizes transactions"
+          description="Configure the coding agent that dbu6 uses"
           to={CODING_AGENT_SETTINGS_ROUTE}
           value={valueOf(agent, summarizeCodingAgent)}
         />
         <SettingsRow
           label="Banks & cards"
-          description="The accounts whose statements you import"
+          description="All the accounts for which you import statements"
           to={BANKS_SETTINGS_ROUTE}
           value={valueOf(banks, banksValue)}
         />
         <SettingsRow
           label="Opening balances"
-          description="Each asset and liability on the day your books start"
+          description="Opening balances of each account"
           to={BALANCES_SETTINGS_ROUTE}
           value={valueOf(balances, balancesValue)}
         />
         <SettingsRow
           label="Categorization rules"
-          description="The account each imported transaction is posted to"
+          description="How to categorize your transactions"
           to={CATEGORIZATION_RULES_ROUTE}
           value={valueOf(rules, rulesValue)}
         />
