@@ -11,7 +11,8 @@ import {
   balanceTitle,
   bankLine,
   candidateName,
-  categorizerFact,
+  categorizerLine,
+  importHeading,
   addFrame,
   downloadLine,
   gapTitle,
@@ -225,12 +226,22 @@ describe("Confirm's facts", () => {
     expect(periodSpan(candidate({ period: null }))).toBeNull();
   });
 
+  it("heads where the import goes with its count", () => {
+    expect(importHeading(40, "new")).toBe(
+      "Import 40 transactions into a new account",
+    );
+    expect(importHeading(1, "existing")).toBe(
+      "Import 1 transaction into an existing account",
+    );
+    expect(importHeading(40, "into")).toBe("Import 40 transactions into");
+  });
+
   it("says who categorizes, or why nobody does", () => {
-    expect(categorizerFact({ ready: true, name: "Sample Agent" })).toBe(
-      "Sample Agent",
+    expect(categorizerLine({ ready: true, name: "Sample Agent" })).toBe(
+      "Categorized by Sample Agent",
     );
     expect(
-      categorizerFact({
+      categorizerLine({
         ready: false,
         name: "no coding agent",
         reason: "No coding agent is installed.",

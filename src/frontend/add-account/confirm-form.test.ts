@@ -73,8 +73,6 @@ describe("Confirm's form", () => {
     });
     expect(confirmLayout(candidate(), "bank", DATA)).toEqual({
       bank: false,
-      parentInView: true,
-      parentOptional: true,
       canUseExisting: true,
     });
   });
@@ -119,10 +117,6 @@ describe("Confirm's form", () => {
     const account = candidate({ kind: "card", institution: "Sample Card Co" });
     const draft = confirmDraft(account, "card", DATA);
     expect(draft.parentId).toBeNull();
-    expect(confirmLayout(account, "card", DATA)).toMatchObject({
-      parentInView: true,
-      parentOptional: false,
-    });
     expect(readConfirm(account, "card", PRINTED, draft, DATA)).toEqual({
       ok: false,
       problem: "Pick a parent account.",
@@ -132,36 +126,6 @@ describe("Confirm's form", () => {
     ).toEqual({
       ok: true,
       fields: { name: "Sample Card Co Credit Card", parent_id: 2 },
-    });
-  });
-
-  it("shows the first bank's parent, filled in and optional", () => {
-    expect(confirmLayout(candidate(), "bank", DATA)).toMatchObject({
-      parentInView: true,
-      parentOptional: true,
-    });
-  });
-
-  it("tucks the parent under More options once banks share one", () => {
-    const withBank: StatementAccounts = {
-      ...DATA,
-      accounts: [
-        {
-          account_id: 9,
-          name: "Sample Savings",
-          kind: "bank",
-          institution: "Sample Bank",
-          account_identifiers: ["050505000099"],
-          parent: { id: 1, name: "Bank Accounts" },
-          in_ledger: true,
-          entries: 0,
-          drafts: 0,
-        },
-      ],
-    };
-    expect(confirmLayout(candidate(), "bank", withBank)).toMatchObject({
-      parentInView: false,
-      parentOptional: true,
     });
   });
 

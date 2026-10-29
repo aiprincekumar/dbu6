@@ -105,14 +105,6 @@ export function unlistedOf(data: StatementAccounts, kind: AccountKind) {
 export interface ConfirmLayout {
   /** The bank: only when no bank the books know lists the parser. */
   bank: boolean;
-  /**
-   * The parent account: in view when no bank or card of the kind sits
-   * under one yet (the first), or they sit under several; else under More
-   * options.
-   */
-  parentInView: boolean;
-  /** Whether the parent may be left as it is: it starts with a default. */
-  parentOptional: boolean;
   /** An account in the chart of the kind's type that no bank or card uses. */
   canUseExisting: boolean;
 }
@@ -122,13 +114,8 @@ export function confirmLayout(
   kind: AccountKind,
   data: StatementAccounts,
 ): ConfirmLayout {
-  const usual = data.accounts.some(
-    (row) => row.kind === kind && row.parent !== null,
-  );
   return {
     bank: !account.institution_listed,
-    parentInView: !usual || data.mixed_parents[kind],
-    parentOptional: data.default_parents[kind] !== null,
     canUseExisting: unlistedOf(data, kind).length > 0,
   };
 }

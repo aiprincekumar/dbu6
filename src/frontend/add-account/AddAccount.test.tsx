@@ -327,7 +327,7 @@ function field(label: string): HTMLInputElement | null {
     : null;
 }
 
-const nameField = () => field("Name")!;
+const nameField = () => field("Account name")!;
 
 /** The card's facts, by label. */
 function facts(): Record<string, string> {
@@ -353,17 +353,17 @@ describe("adding a bank or card", () => {
     expect(title()).toBe("Sample Bank · ending 0012");
     expect(facts()).toEqual({
       Statements: "Jan – Feb 2025",
-      Transactions: "40",
       Balances: "✓ Add up",
-      Categorizer: "Sample Agent",
     });
+    expect(text()).toContain("Import 40 transactions into a new account");
+    expect(text()).toContain("Categorized by Sample Agent");
     // A bank dbu6 knows: no bank field.
     expect(
       [...host.querySelectorAll("label")].map((label) => label.textContent),
     ).not.toContain("Bank");
     expect(nameField().value).toBe("Sample Savings");
 
-    await click("Add to books");
+    await click("Create and import");
     expect(sent.map((one) => one.path)).toEqual([
       "/add-account/read",
       "/add-account/add",
@@ -413,7 +413,7 @@ describe("adding a bank or card", () => {
       stage: "account",
       rows: [],
     };
-    await click("Add to books");
+    await click("Create and import");
 
     // Until the rows are read, what it is adding.
     expect(title()).toBe("Adding Sample Savings");
@@ -492,7 +492,7 @@ describe("adding a bank or card", () => {
     });
     await render("/add?from=2025-01");
     await drop("jan.xls", "feb.xls");
-    await click("Add to books");
+    await click("Create and import");
 
     expect(sent.map((one) => one.path)).toEqual([
       "/add-account/read",
@@ -524,7 +524,7 @@ describe("adding a bank or card", () => {
     expect(title()).toBe("Drop this account's statements");
 
     await drop("jan.xls", "feb.xls");
-    await click("Add to books");
+    await click("Create and import");
     expect(where()).toBe("/add?run=setup&from=2026-01&added=12 files:");
     expect(title()).toBe("Sample Savings added.");
     expect(text()).toContain("Set up your books");
@@ -592,7 +592,7 @@ describe("adding a bank or card", () => {
     await click("Continue");
 
     expect(facts()["Opening balance"]).toBe("2,500.00 owed on 31 Dec 2024");
-    await click("Add to books");
+    await click("Create and import");
     expect(sent[1].fields).toEqual({
       opening_amount: "-2500",
       name: "Sample Card Co Credit Card",
@@ -614,7 +614,7 @@ describe("adding a bank or card", () => {
     await click("Continue");
     expect(title()).toBe("Sample Bank");
     expect(nameField().value).toBe("Sample Credit Card");
-    await click("Add to books");
+    await click("Create and import");
     expect(sent[1].fields).toMatchObject({ kind: "card" });
   });
 
@@ -633,14 +633,46 @@ describe("adding a bank or card", () => {
     await render("/add?from=2025-01");
     await drop("jan.xls", "feb.xls");
 
+    // The title names it; the field is there to correct it.
+    expect(title()).toBe("Other Sample Bank · ending 0012");
+    expect(field("Bank")).toBeNull();
+    await click("Not this bank?");
     expect(field("Bank")?.value).toBe("Other Sample Bank");
     expect(nameField().value).toBe("Other Sample Savings");
-    await click("Add to books");
+    await click("Create and import");
     expect(sent[1].fields).toEqual({
       institution: "Other Sample Bank",
       name: "Other Sample Savings",
       parent_id: "1",
     });
+  });
+
+  it("imports into an account from the chart instead of a new one", async () => {
+    books.unlisted = [
+      {
+        id: 5,
+        name: "Sample Joint",
+        path: "Assets:Sample Joint",
+        kind: "bank",
+      },
+    ];
+    answers["POST /add-account/read"] = () => ok(reading([candidate()]));
+    await render("/add?from=2025-01");
+    await drop("jan.xls", "feb.xls");
+
+    expect(primary()).toEqual(["Create and import"]);
+    await click("Use an existing account");
+    expect(text()).toContain("Import 40 transactions into an existing account");
+    expect(primary()).toEqual(["Import"]);
+    await click("Import");
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe(
+      "Pick an account.",
+    );
+    expect(sent.map((one) => one.path)).toEqual(["/add-account/read"]);
+
+    await click("Create a new account instead");
+    expect(nameField().value).toBe("Sample Savings");
+    expect(primary()).toEqual(["Create and import"]);
   });
 
   it("takes one account per drop, starting with the first", async () => {

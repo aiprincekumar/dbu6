@@ -56,9 +56,10 @@ export interface FocusCardProps extends FocusFrame {
   actions?: ReactNode;
   /**
    * "wide" for a card that lays a lot out side by side, such as the whole
-   * chart of accounts; most cards ask one short question and stay narrow.
+   * chart of accounts; "medium" for a form that sets fields beside each
+   * other; most cards ask one short question and stay narrow.
    */
-  width?: "narrow" | "wide";
+  width?: "narrow" | "medium" | "wide";
 }
 
 /**
@@ -107,7 +108,11 @@ export function FocusCard({
         <div
           className={cn(
             "w-full",
-            width === "wide" ? "max-w-[1040px]" : "max-w-[560px]",
+            width === "wide"
+              ? "max-w-[1040px]"
+              : width === "medium"
+                ? "max-w-[720px]"
+                : "max-w-[560px]",
           )}
         >
           {steps && <Steps {...steps} />}

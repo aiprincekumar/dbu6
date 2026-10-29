@@ -1,5 +1,7 @@
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Input } from "@sapporta/ui";
+import { cn } from "@sapporta/ui/cn";
+import { BookOpen, CirclePlus } from "lucide-react";
 import { LookupPicker } from "@sapporta/frontend/lookup";
 import type {
   AccountKind,
@@ -8,8 +10,7 @@ import type {
   LlmStatus,
   StatementAccounts,
 } from "../../shared/index";
-import { Disclosure } from "../components/disclosure";
-import { FactTable, type Fact } from "../components/fact-table";
+import type { Fact } from "../components/fact-table";
 import { Button } from "../components/ui/button";
 import { formatBalance, formatDate } from "../format";
 import {
@@ -30,11 +31,12 @@ import { Field, FocusCard, type FocusFrame } from "../components/focus-card";
 import { Importing } from "./Importing";
 import { newProgressId, type Finale } from "../import-progress/LiveImport";
 import type { Opening } from "./state";
-import { bankLine, categorizerFact, periodSpan } from "./words";
+import { bankLine, categorizerLine, importHeading, periodSpan } from "./words";
 
 /**
- * Card 4: what dbu6 read, as facts, and the account it goes into. The
- * account is written here and nowhere earlier, with its files imported and
+ * Card 4: what dbu6 read, in a box, flowing into the account it goes into,
+ * a new one unless the person picks one from the chart. The account is
+ * written here and nowhere earlier, with its files imported and
  * categorized; while that runs the card gives way to Importing, and a
  * refusal brings it back, as it was, with one line under the button.
  */
@@ -70,10 +72,16 @@ export function Confirm({
   const [problem, setProblem] = useState<string | null>(null);
   // The running add's progress id; null when none runs.
   const [adding, setAdding] = useState<string | null>(null);
+  // An account from the chart instead of a new one.
+  const [usingExisting, setUsingExisting] = useState(false);
   const finale = useRef<Finale | null>(null);
   const fixed = account.account;
 
   async function add() {
+    if (usingExisting && draft.existingId === null) {
+      setProblem("Pick an account.");
+      return;
+    }
     const read = readConfirm(account, kind, opening, draft, data);
     if (!read.ok) {
       setProblem(read.problem);
@@ -96,7 +104,16 @@ export function Confirm({
     setProblem(null);
   };
   const said = problem ?? refusal;
-  const title = fixed ? fixed.name : bankLine(account, kind);
+  const layout = confirmLayout(account, kind, data);
+  // A new bank follows the field, so a corrected one retitles the card.
+  const title = fixed
+    ? fixed.name
+    : bankLine(
+        layout.bank ? { ...account, institution: draft.institution } : account,
+        kind,
+      );
+  const creates = !fixed && draft.existingId === null && !usingExisting;
+  const span = periodSpan(account);
 
   if (adding !== null) {
     return (
@@ -117,39 +134,313 @@ export function Confirm({
   return (
     <FocusCard
       {...frame}
+      width="medium"
       title={title}
       lead={fixed ? bankLine(account, kind) : undefined}
       actions={
-        <div className="flex flex-col items-end gap-2">
-          <Button onClick={() => void add()}>Add to books</Button>
-          {said && (
-            <p
-              role="alert"
-              className="max-w-[440px] text-right text-meta text-destructive [overflow-wrap:anywhere]"
-            >
-              {said}
-            </p>
-          )}
+        <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="flex min-w-0 flex-col items-start gap-1 text-body">
+            <CategorizerNote categorizer={categorizer} />
+            {!fixed && layout.canUseExisting && (
+              <Button
+                variant="ghost"
+                className="h-auto px-0 text-body font-normal"
+                onClick={() => {
+                  setUsingExisting(!usingExisting);
+                  update({ ...draft, existingId: null });
+                }}
+              >
+                {usingExisting
+                  ? "Create a new account instead"
+                  : "Use an existing account"}
+              </Button>
+            )}
+          </div>
+          <div className="ml-auto flex flex-col items-end gap-2">
+            <Button size="lg" className="text-body" onClick={() => void add()}>
+              {creates ? "Create and import" : "Import"}
+            </Button>
+            {said && (
+              <p
+                role="alert"
+                className="max-w-[440px] text-right text-meta text-destructive [overflow-wrap:anywhere]"
+              >
+                {said}
+              </p>
+            )}
+          </div>
         </div>
       }
     >
-      <FactTable
-        rows={[
-          ...statementFacts(account),
+      {layout.bank && (
+        <BankField
+          kind={kind}
+          draft={draft}
+          data={data}
+          update={update}
+          open={draft.institution.trim() === "" || problem === bankProblem(kind)}
+        />
+      )}
+      <StatementFacts
+        facts={[
+          ...(span === null ? [] : [{ label: "Statements", value: span }]),
           balanceFact(opening, kind),
-          categorizerRow(categorizer),
         ]}
       />
-      {!fixed && (
-        <AccountFields
-          account={account}
+      {fixed ? (
+        <IntoBox heading={importHeading(account.transactions, "into")}>
+          <p className="text-[17px] font-semibold text-foreground">{fixed.name}</p>
+        </IntoBox>
+      ) : usingExisting ? (
+        <ExistingAccount
+          heading={importHeading(account.transactions, "existing")}
           kind={kind}
           draft={draft}
           data={data}
           update={update}
         />
+      ) : (
+        <NewAccount
+          heading={importHeading(account.transactions, "new")}
+          kind={kind}
+          draft={draft}
+          update={update}
+        />
       )}
     </FocusCard>
+  );
+}
+
+function bankProblem(kind: AccountKind): string {
+  return kind === "card" ? "Name the card issuer." : "Name the bank.";
+}
+
+/**
+ * The bank dbu6 hasn't met, as the title already names it: behind "Not
+ * this bank?" for a correction, and open when the statements print none.
+ */
+function BankField({
+  kind,
+  draft,
+  data,
+  update,
+  open,
+}: {
+  kind: AccountKind;
+  draft: ConfirmDraft;
+  data: StatementAccounts;
+  update: (draft: ConfirmDraft) => void;
+  open: boolean;
+}) {
+  const id = useId();
+  const [shown, setShown] = useState(open);
+  const label = kind === "card" ? "Card issuer" : "Bank";
+  if (!shown && !open) {
+    return (
+      <div className="-mt-2 mb-6">
+        <Button
+          variant="ghost"
+          className="h-auto px-0 text-body font-normal"
+          onClick={() => setShown(true)}
+        >
+          {kind === "card" ? "Not this card issuer?" : "Not this bank?"}
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-7">
+      <Field id={id} label={label}>
+        <InstitutionCombobox
+          id={id}
+          institutions={data.institutions.map((one) => one.name)}
+          value={draft.institution}
+          onChange={(name) => update(withInstitution(draft, name, data))}
+          empty="Type the bank's name."
+        />
+      </Field>
+    </div>
+  );
+}
+
+/**
+ * What dbu6 read from the statements, in columns under the title that
+ * names them; the count goes in the heading of where they go.
+ */
+function StatementFacts({ facts }: { facts: readonly Fact[] }) {
+  return (
+    <dl className="mb-7 flex flex-wrap gap-x-16 gap-y-3">
+      {facts.map((fact) => (
+        <div key={fact.label} className="min-w-0">
+          <dt className="text-body text-ink-meta">{fact.label}</dt>
+          <dd
+            className={cn(
+              "mt-0.5 text-[17px] [overflow-wrap:anywhere]",
+              fact.tone === "ok" ? "text-primary" : "text-foreground",
+              fact.face !== "words" &&
+                "tnum whitespace-nowrap font-mono font-medium",
+            )}
+          >
+            {fact.tone === "ok" && <span aria-hidden="true">✓ </span>}
+            {fact.value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Where the import goes; tinted when the add creates it. */
+function IntoBox({
+  heading,
+  creates = false,
+  children,
+}: {
+  heading: string;
+  creates?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-control border px-5 pb-4 pt-5",
+        creates
+          ? "border-money-in-border bg-money-in-bg"
+          : "border-sap-border",
+      )}
+    >
+      <BoxHeading
+        icon={creates ? <CirclePlus /> : <BookOpen />}
+        tone={creates ? "new" : undefined}
+      >
+        {heading}
+      </BoxHeading>
+      {children}
+    </section>
+  );
+}
+
+function BoxHeading({
+  icon,
+  tone,
+  children,
+}: {
+  icon: ReactNode;
+  tone?: "new";
+  children: ReactNode;
+}) {
+  return (
+    <h2
+      className={cn(
+        "mb-4 flex items-center gap-2 text-body font-semibold [&_svg]:size-[18px]",
+        tone === "new" ? "text-money-in-ink" : "text-ink-soft",
+      )}
+    >
+      <span aria-hidden="true">{icon}</span>
+      {children}
+    </h2>
+  );
+}
+
+/** The new account as a path: the account it sits under, then its name. */
+function NewAccount({
+  heading,
+  kind,
+  draft,
+  update,
+}: {
+  heading: string;
+  kind: AccountKind;
+  draft: ConfirmDraft;
+  update: (draft: ConfirmDraft) => void;
+}) {
+  const ids = { parent: useId(), name: useId() };
+  const parentLookup = useStatementParentLookup(kind);
+  return (
+    <IntoBox heading={heading} creates>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
+        <div className="space-y-1.5 sm:w-[42%]">
+          <SegmentLabel id={ids.parent}>Under</SegmentLabel>
+          <LookupPicker
+            id={ids.parent}
+            lookup={parentLookup}
+            value={draft.parentId}
+            onChange={(parentId) => update({ ...draft, parentId })}
+            selectedCaption="below"
+            placeholder="Pick an account"
+            allowClear={false}
+            className="w-full [&_[role=group]]:h-10 [&_[role=group]]:bg-card [&_input]:text-body"
+          />
+        </div>
+        <span
+          aria-hidden="true"
+          className="hidden pt-[38px] text-body text-ink-meta sm:block"
+        >
+          /
+        </span>
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <SegmentLabel id={ids.name}>Account name</SegmentLabel>
+          <Input
+            id={ids.name}
+            value={draft.name}
+            onChange={(event) => update(withName(draft, event.target.value))}
+            className="h-10 rounded-control bg-card text-body"
+          />
+        </div>
+      </div>
+    </IntoBox>
+  );
+}
+
+/** An account from the chart that no bank or card uses yet. */
+function ExistingAccount({
+  heading,
+  kind,
+  draft,
+  data,
+  update,
+}: {
+  heading: string;
+  kind: AccountKind;
+  draft: ConfirmDraft;
+  data: StatementAccounts;
+  update: (draft: ConfirmDraft) => void;
+}) {
+  const id = useId();
+  return (
+    <IntoBox heading={heading}>
+      <div className="space-y-1.5">
+        <SegmentLabel id={id}>Account</SegmentLabel>
+        {/* A combobox of its own: no table filter says "no bank or card
+            uses it, and nothing sits under it" (`unlisted`). */}
+        <AccountCombobox
+          id={id}
+          choices={unlistedOf(data, kind)}
+          value={draft.existingId}
+          onChange={(existingId) => update({ ...draft, existingId })}
+          placeholder="Pick an account"
+        />
+      </div>
+    </IntoBox>
+  );
+}
+
+function SegmentLabel({ id, children }: { id: string; children: string }) {
+  return (
+    <label htmlFor={id} className="block text-body text-ink-soft">
+      {children}
+    </label>
+  );
+}
+
+/** Under the boxes: who categorizes the import, or why nobody can. */
+function CategorizerNote({ categorizer }: { categorizer: LlmStatus }) {
+  return (
+    <span
+      className={categorizer.ready ? "text-ink-meta" : "text-attention-ink"}
+    >
+      {categorizerLine(categorizer)}
+    </span>
   );
 }
 
@@ -179,15 +470,6 @@ function balanceFact(opening: Opening, kind: AccountKind): Fact {
     default:
       return { label: "Balances", value: "Add up", face: "words", tone: "ok" };
   }
-}
-
-function categorizerRow(categorizer: LlmStatus): Fact {
-  return {
-    label: "Categorizer",
-    value: categorizerFact(categorizer),
-    face: "words",
-    tone: categorizer.ready ? undefined : "attention",
-  };
 }
 
 /** The account the add writes to, as the importing card recalls it. */
@@ -225,108 +507,4 @@ function accountName(draft: ConfirmDraft, data: StatementAccounts): string {
   if (draft.existingId === null) return draft.name.trim();
   const existing = data.unlisted.find((one) => one.id === draft.existingId);
   return existing?.name ?? draft.name.trim();
-}
-
-/**
- * The new account's bank (when dbu6 hasn't met it), name and parent
- * account; under More options, an existing account from the chart to use
- * instead of a new one.
- */
-function AccountFields({
-  account,
-  kind,
-  draft,
-  data,
-  update,
-}: {
-  account: AddAccountCandidate;
-  kind: AccountKind;
-  draft: ConfirmDraft;
-  data: StatementAccounts;
-  update: (draft: ConfirmDraft) => void;
-}) {
-  const ids = {
-    name: useId(),
-    bank: useId(),
-    parent: useId(),
-    existing: useId(),
-  };
-  const layout = confirmLayout(account, kind, data);
-  const existing = draft.existingId !== null;
-  const [moreOpen, setMoreOpen] = useState(false);
-  const parentLookup = useStatementParentLookup(kind);
-
-  const parent = (
-    <Field
-      id={ids.parent}
-      label="Parent account"
-      aside={layout.parentOptional ? "optional" : undefined}
-    >
-      <LookupPicker
-        id={ids.parent}
-        lookup={parentLookup}
-        value={draft.parentId}
-        onChange={(parentId) => update({ ...draft, parentId })}
-        selectedCaption="below"
-        placeholder="Pick an account"
-        allowClear={false}
-        className="w-full"
-      />
-    </Field>
-  );
-  const parentInView = layout.parentInView && !existing;
-  const moreOptions = [
-    !parentInView && !existing && parent,
-    layout.canUseExisting && (
-      <Field id={ids.existing} label="Use an existing account">
-        {/* A combobox of its own: no table filter says "no bank or card
-            uses it, and nothing sits under it" (`unlisted`). */}
-        <AccountCombobox
-          id={ids.existing}
-          choices={unlistedOf(data, kind)}
-          value={draft.existingId}
-          onChange={(existingId) => update({ ...draft, existingId })}
-          placeholder="No, add a new one"
-        />
-      </Field>
-    ),
-  ].filter(Boolean);
-
-  return (
-    <div className="mt-6 space-y-4">
-      {layout.bank && (
-        <Field id={ids.bank} label={kind === "card" ? "Card issuer" : "Bank"}>
-          <InstitutionCombobox
-            id={ids.bank}
-            institutions={data.institutions.map((one) => one.name)}
-            value={draft.institution}
-            onChange={(name) => update(withInstitution(draft, name, data))}
-            empty="Type the bank's name."
-          />
-        </Field>
-      )}
-      {!existing && (
-        <Field id={ids.name} label="Name">
-          <Input
-            id={ids.name}
-            value={draft.name}
-            onChange={(event) => update(withName(draft, event.target.value))}
-            className="h-sap-ctl rounded-control"
-          />
-        </Field>
-      )}
-      {parentInView && parent}
-      {moreOptions.length > 0 && (
-        <Disclosure
-          summary="More options"
-          open={moreOpen || existing}
-          onOpenChange={setMoreOpen}
-        >
-          {moreOptions.map((field, i) => (
-            <div key={i}>{field}</div>
-          ))}
-        </Disclosure>
-      )}
-    </div>
-  );
 }

@@ -196,9 +196,30 @@ export function bankLine(
     : `${account.institution} · ${ending}`;
 }
 
-/** Card 4's categorizer fact: who, or why nobody. */
-export function categorizerFact(categorizer: LlmStatus): string {
-  return categorizer.ready ? categorizer.name : categorizer.reason;
+/**
+ * The heading over where card 4's import goes: "Import 40 transactions
+ * into a new account", "… into an existing account", or "… into" over an
+ * account already named.
+ */
+export function importHeading(
+  transactions: number,
+  into: "new" | "existing" | "into",
+): string {
+  const rows = `${transactions} transaction${transactions === 1 ? "" : "s"}`;
+  const where =
+    into === "new"
+      ? " into a new account"
+      : into === "existing"
+        ? " into an existing account"
+        : " into";
+  return `Import ${rows}${where}`;
+}
+
+/** Card 4's line on the categorizer: who, or why nobody. */
+export function categorizerLine(categorizer: LlmStatus): string {
+  return categorizer.ready
+    ? `Categorized by ${categorizer.name}`
+    : categorizer.reason;
 }
 
 /** The balance card's question. */

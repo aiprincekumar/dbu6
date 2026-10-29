@@ -28,7 +28,12 @@ export function Importing({
   finale: MutableRefObject<Finale | null>;
 }) {
   return (
-    <FocusCard {...frame} title={name === "" ? "Adding" : `Adding ${name}`}>
+    <FocusCard
+      {...frame}
+      // As wide as Confirm, which it takes the place of.
+      width="medium"
+      title={name === "" ? "Adding" : `Adding ${name}`}
+    >
       <LiveImport
         progressId={progressId}
         readProgress={readAddProgress}
