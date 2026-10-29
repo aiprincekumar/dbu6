@@ -327,6 +327,15 @@ function DialogBody({
         </p>
       )}
 
+      {chartQuery.isError && (
+        <p
+          role="alert"
+          className="mt-4 text-body text-destructive [overflow-wrap:anywhere]"
+        >
+          {apiErrorMessage(chartQuery.error)}
+        </p>
+      )}
+
       {problem && (
         <p
           role="alert"

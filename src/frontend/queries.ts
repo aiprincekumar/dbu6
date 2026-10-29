@@ -288,25 +288,36 @@ export function accountRow(row: Row): AccountRow | null {
 /**
  * Every account in the books, which the pickers and the edit form's parent
  * choices are made from, with each one's parent path as the server computes
- * it (the accounts table's `parentPath`), by id. One page is not enough — the
- * parent wanted may be the last account in the books — so it asks for the
- * table API's largest page.
+ * it (the accounts table's `parentPath`), by id. It reads page after page
+ * until it has them all: an account left out would vanish from every picker
+ * without a word. A row it can't read fails the query.
  */
 export const accountChartQuery = queryOptions({
   queryKey: [...tableQueryKeys.table("accounts"), "chart"],
   queryFn: async () => {
-    const page = await fetchTableRows({
-      tableName: "accounts",
-      limit: MAX_PAGE_SIZE,
-      sort: [{ colId: "name", direction: "asc" }],
-      computed: ["parentPath"],
-    });
-    return {
-      rows: page.data
-        .map(accountRow)
-        .filter((one): one is AccountRow => one !== null),
-      parentPaths: page.computed?.parentPath ?? {},
-    };
+    const rows: AccountRow[] = [];
+    const parentPaths: Record<string, unknown> = {};
+    for (let page = 1; ; page++) {
+      const read = await fetchTableRows({
+        tableName: "accounts",
+        page,
+        limit: MAX_PAGE_SIZE,
+        sort: [{ colId: "name", direction: "asc" }],
+        computed: ["parentPath"],
+      });
+      for (const data of read.data) {
+        const row = accountRow(data);
+        if (row === null) {
+          throw new Error(
+            `Account ${String(data.id)} is missing a column the chart needs.`,
+          );
+        }
+        rows.push(row);
+      }
+      Object.assign(parentPaths, read.computed?.parentPath ?? {});
+      if (page >= read.meta.pages) break;
+    }
+    return { rows, parentPaths };
   },
   ...FRESH_QUERY,
 });
