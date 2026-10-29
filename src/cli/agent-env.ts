@@ -78,9 +78,9 @@ export class AgentEnvError extends Error {}
  * common case has a single account and needs no asking; more than one is
  * reported with the emails, and `--user` picks by email.
  *
- * `demos` are the sample accounts `dbu6 seed` makes. They are real accounts
- * with real tokens, and an agent must not be handed one: its books are
- * replaced by the next `dbu6 seed`.
+ * `demos` are the sample accounts dbu6-seed-sample-data makes. They are real
+ * accounts with real tokens, and an agent must not be handed one: its books
+ * are replaced by the next seed.
  */
 export function chooseAgentAccount(
   accounts: readonly AgentAccount[],
@@ -103,7 +103,7 @@ export function chooseAgentAccount(
     const sample = matches.find((account) => demos.has(account.email));
     if (sample !== undefined) {
       throw new AgentEnvError(
-        `${sample.email} is the sample account \`dbu6 seed\` makes, whose books the next run replaces. Sign up in the app and use that account.`,
+        `${sample.email} is the sample account dbu6-seed-sample-data makes, whose books the next run replaces. Sign up in the app and use that account.`,
       );
     }
     if (matches.length > 1) {

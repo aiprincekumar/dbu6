@@ -37,7 +37,7 @@ With the [prerequisites](#prerequisites) installed:
    ```bash
    mkdir ../demo-dbu6 && cd ../demo-dbu6
    echo '{ "name": "demo-dbu6" }' > sapporta.json
-   echo '{ "name": "demo-dbu6", "private": true, "type": "module", "scripts": { "dev": "dbu6 dev", "seed": "dbu6 seed" }, "dependencies": { "@dbu6/app": "link:../dbu6" } }' > package.json
+   echo '{ "name": "demo-dbu6", "private": true, "type": "module", "scripts": { "dev": "dbu6 dev", "seed": "node ../dbu6-seed-sample-data/seed.mjs" }, "dependencies": { "@dbu6/app": "link:../dbu6" } }' > package.json
    pnpm install
    pnpm exec dbu6 setup
    pnpm exec dbu6 migrate
@@ -56,7 +56,8 @@ With the [prerequisites](#prerequisites) installed:
    `SAPPORTA_PUBLIC_APP_URL` to the same address (see
    [Ports and environment](#ports-and-environment)). For sample data, run
    `pnpm seed` in the project folder while its `pnpm dev` is running, and sign
-   in as `demo@example.com` / `demo-password`.
+   in as `demo@example.com` / `demo-password`. The seed is its own project,
+   [dbu6-seed-sample-data](#sample-data), checked out beside this one.
 
 `pnpm install` needs the Sapporta packages to resolve; see
 [Sapporta and nuabase packages](#sapporta-and-nuabase-packages) for the state
@@ -222,23 +223,26 @@ In it, `pnpm <script>` runs what its `package.json` names and
 - `dbu6 migrate`: `migrateSafely` alone (see
   [Schema and migrations](#schema-and-migrations)). `dev` and `start` run it
   too, and it creates the database when there is none.
-- `dbu6 seed [YYYY-MM-DD]`: with the project's `dbu6 dev` running, create
-  `demo@example.com` (password `demo-password`) holding a year of sample
-  personal finances up to today, or up to the given date. The twelve months
-  before that month are posted journals, and that month so far is HDFC savings
-  drafts. The demo account gets an import preset institution for each
-  statement account, written with the ledger; their instructions,
-  `user-config/custom_mappings_default.prompt`, are written from the demo's
-  chart as creating a chart writes them, when the project has none yet.
-  Re-running replaces the demo account's ledger and presets. With
-  `--statements <dir>`, that month is written to `<dir>` as the statement files
-  it would arrive in (HDFC savings XLS, HDFC credit card CSV, and an SBI PDF no
-  saved parser reads, whose institution lists no parser) instead of drafts.
-  `--statements` draws the files with the parsers' fixture
-  generators, so it works only when dbu6 runs from this repository, not from an
-  installed package. The code is `src/server/seed/`.
 - `dbu6 start`: migrate safely, then serve API and SPA on one port (run
   `pnpm build` here first, for `dist/app`).
+
+### Sample data
+
+The sample books are not in the package. They are made by
+dbu6-seed-sample-data, its own project checked out beside this one
+(`../dbu6-seed-sample-data`). Run `node ../dbu6-seed-sample-data/seed.mjs
+[YYYY-MM-DD] [--statements <dir>]` in a project folder while its `dbu6 dev`
+is running; the demo-dbu6 above names it `pnpm seed`. It creates
+`demo@example.com` (password `demo-password`) holding a year of sample
+personal finances, and each run replaces that account's ledger and import
+presets. Its README says the rest.
+
+It loads its dbu6 from the project's `node_modules/@dbu6/app` and imports
+internals from `dist/` by file: the runtime, the starter chart, the
+categorization instructions, paths, and `DEMO_ACCOUNT`
+(`src/server/project-auth/demo-account.ts`). These are not on the promised
+surface. When you move or rename one, follow it in the seed's `dbu6.mjs`.
+When you change the schema, follow it in the seed's SQL.
 
 ## Ports and environment
 
@@ -342,7 +346,7 @@ and gitignored, and revokes the token its previous run wrote, matched by name so
 a token made in the app is left alone. The file itself is `src/cli/agent-file.ts`,
 which chmods it as well as writing it: `mode` on a write applies only to a file
 it creates, and the file is a credential however it got there. `agent env`
-refuses to mint one for the sample account `dbu6 seed` makes — even when
+refuses to mint one for the sample account [the seed](#sample-data) makes — even when
 `--user` names it — because seeding replaces that account's books. Which account
 it uses is `chooseAgentAccount` in `src/cli/agent-env.ts`: the single non-sample
 account, or `--user <email>` — or `<user id>`, when one email is in more than one
@@ -581,8 +585,7 @@ project; and its `.env.development`),
 what the file says), `agent-file.ts` (the one file it writes, and its mode), and
 `frontend.ts`, the command's only contact with the frontend host. `src/cli`
 sits above the rest of the Node side: it alone may import both `src/server` and
-`src/frontend-host` (`scripts/import-boundaries.test.mjs`). `seed` is
-`src/server/seed/`.
+`src/frontend-host` (`scripts/import-boundaries.test.mjs`).
 
 | Command | Does |
 | --- | --- |
@@ -594,7 +597,6 @@ sits above the rest of the Node side: it alone may import both `src/server` and
 | `upgrade [version]` | refuses a version older than the installed one; otherwise pin, `npm install`, print `docs/upgrade-notes/` between the versions, then the new version's `migrate` and `check`; restores `package.json` and the lockfile and reinstalls if the migration fails |
 | `check` | everything an upgrade can break, in one report; exit 1 when a line fails, and nothing is changed. See [`dbu6 check`](#dbu6-check) |
 | `setup` | the env file, an auth secret, `user-config/` |
-| `seed [date] [--statements <dir>]` | sample data for the demo account |
 | `parser test [name]`, `parser run <name> <input>` | a parser's tests, or a parser on a file, with `shared` on `PYTHONPATH` |
 | `docs [name]` | print a packaged guide (`GUIDES` in `src/shared/guides.ts`); lists them with no name |
 | `agent env [--print] [--user <email>]` | mint the project's coding agent a Sapporta token: `.env.agent` (mode `0600`, gitignored), revoking the one its previous run wrote; `--print` exports the token the file already holds instead |
@@ -650,7 +652,7 @@ built, tested and understood without anything above it. Lowest first:
 | 3 | `modules/` | transaction-identity, categorization, gpay, journal-plan, statement-sources, chart-of-accounts, comment-writer, hledger-export | Transaction keys and matchers; mapping rules, the prompt, the LLM interface, and turning an answer into a ledger account id, the same-account rule included, and whether categorization is running (`categorizing.ts`); the Google Pay Takeout index and enrichment; the journal plan and the one hledger formatter; saved parsers, import presets and the auto-import plan; the starter chart of accounts and the rules a proposed chart keeps; the comment writer's prompt and the checks its answers pass; the hledger export's model, account-name escaping, and its rendering | Database access, coding-agent names, route concepts |
 | 4 | `modules/` | accounts < journals < reconciliation < drafts; coding-agent; import-presets; search | Accounts as the stores and screens look them up, and the Opening Balances account; posted journals, writing them from a plan, every journal as the hledger export reads it (`export-rows.ts`), the last reconciled checkpoint, the comments the comment writer reads and writes on every user's entries (`entry-comments.ts`), and each account's opening entry, the entries beside it, and rewriting or deleting a standalone one (`opening-entries.ts`); matching against stored drafts and journals, running balances, the balance-check rule, the opening balance each account's first check implies (`loadImpliedOpenings`), the since-checkpoint filter (its checkpoint-day rule and why: `reconciliation/checkpoint-day.md`); draft rows: saving, placing balance assertions, loading, reclassifying, clearing once posted, status, whether a bank or card has transactions of its own (`statement-activity.ts`), where an account's drafts begin (`first-drafts.ts`), the comments the comment writer reads and writes on every user's drafts (`draft-comments.ts`), and the rule requests the user makes from them (`categorization-rule-requests.ts`). The coding agent: detection, models, handoff, settings, and at its top the engine categorization runs on. The import_presets rows, read and written under the request's auth. Search over the books: which journals, drafts and accounts match, by Sapporta's table search, and what a result shows | Workflow sequencing, report columns; ledger concepts anywhere in coding-agent but its top file |
 | 5 | `workflows/` | statement-import, posting, reclassification, opening-balances, import-presets, chart-of-accounts, comment-writer, hledger-export; add-account above opening-balances, import-presets and statement-import | The domain workflows, where the action happens: they sequence module calls and make the domain decisions | SQL, text formatting, HTTP; imports of each other |
-| 6 | `app/`, `runtime.ts`, `mount.ts`, `open.ts`, `config.ts`, `project-reports.ts`, `route-collisions.ts`, `report-kit.ts`, `index.ts`, `seed/` | app | Routes, reports (rendering only), error translation, uploads, auth guards, the Overview, Update and Review views, hosting; the project's reports and `dbu6.config.ts`; the promised exports; sample data | Queries or rules another module needs |
+| 6 | `app/`, `runtime.ts`, `mount.ts`, `open.ts`, `config.ts`, `project-reports.ts`, `route-collisions.ts`, `report-kit.ts`, `index.ts` | app | Routes, reports (rendering only), error translation, uploads, auth guards, the Overview, Update and Review views, hosting; the project's reports and `dbu6.config.ts`; the promised exports | Queries or rules another module needs |
 
 - Only tier 4 orders its modules (accounts < journals < reconciliation <
   drafts). Tier 3 modules never import each other, and neither do workflows: a

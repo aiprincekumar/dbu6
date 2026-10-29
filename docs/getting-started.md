@@ -98,17 +98,6 @@ is imported, and what waits on it, with Import and Review one click away.
 Steps 3 and 5 are worth reading up on: [Importing
 statements](statements.md) and [Categorization](categorization.md).
 
-## Try it with sample data
-
-```sh
-npx dbu6 seed          # with dbu6 dev running
-```
-
-A year of sample personal finances for a demo account: the months up to now
-are posted, and the current month is left as drafts to review. Sign in as
-`demo@example.com` with `demo-password`. Running it again replaces that
-account's data.
-
 ## Every day
 
 ```sh

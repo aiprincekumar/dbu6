@@ -688,7 +688,7 @@ it could belong to), it keeps the file, `dbu6 migrate` prints why, and
   - `npx dbu6 agent env` gives this project one: it mints a token, writes it to
     the gitignored `.env.agent`, and revokes the one its previous run wrote.
     It names the account it used, and refuses a project that holds only the
-    sample account `dbu6 seed` makes.
+    sample account dbu6-seed-sample-data makes.
   - dbu6's `sapporta` reads that file by itself. Anything else — a plain
     Sapporta CLI, or the `curl` uploads below — does not, so put the token in
     its environment first: `set -a; . ./.env.agent; set +a`. A CLI that

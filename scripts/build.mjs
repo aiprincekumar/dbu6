@@ -30,11 +30,6 @@ copyFileSync(
   path.join(root, "src/frontend-host/index.html"),
   path.join(root, "dist/frontend-host/index.html"),
 );
-// `dbu6 seed --statements` runs this script from beside its compiled module.
-copyFileSync(
-  path.join(root, "src/server/seed/render-statements.py"),
-  path.join(root, "dist/server/seed/render-statements.py"),
-);
 if (nodeOnly) process.exit(0);
 
 console.log("\n> Build @dbu6/app/frontend");

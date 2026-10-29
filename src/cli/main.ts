@@ -38,7 +38,6 @@ const USAGE = `dbu6 <command>
   upgrade [version]            move to a dbu6 version (latest), migrate, check
   check                        report everything an upgrade can break
   setup                        create .env.development, an auth secret and user-config/
-  seed [date] [--statements <dir>]   sample data for the demo account
   parser test [name]           run a parser's tests, or all of the project's
   parser run <name> <input>    run a parser on a statement file
   docs [name]                  print a guide for coding agents; lists them with no name
@@ -128,11 +127,6 @@ export async function main(args: string[]): Promise<number> {
       }
       if (result.status === "rolled-back") return 1;
       return result.status === "upgraded" && !result.checkPassed ? 1 : 0;
-    }
-    case "seed": {
-      const { seedSampleData } = await import("../server/seed/sample-data.js");
-      await seedSampleData(root, rest);
-      return 0;
     }
     case "parser":
       if (rest[0] === "test") return testParsers(rest[1]);

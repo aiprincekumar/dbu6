@@ -32,7 +32,6 @@ describe("a project with only the former .env", () => {
     ["migrate"],
     ["check"],
     ["upgrade"],
-    ["seed"],
     ["agent", "env"],
   ])(
     "stops `dbu6 %s` before it opens a database or writes a file",
@@ -62,7 +61,6 @@ describe("--help", () => {
     ["dev"],
     ["setup"],
     ["upgrade"],
-    ["seed"],
     ["agent", "env"],
   ])("prints the usage for `dbu6 %s --help`, and does nothing else", async (...args) => {
     vi.spyOn(console, "log").mockImplementation(() => {});

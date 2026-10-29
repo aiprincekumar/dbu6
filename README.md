@@ -54,7 +54,7 @@ command answers with the user and workspace it acts as. `npx sapporta …` is
 dbu6's own copy of the Sapporta CLI — there is nothing else to install.
 
 [Getting started](https://github.com/jasim/dbu6/blob/main/docs/getting-started.md)
-has each step in full, the sample data, everyday commands and backups.
+has each step in full, everyday commands and backups.
 
 ## The packages
 

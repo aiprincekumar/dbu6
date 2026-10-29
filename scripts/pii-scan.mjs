@@ -25,10 +25,9 @@
 //            with third-party code full of long numbers; listed, not scanned
 //   fixture  statement data under a fixtures/ directory: digits, amount, text.
 //            .xls workbooks are read too: their strings, and numeric cells
-//   strict   everything else under custom-built-parsers/,
-//            the seed's render-statements.py and user-config.example/ — parsers,
-//            their tests, guides: digits, amount. These are the files written
-//            with a real statement open
+//   strict   everything else under custom-built-parsers/ and
+//            user-config.example/ — parsers, their tests, guides: digits,
+//            amount. These are the files written with a real statement open
 //   source   the rest (application code and its tests, docs, config): digits
 //            only. It is full of legitimate decimals (versions, ratios, CSS,
 //            Money arithmetic tested to the paisa) and is not built against
@@ -69,7 +68,6 @@ const MEDIA_EXTENSIONS = new Set([
 
 const STRICT_ROOTS = [
   "custom-built-parsers/",
-  "src/server/seed/render-statements.py",
   "user-config.example/",
 ];
 

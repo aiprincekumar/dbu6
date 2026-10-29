@@ -39,7 +39,7 @@ import {
 import { openDbu6Runtime } from "../server/runtime.js";
 import { migrateSafely } from "../server/migrate-safely.js";
 import { todayIn } from "../shared/index.js";
-import { DEMO_ACCOUNT } from "../server/seed/sample-data.js";
+import { DEMO_ACCOUNT } from "../server/project-auth/demo-account.js";
 import { databaseFile } from "../server/paths.js";
 import {
   AGENT_ENV_FILE,
