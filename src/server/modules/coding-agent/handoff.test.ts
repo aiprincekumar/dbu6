@@ -195,7 +195,34 @@ describe("handOffPrompt", () => {
       prompt: PROMPT,
       dir: join(root, "tmp", "agent-prompts"),
       platform: "linux",
+      env: expect.any(Object),
+      unsetEnv: expect.any(Array),
     });
+  });
+
+  it("keeps the app's settings out of the terminal, and has the launcher unset them", async () => {
+    detectLocalAgents.mockResolvedValue(CLAUDE_ONLY);
+    vi.stubEnv("SAPPORTA_API_PORT", "50505");
+    vi.stubEnv("BETTER_AUTH_SECRET", "sample-secret");
+    vi.stubEnv("SAMPLE_OTHER", "kept");
+
+    await handoff.handOffPrompt(PROMPT, "darwin", root);
+
+    const { env, unsetEnv } = startAgentSession.mock.calls[0][0];
+    expect(env).not.toHaveProperty("SAPPORTA_API_PORT");
+    expect(env).not.toHaveProperty("BETTER_AUTH_SECRET");
+    expect(env).not.toHaveProperty("DBU6_ROOT");
+    expect(env.SAMPLE_OTHER).toBe("kept");
+    expect(env.PATH).toBe(process.env.PATH);
+    expect(unsetEnv).toEqual(
+      expect.arrayContaining([
+        "SAPPORTA_API_PORT",
+        "BETTER_AUTH_SECRET",
+        "DBU6_ROOT",
+        "SAPPORTA_DATA_DIR",
+      ]),
+    );
+    expect(unsetEnv).not.toContain("SAMPLE_OTHER");
   });
 
   it("says a terminal window opened on macOS", async () => {

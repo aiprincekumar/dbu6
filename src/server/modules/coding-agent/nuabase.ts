@@ -163,6 +163,10 @@ export function startSession(session: {
   prompt: string;
   dir: string;
   platform: NodeJS.Platform;
+  /** The environment `open` runs in, which a terminal it launches keeps. */
+  env: NodeJS.ProcessEnv;
+  /** Names the launcher unsets, for a terminal that already holds them. */
+  unsetEnv: string[];
 }): Promise<AgentSessionStart> {
   return startAgentSession({
     agent: session.agent.agent,
@@ -173,6 +177,8 @@ export function startSession(session: {
     prompt: session.prompt,
     dir: session.dir,
     platform: session.platform,
+    env: session.env,
+    unsetEnv: session.unsetEnv,
   });
 }
 

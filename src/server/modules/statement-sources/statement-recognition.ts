@@ -23,6 +23,7 @@ import {
   projectRoot,
   uploadStagingDir,
 } from "../../paths.js";
+import { withoutAppSettings } from "../../app-settings.js";
 
 // Recognizing an uploaded statement with the saved parsers: the directories
 // of the project's custom-built-parsers/ and of the one bundled with dbu6. A
@@ -321,23 +322,14 @@ async function runParser(
 }
 
 /**
- * The app's own settings, which .env.development, mise or the shell give the
- * server: its secrets, ports, database, mail and tokens. A parser reads a file
- * and needs none of them.
- */
-const APP_SETTING = /^(SAPPORTA_|BETTER_AUTH_|SMTP_|NUABASE_|DBU6_)/;
-
-/**
  * The environment a parser, or a parser's tests, run in: the server's, without
- * the app's settings. PYTHONPATH names our custom-built-parsers/, so
- * `from shared import abacus` resolves to the bundled package whichever root
- * the parser lives in.
+ * the app's settings (app-settings.ts). PYTHONPATH names our
+ * custom-built-parsers/, so `from shared import abacus` resolves to the
+ * bundled package whichever root the parser lives in.
  */
 export function parserProcessEnv(): NodeJS.ProcessEnv {
   return {
-    ...Object.fromEntries(
-      Object.entries(process.env).filter(([name]) => !APP_SETTING.test(name)),
-    ),
+    ...withoutAppSettings(),
     PYTHONPATH: [packageParsersDir(), process.env.PYTHONPATH]
       .filter(Boolean)
       .join(path.delimiter),

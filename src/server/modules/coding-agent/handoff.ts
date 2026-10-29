@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { appSettingNames, withoutAppSettings } from "../../app-settings.js";
 import type {
   AgentHandoff,
   AgentHandoffAvailability,
@@ -39,6 +40,13 @@ import {
  * acceptable: only a workflow user can post one, and the session runs in a
  * terminal in front of the user, who can stop it. tmp/ is gitignored; no file
  * is ever deleted.
+ *
+ * The terminal gets none of the app's settings (app-settings.ts). `open`
+ * passes its environment to a terminal app it launches, and every later
+ * window keeps it, so the server's port, data folder and secrets would reach
+ * sessions in other projects; and the launcher unsets them, for a terminal an
+ * older dbu6 or another project's server already launched with them. The
+ * agent finds this project's settings in its files, as a person's would.
  */
 
 const PROMPTS_DIR = ["tmp", "agent-prompts"] as const;
@@ -89,6 +97,8 @@ export async function handOffPrompt(
     prompt,
     dir: join(root, ...PROMPTS_DIR),
     platform,
+    env: withoutAppSettings(),
+    unsetEnv: appSettingNames(),
   });
   switch (started.kind) {
     case "refused":
