@@ -321,13 +321,23 @@ async function runParser(
 }
 
 /**
- * The environment a parser, or a parser's tests, run in. PYTHONPATH names our
- * custom-built-parsers/, so `from shared import abacus` resolves to the
- * bundled package whichever root the parser lives in.
+ * The app's own settings, which .env.development, mise or the shell give the
+ * server: its secrets, ports, database, mail and tokens. A parser reads a file
+ * and needs none of them.
+ */
+const APP_SETTING = /^(SAPPORTA_|BETTER_AUTH_|SMTP_|NUABASE_|DBU6_)/;
+
+/**
+ * The environment a parser, or a parser's tests, run in: the server's, without
+ * the app's settings. PYTHONPATH names our custom-built-parsers/, so
+ * `from shared import abacus` resolves to the bundled package whichever root
+ * the parser lives in.
  */
 export function parserProcessEnv(): NodeJS.ProcessEnv {
   return {
-    ...process.env,
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !APP_SETTING.test(name)),
+    ),
     PYTHONPATH: [packageParsersDir(), process.env.PYTHONPATH]
       .filter(Boolean)
       .join(path.delimiter),

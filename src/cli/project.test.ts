@@ -2,7 +2,13 @@ import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tempDir } from "../server/migrations.test.support.js";
-import { devFolder, envFile, formerEnvFileProblem } from "./project.js";
+import { projectRoot } from "../server/paths.js";
+import {
+  devFolder,
+  envFile,
+  formerEnvFileProblem,
+  resolveProjectRoot,
+} from "./project.js";
 
 let root: string;
 
@@ -14,6 +20,48 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
   rmSync(root, { recursive: true, force: true });
+});
+
+describe("resolveProjectRoot", () => {
+  beforeEach(() => {
+    writeFileSync(join(root, "package.json"), "{}\n");
+    mkdirSync(join(root, "reports"));
+    vi.stubEnv("DBU6_ROOT", "");
+  });
+
+  it("is the nearest folder with a package.json, kept in the process only", () => {
+    expect(resolveProjectRoot(join(root, "reports"))).toBe(root);
+    expect(projectRoot()).toBe(root);
+    expect(process.env.DBU6_ROOT).toBe("");
+  });
+
+  it("takes a DBU6_ROOT naming the project it is run in", () => {
+    vi.stubEnv("DBU6_ROOT", root);
+
+    expect(resolveProjectRoot(join(root, "reports"))).toBe(root);
+  });
+
+  it("refuses a DBU6_ROOT naming another project than the one it is run in", () => {
+    const other = tempDir("other-project");
+    vi.stubEnv("DBU6_ROOT", other);
+    try {
+      expect(() => resolveProjectRoot(root)).toThrow(
+        `DBU6_ROOT names ${other}, but the working directory is in the project ${root}.`,
+      );
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
+  });
+
+  it("takes DBU6_ROOT from a folder outside every project", () => {
+    const outside = tempDir("outside");
+    vi.stubEnv("DBU6_ROOT", root);
+    try {
+      expect(resolveProjectRoot(outside)).toBe(root);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("devFolder", () => {

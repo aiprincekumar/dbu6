@@ -12,6 +12,8 @@ beforeEach(() => {
   writeFileSync(join(root, "package.json"), "{}\n");
   writeFileSync(join(root, ".env"), "SAPPORTA_DATA_DIR=elsewhere\n");
   vi.stubEnv("DBU6_ROOT", root);
+  // Run from the project: DBU6_ROOT naming another one is refused.
+  vi.spyOn(process, "cwd").mockReturnValue(root);
   vi.stubEnv("SAPPORTA_DATA_DIR", "");
   vi.spyOn(console, "error").mockImplementation(() => {});
 });

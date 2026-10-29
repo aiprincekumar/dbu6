@@ -4,19 +4,37 @@
  */
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { databaseFile, packageDir } from "../server/paths.js";
+import {
+  databaseFile,
+  packageDir,
+  setCommandProjectRoot,
+} from "../server/paths.js";
 
 /**
  * `DBU6_ROOT` when it is set, otherwise the nearest directory at or above the
- * working directory with a package.json, otherwise the working directory. It
- * is written back to `DBU6_ROOT`, which is what `paths.ts` reads, so the
- * command, the server and every child process agree.
+ * working directory with a package.json, otherwise the working directory. When
+ * the working directory is in a project, a `DBU6_ROOT` naming any other folder
+ * is refused rather than followed: it is most likely inherited from another
+ * project's dbu6, and following it would work on that project's books.
+ *
+ * The root is kept in the process (`setCommandProjectRoot`), never exported,
+ * so no child inherits it. A child that is dbu6 resolves it again from its
+ * working directory.
  */
 export function resolveProjectRoot(cwd = process.cwd()): string {
-  const root = process.env.DBU6_ROOT
+  const here = nearestPackageJsonDir(cwd);
+  const named = process.env.DBU6_ROOT
     ? resolve(cwd, process.env.DBU6_ROOT)
-    : (nearestPackageJsonDir(cwd) ?? cwd);
-  process.env.DBU6_ROOT = root;
+    : null;
+  if (named !== null && here !== null && named !== here) {
+    throw new Error(
+      `DBU6_ROOT names ${named}, but the working directory is in the project ${here}. ` +
+        "Unset DBU6_ROOT, which another project's dbu6 may have left in this shell, " +
+        `or run this from ${named}.`,
+    );
+  }
+  const root = named ?? here ?? cwd;
+  setCommandProjectRoot(root);
   return root;
 }
 

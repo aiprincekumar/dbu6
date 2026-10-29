@@ -571,9 +571,11 @@ and registers Sapporta's source-link hook when `@sapporta/server` is a `link:`
 dependency, which is why no script passes `--import` any more.
 
 `src/cli/` holds one module per concern: `main.ts` (dispatch, and what a
-migration result prints), `project.ts` (the project folder: `DBU6_ROOT`, else
-the nearest `package.json` at or above the working directory; and its
-`.env.development`),
+migration result prints), `project.ts` (the project folder: the nearest `package.json` at or above
+the working directory, or `DBU6_ROOT` outside every project, refused when it
+names another project than the one the working directory is in; kept in the
+process, never exported, so a terminal opened for a coding agent inherits no
+project; and its `.env.development`),
 `dev.ts`, `setup.ts`, `init.ts`, `upgrade.ts`, `check.ts`, `parser.ts`, `docs.ts`,
 `agent.ts` (the `agent env` command), `agent-env.ts` (who the token is for, and
 what the file says), `agent-file.ts` (the one file it writes, and its mode), and
@@ -774,7 +776,10 @@ named `@dbu6/app`, never from the project root. `parserRoots()` is the user's
 `custom-built-parsers/` and then ours. In a user's project the package is
 under `node_modules`, and in a linked project that is a symlink to this
 repository; only `dbu6 parser`, run here, has the two the same. `DBU6_ROOT` overrides the project root, which is how a
-test points it at a temporary directory (`vi.stubEnv("DBU6_ROOT", dir)`).
+test points it at a temporary directory (`vi.stubEnv("DBU6_ROOT", dir)`); the
+command keeps the root it resolved with `setCommandProjectRoot` instead.
+`parserProcessEnv()` gives parsers the server's environment without the app's
+own settings (`SAPPORTA_*`, `BETTER_AUTH_*`, `SMTP_*`, `NUABASE_*`, `DBU6_*`).
 `openDbu6Runtime(root)` refuses a `root` other than the one `DBU6_ROOT` names,
 because the functions above that take no root would read that other folder.
 

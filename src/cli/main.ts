@@ -47,7 +47,8 @@ const USAGE = `dbu6 <command>
   --version                    print the installed dbu6 version
 
 The project is the folder with package.json at or above the working
-directory, or DBU6_ROOT.`;
+directory. DBU6_ROOT names it from outside any project; inside one it must
+name that same project.`;
 
 /** Runs one command. Resolves to the exit code; `serve` never resolves. */
 export async function main(args: string[]): Promise<number> {

@@ -21,13 +21,27 @@ import { projectRoot as sapportaProjectRoot } from "@sapporta/server";
  * a temporary directory with `vi.stubEnv("DBU6_ROOT", dir)`.
  */
 
+let commandRoot: string | undefined;
+
+/**
+ * The root the `dbu6` command resolved for this process. It stays in the
+ * process: written to DBU6_ROOT it would reach every child, and through `open`
+ * a terminal app launched for a coding agent, whose later windows would then
+ * work on this project from any other.
+ */
+export function setCommandProjectRoot(root: string): void {
+  commandRoot = root;
+}
+
 /**
  * The project root: `DBU6_ROOT` when it is set (absolute, or relative to the
- * working directory), otherwise the Sapporta project root.
+ * working directory), otherwise the root the command resolved, otherwise the
+ * Sapporta project root.
  */
 export function projectRoot(): string {
   const configured = process.env.DBU6_ROOT;
-  return configured ? resolve(configured) : sapportaProjectRoot();
+  if (configured) return resolve(configured);
+  return commandRoot ?? sapportaProjectRoot();
 }
 
 /** The project's `data/`. `databaseFile` looks elsewhere while SAPPORTA_DATA_DIR is set. */

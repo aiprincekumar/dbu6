@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { packageParsersDir, parserRoots } from "../../paths.js";
 import {
+  parserProcessEnv,
   recognizeStatementFile,
   recognizeStatementFiles,
   savedCustomStatementParserNames,
@@ -82,6 +83,31 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.unstubAllEnvs();
   await rm(root, { recursive: true, force: true });
+});
+
+describe("parserProcessEnv", () => {
+  it("leaves out the app's settings and keeps the rest", () => {
+    vi.stubEnv("BETTER_AUTH_SECRET", "sample-secret");
+    vi.stubEnv("SAPPORTA_API_PORT", "50505");
+    vi.stubEnv("SMTP_PASS", "sample");
+    vi.stubEnv("NUABASE_API_KEY", "sample");
+    vi.stubEnv("SAMPLE_OTHER", "kept");
+
+    const env = parserProcessEnv();
+
+    for (const name of [
+      "BETTER_AUTH_SECRET",
+      "SAPPORTA_API_PORT",
+      "SMTP_PASS",
+      "NUABASE_API_KEY",
+      "DBU6_ROOT",
+    ]) {
+      expect(env).not.toHaveProperty(name);
+    }
+    expect(env.SAMPLE_OTHER).toBe("kept");
+    expect(env.PATH).toBe(process.env.PATH);
+    expect(env.PYTHONPATH?.split(path.delimiter)[0]).toBe(packageParsersDir());
+  });
 });
 
 describe("saved parsers from two roots", () => {
