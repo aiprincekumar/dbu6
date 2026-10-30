@@ -114,17 +114,24 @@ export function AccountsByMonthPage() {
     <Screen
       width="full"
       header={
-        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
-          <div className="min-w-0">
-            <h1 className="text-title text-foreground">{TITLE}</h1>
-            <p className="mt-1 text-body text-ink-meta">
-              {dates === null ? " " : spanLabel(dates)}
-            </p>
+        <>
+          <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+            <div className="min-w-0">
+              <h1 className="text-title text-foreground">{TITLE}</h1>
+              <p className="mt-1 text-body text-ink-meta">
+                {dates === null ? " " : spanLabel(dates)}
+              </p>
+            </div>
+            <ReportPeriodField
+              period={period}
+              onChange={(next) => setSearch(withPeriod(search, next))}
+              showSpan={false}
+            />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <GroupPicker
               group={group}
-              parents={report?.parents ?? null}
+              reportType={report?.type ?? null}
               onChange={(next) => setSearch(withGroup(search, next))}
             />
             {balances && (
@@ -141,13 +148,8 @@ export function AccountsByMonthPage() {
                 <ToggleGroupItem<Show> value="change">Change</ToggleGroupItem>
               </ToggleGroup>
             )}
-            <ReportPeriodField
-              period={period}
-              onChange={(next) => setSearch(withPeriod(search, next))}
-              showSpan={false}
-            />
           </div>
-        </div>
+        </>
       }
     >
       {error ? (

@@ -218,7 +218,7 @@ export function groupTitle(report: AccountMonths): string {
   return TYPE_TITLES[report.type];
 }
 
-export const TYPE_TITLES: Record<AccountMonths["type"], string> = {
+const TYPE_TITLES: Record<AccountMonths["type"], string> = {
   Expense: "Spending",
   Revenue: "Income",
   Asset: "Assets",
@@ -226,12 +226,20 @@ export const TYPE_TITLES: Record<AccountMonths["type"], string> = {
   Equity: "Equity",
 };
 
-/** The groups by type, as the picker lists them first. */
+/** The groups by type, as the type toggle names them. */
 export const GROUP_LABELS: Record<AccountMonthsGroup, string> = {
   expense: "Spending",
   revenue: "Income",
   asset: "Assets",
   liability: "Liabilities",
+};
+
+/** The account type each group is. */
+export const GROUP_TYPES: Record<AccountMonthsGroup, AccountMonths["type"]> = {
+  expense: "Expense",
+  revenue: "Revenue",
+  asset: "Asset",
+  liability: "Liability",
 };
 
 function positiveId(value: string | null | undefined): number | null {

@@ -1,110 +1,85 @@
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
+  AccountTreeCombobox,
+  ToggleGroup,
+  ToggleGroupItem,
 } from "../../report-kit";
 import {
   ACCOUNT_MONTHS_GROUPS,
   type AccountMonths,
+  type AccountMonthsGroup,
 } from "../../../shared/index";
-import { GROUP_LABELS, type Group, TYPE_TITLES } from "./pivot";
+import { GROUP_LABELS, GROUP_TYPES, type Group } from "./pivot";
 
 /*
- * The one control that picks the rows: a type's accounts, then every
- * account with sub-accounts, by type and indented as the tree runs.
+ * The two controls that pick the rows: a type, and within it the chart's
+ * account picker, with search and the tree, to narrow to one account and
+ * everything under it. An empty picker is the whole type.
  */
 
-function valueOf(group: Group): string {
-  return group.kind === "account" ? `account:${group.accountId}` : group.group;
-}
-
-function groupOf(value: string): Group | null {
-  if (value.startsWith("account:"))
-    return { kind: "account", accountId: Number(value.slice(8)) };
-  const group = ACCOUNT_MONTHS_GROUPS.find((name) => name === value);
-  return group === undefined ? null : { kind: "type", group };
+/** The group a type is, or null for a type the report doesn't group by. */
+function groupOfType(type: AccountMonths["type"]): AccountMonthsGroup | null {
+  return (
+    ACCOUNT_MONTHS_GROUPS.find((name) => GROUP_TYPES[name] === type) ?? null
+  );
 }
 
 export function GroupPicker({
   group,
-  parents,
+  reportType,
   onChange,
 }: {
   group: Group;
-  /** Null until the first report arrives. */
-  parents: AccountMonths["parents"] | null;
+  /** The type of the report on screen; null until the first one arrives. */
+  reportType: AccountMonths["type"] | null;
   onChange: (group: Group) => void;
 }) {
-  const types = ACCOUNT_MONTHS_GROUPS.map((name) => ({
-    value: name,
-    label: GROUP_LABELS[name],
-  }));
-  const accounts = (parents ?? []).map((parent) => ({
-    value: `account:${parent.account_id}`,
-    label: parent.name,
-    parent,
-  }));
-  const value = valueOf(group);
-  const items = [
-    ...types,
-    ...accounts,
-    // An account from a link, before the list arrives.
-    ...(group.kind === "account" &&
-    !accounts.some((item) => item.value === value)
-      ? [{ value, label: "Account" }]
-      : []),
-  ];
+  // An account's type is the report's, which an account from a link waits
+  // for; the picker offers only that type's accounts.
+  const type =
+    group.kind === "type"
+      ? group.group
+      : reportType === null
+        ? null
+        : groupOfType(reportType);
+  const label = type === null ? "accounts" : GROUP_LABELS[type].toLowerCase();
   return (
-    <Select<string>
-      value={value}
-      items={items}
-      onValueChange={(next) => {
-        const chosen = next === null ? null : groupOf(next);
-        if (chosen !== null) onChange(chosen);
-      }}
-    >
-      <SelectTrigger
-        aria-label="Accounts"
-        placeholder="Accounts"
-        className="w-auto min-w-[180px] max-w-[280px]"
-      />
-      <SelectContent>
-        {types.map((item) => (
-          <SelectItem key={item.value} value={item.value}>
-            {item.label}
-          </SelectItem>
+    <div className="flex flex-wrap items-center gap-3">
+      <ToggleGroup<AccountMonthsGroup>
+        aria-label="Type"
+        value={type === null ? [] : [type]}
+        onValueChange={(value) => {
+          const [next] = value;
+          if (next !== undefined) onChange({ kind: "type", group: next });
+        }}
+      >
+        {ACCOUNT_MONTHS_GROUPS.map((name) => (
+          <ToggleGroupItem<AccountMonthsGroup> key={name} value={name}>
+            {GROUP_LABELS[name]}
+          </ToggleGroupItem>
         ))}
-        {accounts.length > 0 && (
-          <div
-            role="separator"
-            aria-hidden="true"
-            className="my-1 border-t border-sap-border"
-          />
-        )}
-        {accounts.map((item, index) => {
-          const type = item.parent.account_type;
-          const firstOfType =
-            index === 0 || accounts[index - 1].parent.account_type !== type;
-          return (
-            <div key={item.value}>
-              {firstOfType && (
-                <div
-                  aria-hidden="true"
-                  className="px-2.5 pt-2 pb-1 text-meta text-ink-meta"
-                >
-                  {TYPE_TITLES[type]}
-                </div>
-              )}
-              <SelectItem value={item.value}>
-                <span style={{ paddingLeft: item.parent.depth * 14 }}>
-                  {item.label}
-                </span>
-              </SelectItem>
-            </div>
-          );
-        })}
-      </SelectContent>
-    </Select>
+      </ToggleGroup>
+      <label htmlFor="accounts-by-month-account" className="sr-only">
+        Account
+      </label>
+      <AccountTreeCombobox
+        id="accounts-by-month-account"
+        eligible={
+          type === null
+            ? undefined
+            : (account) => account.account_type === GROUP_TYPES[type]
+        }
+        value={group.kind === "account" ? group.accountId : null}
+        onChange={(accountId) =>
+          onChange(
+            accountId !== null
+              ? { kind: "account", accountId }
+              : { kind: "type", group: type ?? "expense" },
+          )
+        }
+        placeholder={`All ${label}`}
+        clearLabel={`Show all ${label}`}
+        className="w-[260px] max-w-full"
+      />
+    </div>
   );
 }

@@ -17,6 +17,7 @@ import type {
   AccountMonthsRow,
   IncomeExpensesEntry,
 } from "../../../shared/index";
+import { accountsTablePage } from "../../accounts-page.testing";
 import { AccountsByMonthPage } from "./AccountsByMonthPage";
 
 /*
@@ -25,7 +26,10 @@ import { AccountsByMonthPage } from "./AccountsByMonthPage";
  * level, and a cell opening its entries, kept in the URL and closed by Esc.
  */
 
-vi.mock("@sapporta/frontend", () => ({ appTimeZone: () => "Asia/Kolkata" }));
+vi.mock("@sapporta/frontend", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  appTimeZone: () => "Asia/Kolkata",
+}));
 
 let host: HTMLDivElement;
 let root: Root;
@@ -55,6 +59,9 @@ beforeEach(() => {
       if (request.pathname.endsWith("/entries")) {
         entryRequests.push(request);
         return Response.json({ entries: ENTRIES });
+      }
+      if (request.pathname.endsWith("/tables/accounts")) {
+        return Response.json(accountsTablePage(CHART));
       }
       if (request.pathname.endsWith("/books-span")) {
         return Response.json({
@@ -138,11 +145,16 @@ function report(group: string): AccountMonths {
       total: asset ? 5000 : 23500,
       average: asset ? 40000 : 11500,
     },
-    parents: [
-      { account_id: 2, name: "Food", account_type: "Expense", depth: 0 },
-    ],
   };
 }
+
+// The chart the account picker draws, in the report's ids.
+const CHART = [
+  { id: 1, name: "Expenses", parent_id: null, account_type: "Expense" },
+  { id: 2, name: "Food", parent_id: 1, account_type: "Expense" },
+  { id: 3, name: "Groceries", parent_id: 2, account_type: "Expense" },
+  { id: 9, name: "Salary", parent_id: null, account_type: "Revenue" },
+];
 
 const ENTRIES: IncomeExpensesEntry[] = [
   {
@@ -212,6 +224,12 @@ async function click(element: HTMLElement) {
   await settle();
 }
 
+/** Opens the account picker and the choices it lists. */
+async function pickerChoices(): Promise<HTMLElement[]> {
+  await click(button("Show the choices"));
+  return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+}
+
 function rowNames(): string[] {
   return Array.from(host.querySelectorAll("tbody tr")).map(
     (row) => row.querySelector("td")?.textContent ?? "",
@@ -249,6 +267,30 @@ describe("AccountsByMonthPage", () => {
     await click(button("Change"));
     expect(location()).toContain("show=change");
     expect(requests.at(-1)?.searchParams.get("show")).toBe("change");
+  });
+
+  it("switches the type, dropping an account", async () => {
+    await renderAt("/reports/accounts-by-month?account=2");
+    await click(button("Income"));
+    expect(location()).toBe("/reports/accounts-by-month?group=revenue");
+    expect(requests.at(-1)?.searchParams.get("group")).toBe("revenue");
+  });
+
+  it("narrows to an account of the type, and back to all of it", async () => {
+    await renderAt("/reports/accounts-by-month");
+    const choices = await pickerChoices();
+    // The type's accounts as the tree runs; no income.
+    expect(choices.map((choice) => choice.textContent)).toEqual([
+      "Expenses",
+      "Food",
+      "Groceries",
+    ]);
+    await click(choices[1]);
+    expect(location()).toBe("/reports/accounts-by-month?account=2");
+    expect(requests.at(-1)?.searchParams.get("account_id")).toBe("2");
+
+    await click(button("Show all spending"));
+    expect(location()).toBe("/reports/accounts-by-month");
   });
 
   it("opens a cell's entries, keeps it in the URL, and closes on Esc", async () => {

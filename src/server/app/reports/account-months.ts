@@ -111,15 +111,6 @@ const GROUP_TYPES: Record<AccountMonthsGroup, AccountType> = {
   liability: "Liability",
 };
 
-/** The order the group picker lists the types' accounts in. */
-const TYPE_ORDER: readonly AccountType[] = [
-  "Expense",
-  "Revenue",
-  "Asset",
-  "Liability",
-  "Equity",
-];
-
 const MONTH_NAMES = [
   "Jan",
   "Feb",
@@ -159,7 +150,7 @@ type Group = {
 function resolveGroup(
   ledger: ReportLedger,
   query: { group: AccountMonthsGroup | null; accountId: number | null },
-): (Group & { all: LedgerAccount[] }) | null {
+): Group | null {
   const all = ledger.all<LedgerAccount>(
     `SELECT id AS account_id, name, parent_id, account_type
      FROM scoped_accounts ORDER BY name, id`,
@@ -169,7 +160,6 @@ function resolveGroup(
     if (accounts.length === 0) return null;
     const [root] = accounts;
     return {
-      all,
       type: root.account_type,
       accounts,
       ids: accounts.map((account) => account.account_id),
@@ -179,7 +169,6 @@ function resolveGroup(
   const type = GROUP_TYPES[query.group ?? "expense"];
   const accounts = all.filter((account) => account.account_type === type);
   return {
-    all,
     type,
     accounts,
     ids: accounts.map((account) => account.account_id),
@@ -354,7 +343,6 @@ export function accountMonthsReport(
       total: total.total,
       average: total.average,
     },
-    parents: parentsOf(group.all),
   };
 }
 
@@ -479,42 +467,6 @@ function addFigures(a: Figures, b: Figures): Figures {
     opening: a.opening + b.opening,
     months: a.months.map((amount, i) => amount + b.months[i]),
   };
-}
-
-/**
- * Every account with sub-accounts, for the group picker: the types in
- * order, each type's accounts as its tree runs, with their depth.
- */
-function parentsOf(
-  accounts: readonly LedgerAccount[],
-): AccountMonths["parents"] {
-  const childrenOf = new Map<number | null, LedgerAccount[]>();
-  const ids = new Set(accounts.map((account) => account.account_id));
-  for (const account of accounts) {
-    const parent =
-      account.parent_id !== null && ids.has(account.parent_id)
-        ? account.parent_id
-        : null;
-    childrenOf.set(parent, [...(childrenOf.get(parent) ?? []), account]);
-  }
-  const parents: AccountMonths["parents"] = [];
-  const visit = (account: LedgerAccount, depth: number) => {
-    const children = childrenOf.get(account.account_id) ?? [];
-    if (children.length === 0) return;
-    parents.push({
-      account_id: account.account_id,
-      name: account.name,
-      account_type: account.account_type,
-      depth,
-    });
-    for (const child of children) visit(child, depth + 1);
-  };
-  for (const type of TYPE_ORDER) {
-    for (const top of childrenOf.get(null) ?? []) {
-      if (top.account_type === type) visit(top, 0);
-    }
-  }
-  return parents;
 }
 
 /**

@@ -203,16 +203,6 @@ export const accountMonthsSchema = z.object({
     total: z.number(),
     average: z.number().nullable(),
   }),
-  // Every account with sub-accounts, for the group picker: by type, then
-  // as the tree runs, with its depth in it.
-  parents: z.array(
-    z.object({
-      account_id: z.number(),
-      name: z.string(),
-      account_type: ledgerAccountTypeSchema,
-      depth: z.number(),
-    }),
-  ),
 });
 export type AccountMonths = z.infer<typeof accountMonthsSchema>;
 

@@ -263,15 +263,6 @@ describe("accountMonthsReport", () => {
     expect(food.average).toBe(900);
     expect(food.outliers).toEqual([false, false, false]);
   });
-
-  it("lists every parent for the picker, by type, with its depth", () => {
-    expect(
-      report(books()).parents.map(({ name, depth }) => ({ name, depth })),
-    ).toEqual([
-      { name: "Expenses", depth: 0 },
-      { name: "Food", depth: 1 },
-    ]);
-  });
 });
 
 describe("accountEntries", () => {
