@@ -214,7 +214,7 @@ describe("checkTools", () => {
     const line = byName(await checkTools(root), "npx sapporta")!;
 
     expect(line.status).toBe("info");
-    expect(line.detail).toContain("node bin/sapporta.mjs");
+    expect(line.detail).toContain("the same CLI");
   });
 
   it("says which command gives the project an agent token when it has none", async () => {

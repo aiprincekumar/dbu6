@@ -200,9 +200,10 @@ export const personalAccessToken = sqliteTable(
     lastUsedAt: integer("lastUsedAt", { mode: "timestamp_ms" }),
     revokedAt: integer("revokedAt", { mode: "timestamp_ms" }),
     // Not in the framework template. What the token is for, when dbu6 minted
-    // it for a job of its own (`AuthTokenPurpose` in `auth-tokens.ts`); NULL
-    // for one a person made. It is what dbu6 recognises its tokens by, so
-    // `name` stays a label a person can read and write freely.
+    // it for a job of its own (`CODING_AGENT_PURPOSE` in
+    // `modules/coding-agent/agent-access.ts`); NULL for one a person made. It
+    // is what dbu6 recognises its tokens by, so `name` stays a label a person
+    // can read and write freely.
     purpose: text("purpose"),
   },
   (table) => [

@@ -701,16 +701,17 @@ it could belong to), it keeps the file, `dbu6 migrate` prints why, and
   - The app writes one when it hands a prompt to a coding agent and the
     project has no working token.
   - `npx dbu6 agent env` gives this project one: it mints a token, writes it to
-    the gitignored `.env.agent`, and revokes the one its previous run wrote.
+    the gitignored `.env.agent`, and revokes the coding-agent tokens dbu6
+    wrote for that account before, a prompt handoff's included.
     It names the account it used, and refuses a project that holds only the
     sample account dbu6-seed-sample-data makes.
-  - dbu6's `sapporta` reads that file by itself. Anything else — a plain
+  - `npx sapporta` reads that file by itself. Anything else — an older
     Sapporta CLI, or the `curl` uploads below — does not, so put the token in
     its environment first: `set -a; . ./.env.agent; set +a`. A CLI that
     answers "No API token sent" needs exactly that.
   - The file holds only the token. One an older dbu6 wrote also holds a
-    `SAPPORTA_API_URL`, which dbu6's bin ignores but loading the file into a
-    shell does not: run `npx dbu6 agent env` again to rewrite it.
+    `SAPPORTA_API_URL`, which `npx sapporta` ignores but loading the file into
+    a shell does not: run `npx dbu6 agent env` again to rewrite it.
   - A person can instead create one in the app, at
     `<app URL>/account/profile?token=new`, and choose **Copy prompt**.
   - Never put the token in a tracked file or show it in the chat.

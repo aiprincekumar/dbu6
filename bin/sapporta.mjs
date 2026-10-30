@@ -11,11 +11,9 @@
 // the way `npx dbu6 …` does: through `@dbu6/app`, whatever installed it and
 // from whichever directory the command runs.
 //
-// One thing happens before the CLI starts, because a coding agent begins in a
-// project folder and should not have to be told it: `SAPPORTA_API_TOKEN` is
-// taken from the project's `.env.agent`, unless the environment already sets
-// one. The CLI finds the app's port by itself, and the arguments and the rest
-// of the environment reach it unchanged.
+// Nothing is added on the way: the CLI finds the app's port in the project's
+// `.env.development` and its agents' token in `.env.agent` by itself, and the
+// arguments and the environment reach it unchanged.
 //
 // The CLI runs as a child process, not in this one: its entry point reads
 // `process.argv`, parses it as a program and exits the process, so delegating
@@ -23,11 +21,8 @@
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { findProjectRoot, sapportaEnvironment } from "./sapporta-env.mjs";
 
 const packageDir = path.resolve(import.meta.dirname, "..");
-const root = findProjectRoot(process.cwd());
-const env = sapportaEnvironment({ root, shellEnv: process.env });
 
 // Resolved before spawning, so a broken install is one written line rather than
 // a Node loader stack: `dbu6 check` reports the first line of what this prints.
@@ -48,7 +43,7 @@ try {
 const { status, signal } = spawnSync(
   process.execPath,
   [cli, ...process.argv.slice(2)],
-  { stdio: "inherit", env },
+  { stdio: "inherit" },
 );
 process.exit(status ?? (signal ? 1 : 0));
 

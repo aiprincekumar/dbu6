@@ -7,7 +7,7 @@ import { packageDir } from "../paths.js";
 import {
   createAuthToken,
   listAuthTokens,
-  requestUsesToken,
+  requestMayManageTokens,
   resolveBearerTokenPrincipal,
   revokeAuthToken,
   revokeAuthTokensWithPurpose,
@@ -21,18 +21,20 @@ function headers(authorization?: string): Headers {
   );
 }
 
-describe("requestUsesToken", () => {
-  it("is a session's request when no Authorization header is sent", () => {
-    expect(requestUsesToken(headers())).toBe(false);
+describe("requestMayManageTokens", () => {
+  it("lets a session's request, with no Authorization header", () => {
+    expect(requestMayManageTokens(headers())).toBe(true);
   });
 
-  it("is a session's request when the header is empty", () => {
-    expect(requestUsesToken(headers(""))).toBe(false);
+  it("lets a session's request whose header is empty", () => {
+    expect(requestMayManageTokens(headers(""))).toBe(true);
   });
 
-  it("is a token request for any header with a value, well-formed or not", () => {
-    expect(requestUsesToken(headers("Bearer spat_05050500_050505"))).toBe(true);
-    expect(requestUsesToken(headers("Basic sample"))).toBe(true);
+  it("refuses any header with a value, well-formed or not", () => {
+    expect(requestMayManageTokens(headers("Bearer spat_05050500_050505"))).toBe(
+      false,
+    );
+    expect(requestMayManageTokens(headers("Basic sample"))).toBe(false);
   });
 });
 

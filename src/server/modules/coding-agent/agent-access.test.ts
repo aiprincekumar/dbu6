@@ -10,7 +10,12 @@ import { join } from "node:path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { userPrincipal, type ProjectDbConnection } from "@sapporta/server";
+import {
+  PROJECT_API_TOKEN_FILE,
+  readProjectApiToken,
+  userPrincipal,
+  type ProjectDbConnection,
+} from "@sapporta/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { packageDir } from "../../paths.js";
 import {
@@ -22,12 +27,9 @@ import {
   revokeAuthToken,
 } from "../../project-auth/index.js";
 import {
-  AGENT_ENV_FILE,
-  readAgentToken,
-} from "../../../../bin/sapporta-env.mjs";
-import {
   ensureAgentToken,
   mintAgentToken,
+  SampleAccountError,
   writeAgentToken,
   type AgentTokenOwner,
 } from "./agent-access.js";
@@ -97,7 +99,7 @@ function purposes(conn: ProjectDbConnection): Record<string, string | null> {
 }
 
 function writeFile(root: string, contents: string, mode = 0o600): void {
-  writeFileSync(join(root, AGENT_ENV_FILE), contents, { mode });
+  writeFileSync(join(root, PROJECT_API_TOKEN_FILE), contents, { mode });
 }
 
 describe("mintAgentToken", () => {
@@ -117,7 +119,7 @@ describe("mintAgentToken", () => {
     const { conn, owner } = books(DEMO_ACCOUNT.email);
 
     expect(() => mintAgentToken(conn, owner, "dbu6 agent env")).toThrow(
-      /sample account/,
+      SampleAccountError,
     );
     expect(liveTokens(conn, owner)).toEqual([]);
   });
@@ -130,7 +132,7 @@ describe("writeAgentToken", () => {
 
     const written = writeAgentToken(conn, owner, root, "dbu6 agent env");
 
-    const file = readFileSync(join(root, AGENT_ENV_FILE), "utf8");
+    const file = readFileSync(join(root, PROJECT_API_TOKEN_FILE), "utf8");
     expect(file).toContain(`SAPPORTA_API_TOKEN=${written.apiToken}`);
     // No URL: the CLI finds the port itself, and a URL here would go stale.
     expect(file).not.toContain("SAPPORTA_API_URL");
@@ -147,7 +149,9 @@ describe("writeAgentToken", () => {
 
     writeAgentToken(conn, owner, root, "dbu6 agent env");
 
-    expect(statSync(join(root, AGENT_ENV_FILE)).mode & 0o777).toBe(0o600);
+    expect(statSync(join(root, PROJECT_API_TOKEN_FILE)).mode & 0o777).toBe(
+      0o600,
+    );
   });
 
   it("makes a file that already existed private too", () => {
@@ -158,7 +162,9 @@ describe("writeAgentToken", () => {
 
     writeAgentToken(conn, owner, root, "dbu6 agent env");
 
-    expect(statSync(join(root, AGENT_ENV_FILE)).mode & 0o777).toBe(0o600);
+    expect(statSync(join(root, PROJECT_API_TOKEN_FILE)).mode & 0o777).toBe(
+      0o600,
+    );
   });
 
   it("revokes the tokens dbu6 wrote before, once the new one is on disk", () => {
@@ -168,7 +174,7 @@ describe("writeAgentToken", () => {
 
     const second = writeAgentToken(conn, owner, root, "dbu6 agent env");
 
-    expect(readAgentToken(root)).toBe(second.apiToken);
+    expect(readProjectApiToken(root)).toBe(second.apiToken);
     expect(second.revoked).toBe(1);
     expect(liveTokens(conn, owner).map((token) => token.id)).toEqual([
       second.tokenId,
@@ -224,7 +230,7 @@ describe("ensureAgentToken", () => {
     ensureAgentToken(conn, owner, root);
 
     const [token] = liveTokens(conn, owner);
-    expect(readAgentToken(root)).toMatch(/^spat_/);
+    expect(readProjectApiToken(root)).toMatch(/^spat_/);
     expect(token?.name).toBe("Prompt handoff");
     expect(purposes(conn)[token!.id]).toBe("coding-agent");
   });
@@ -238,7 +244,7 @@ describe("ensureAgentToken", () => {
 
     ensureAgentToken(conn, owner, root);
 
-    expect(readAgentToken(root)).toBe(made.rawToken);
+    expect(readProjectApiToken(root)).toBe(made.rawToken);
     expect(liveTokens(conn, owner).map((token) => token.id)).toEqual([
       made.token.id,
     ]);
@@ -257,7 +263,7 @@ describe("ensureAgentToken", () => {
 
     ensureAgentToken(conn, owner, root);
 
-    const stored = readAgentToken(root);
+    const stored = readProjectApiToken(root);
     expect(stored).not.toBe(old.apiToken);
     expect(liveTokens(conn, owner).map((token) => token.id)).toHaveLength(1);
   });
@@ -269,7 +275,7 @@ describe("ensureAgentToken", () => {
 
     ensureAgentToken(conn, owner, root);
 
-    expect(readAgentToken(root)).not.toBe(SAMPLE_TOKEN);
+    expect(readProjectApiToken(root)).not.toBe(SAMPLE_TOKEN);
     expect(liveTokens(conn, owner)).toHaveLength(1);
   });
 
@@ -280,7 +286,18 @@ describe("ensureAgentToken", () => {
 
     ensureAgentToken(conn, owner, root);
 
-    expect(readAgentToken(root)).toMatch(/^spat_/);
+    expect(readProjectApiToken(root)).toMatch(/^spat_/);
+  });
+
+  it("leaves a dead token in place for the sample account, and mints nothing", () => {
+    const { conn, owner } = books(DEMO_ACCOUNT.email);
+    const root = tempRoot();
+    writeFile(root, `SAPPORTA_API_TOKEN=${SAMPLE_TOKEN}\n`);
+
+    ensureAgentToken(conn, owner, root);
+
+    expect(readProjectApiToken(root)).toBe(SAMPLE_TOKEN);
+    expect(liveTokens(conn, owner)).toEqual([]);
   });
 
   it("writes and mints nothing for the sample account", () => {
@@ -289,7 +306,7 @@ describe("ensureAgentToken", () => {
 
     ensureAgentToken(conn, owner, root);
 
-    expect(readAgentToken(root)).toBeUndefined();
+    expect(readProjectApiToken(root)).toBeUndefined();
     expect(liveTokens(conn, owner)).toEqual([]);
   });
 });

@@ -35,13 +35,6 @@ import {
 const TOKEN_PREFIX = "spat";
 const TOKEN_PATTERN = new RegExp(`^${TOKEN_PREFIX}_([^_]+)_(.+)$`, "i");
 
-/**
- * The jobs dbu6 mints tokens for itself, stored in the token's `purpose`. A
- * token with one is dbu6's to replace; a token a person made has none, and is
- * theirs whatever they named it. `coding-agent`: the token `.env.agent` holds.
- */
-export type AuthTokenPurpose = "coding-agent";
-
 interface PersonalAccessTokenRow {
   id: string;
   user_id: string;
@@ -81,18 +74,32 @@ export interface AuthTokenManagementScope {
 export interface CreateAuthTokenOptions {
   /** The workspace a token-management route is bound to. */
   scope?: AuthTokenManagementScope;
-  /** Set only by dbu6 itself; the app's token screen sends none. */
-  purpose?: AuthTokenPurpose;
+  /**
+   * The job dbu6 mints this token for itself, which makes it dbu6's to
+   * replace (`revokeAuthTokensWithPurpose`). The app's token screen sends
+   * none: a token a person made is theirs, whatever they named it.
+   */
+  purpose?: string;
+}
+
+/**
+ * Whether a request may list, mint or revoke agent access tokens: only from a
+ * browser session, never with a token, so a token cannot mint itself more.
+ * The token screens' guard and the prompt handoff, which mints one for the
+ * project's agent, both ask here.
+ */
+export function requestMayManageTokens(headers: Headers): boolean {
+  return !requestUsesToken(headers);
 }
 
 /**
  * Whether a request authenticates with an agent access token rather than a
  * browser session: any non-empty `Authorization` header does. The resolver
- * below reads the request this way, so a guard or route that asks gets the
- * answer the request was authenticated by. An empty header is no credential,
- * and the session decides.
+ * below reads the request this way, and so does `requestMayManageTokens`, so
+ * a guard gets the answer the request was authenticated by. An empty header
+ * is no credential, and the session decides.
  */
-export function requestUsesToken(headers: Headers): boolean {
+function requestUsesToken(headers: Headers): boolean {
   return (headers.get("authorization") ?? "") !== "";
 }
 
@@ -344,7 +351,7 @@ export function revokeAuthTokensWithPurpose(
   conn: ProjectDbConnection,
   userId: string,
   organizationId: string,
-  purpose: AuthTokenPurpose,
+  purpose: string,
   keep: string,
 ): number {
   return conn.sqlite

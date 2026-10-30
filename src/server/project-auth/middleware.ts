@@ -9,7 +9,7 @@ import type {
   WorkspaceUserScopedAuthority,
 } from "@sapporta/server";
 import type { AppAbility, AppWorkspaceMembership } from "../authz/types.js";
-import { requestUsesToken } from "./auth-tokens.js";
+import { requestMayManageTokens } from "./auth-tokens.js";
 import { authFailure } from "./errors.js";
 
 export type ResolveProjectAuth<E extends SapportaEnv = SapportaEnv> = (
@@ -247,7 +247,7 @@ export function requireAuthorizedInteractiveWorkspaceUserData<
   c: Context<E>,
   requirement: FeatureRequirement,
 ): AuthorizedWorkspaceUserDataContext {
-  if (requestUsesToken(c.req.raw.headers)) throwAuth("forbidden");
+  if (!requestMayManageTokens(c.req.raw.headers)) throwAuth("forbidden");
   return requireAuthorizedWorkspaceUserData(c, requirement);
 }
 

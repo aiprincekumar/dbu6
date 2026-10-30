@@ -10,18 +10,19 @@
  * `coding-agent` purpose, so each revokes the tokens the other wrote before
  * it; each names the token after itself, which is only a label.
  *
- * The file sits beside `.env.development`. The shipped `sapporta` bin reads
- * it and `dbu6 dev` does not, so the server's own process never holds the
- * token: writing the file, and asking whether the token in it still works, is
- * all the server does with it. It is gitignored.
+ * The file is Sapporta's: its name, format and mode, and its place after
+ * `--api-token` and `SAPPORTA_API_TOKEN` when the `sapporta` command picks a
+ * token, are `@sapporta/server`'s `PROJECT_API_TOKEN_FILE`,
+ * `readProjectApiToken` and `writeProjectApiToken`. `dbu6 dev` does not load
+ * it, so the server's own process never holds the token: writing the file,
+ * and asking whether the token in it still works, is all the server does with
+ * it. It is gitignored.
  */
-import { chmodSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { ProjectDbConnection } from "@sapporta/server";
 import {
-  AGENT_ENV_FILE,
-  readAgentToken,
-} from "../../../../bin/sapporta-env.mjs";
+  readProjectApiToken,
+  writeProjectApiToken,
+  type ProjectDbConnection,
+} from "@sapporta/server";
 import type { AppPrincipal } from "../../authz/types.js";
 import {
   createAuthToken,
@@ -29,6 +30,13 @@ import {
   revokeAuthTokensWithPurpose,
   tokenIsLive,
 } from "../../project-auth/index.js";
+
+/**
+ * The `purpose` of every token dbu6 mints for the coding agent: the token
+ * `.env.agent` holds. It is what dbu6 recognises those tokens by, to revoke
+ * them; their name only says what minted them.
+ */
+const CODING_AGENT_PURPOSE = "coding-agent";
 
 /** What minted an agent token, which is the name a person sees it by. */
 export type AgentTokenMinter = "dbu6 agent env" | "Prompt handoff";
@@ -44,12 +52,20 @@ export interface MintedAgentToken {
 }
 
 /**
+ * The refusal to mint an agent token for the sample account
+ * dbu6-seed-sample-data makes, so a caller that goes ahead without a token can
+ * tell it from a failure.
+ */
+export class SampleAccountError extends Error {}
+
+/**
  * Mints a coding-agent token for `owner`'s workspace, named after what
  * minted it.
  *
  * Never for the sample account dbu6-seed-sample-data makes: it is a real
  * account with real tokens, but the next seed replaces its books, so an agent
- * must not be handed one.
+ * must not be handed one. This is the one place that refuses it, with a
+ * `SampleAccountError`.
  */
 export function mintAgentToken(
   conn: ProjectDbConnection,
@@ -57,7 +73,7 @@ export function mintAgentToken(
   mintedBy: AgentTokenMinter,
 ): MintedAgentToken {
   if (isSampleAccount(owner.user)) {
-    throw new Error(
+    throw new SampleAccountError(
       `${owner.user.email} is the sample account dbu6-seed-sample-data makes, whose books the next run replaces. Sign up in the app and use that account.`,
     );
   }
@@ -65,7 +81,7 @@ export function mintAgentToken(
     conn,
     owner,
     { name: mintedBy },
-    { purpose: "coding-agent" },
+    { purpose: CODING_AGENT_PURPOSE },
   );
   return { apiToken: created.rawToken, tokenId: created.token.id };
 }
@@ -77,10 +93,8 @@ export function mintAgentToken(
  * app, whatever they named it, or one another tool made, is not dbu6's to
  * revoke.
  *
- * The file is a dotenv file like `.env.development`, and its first lines say
- * where it came from so a person who finds it can tell whether to keep it. It
- * holds no URL: the `sapporta` command finds the app's port by itself, and a
- * URL here would go stale when the port moves.
+ * The file's first lines say where it came from so a person who finds it can
+ * tell whether to keep it.
  */
 export function writeAgentToken(
   conn: ProjectDbConnection,
@@ -89,32 +103,20 @@ export function writeAgentToken(
   mintedBy: AgentTokenMinter,
 ): MintedAgentToken & { revoked: number } {
   const minted = mintAgentToken(conn, owner, mintedBy);
-  const file = join(root, AGENT_ENV_FILE);
-  writeFileSync(
-    file,
-    [
-      "# Agent access for coding agents (dbu6). Written by `dbu6 agent env`,",
-      "# which the project's AGENTS.md tells an agent to run, or by the app when",
-      "# it hands a prompt to a coding agent. Gitignored: this file is a",
-      "# credential. The token is for the `sapporta` command, which reads it",
-      "# from here, and for `curl`.",
-      `# Workspace owner: ${owner.user.email}`,
-      "",
-      `SAPPORTA_API_TOKEN=${minted.apiToken}`,
-      "",
-    ].join("\n"),
-    { mode: 0o600 },
-  );
-  // `mode` applies only when the file is created, so an existing one — a
-  // restored backup, or one dbu6 did not write — keeps whatever mode it had.
-  // It holds a credential either way.
-  chmodSync(file, 0o600);
+  writeProjectApiToken(root, minted.apiToken, [
+    "Agent access for coding agents (dbu6). Written by `dbu6 agent env`,",
+    "which the project's AGENTS.md tells an agent to run, or by the app when",
+    "it hands a prompt to a coding agent. Gitignored: this file is a",
+    "credential. The token is for the `sapporta` command, which reads it",
+    "from here, and for `curl`.",
+    `Workspace owner: ${owner.user.email}`,
+  ]);
 
   const revoked = revokeAuthTokensWithPurpose(
     conn,
     owner.user.id,
     owner.membership.workspace.id,
-    "coding-agent",
+    CODING_AGENT_PURPOSE,
     minted.tokenId,
   );
   return { ...minted, revoked };
@@ -135,8 +137,12 @@ export function ensureAgentToken(
   owner: AgentTokenOwner,
   root: string,
 ): void {
-  if (isSampleAccount(owner.user)) return;
-  const stored = readAgentToken(root);
+  const stored = readProjectApiToken(root);
   if (stored !== undefined && tokenIsLive(conn, stored)) return;
-  writeAgentToken(conn, owner, root, "Prompt handoff");
+  try {
+    writeAgentToken(conn, owner, root, "Prompt handoff");
+  } catch (err) {
+    if (err instanceof SampleAccountError) return;
+    throw err;
+  }
 }

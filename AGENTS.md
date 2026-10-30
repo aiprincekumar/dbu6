@@ -21,13 +21,11 @@ as a bin, beside `dbu6`, and forwards to the `@sapporta/server` CLI this dbu6
 depends on. In a project that installed dbu6, run it as `npx sapporta …`, which
 runs that bin. Here, where dbu6 is the root package and a package manager links
 a package's dependencies into it but never its own bins, `npx sapporta` reaches
-`@sapporta/server`'s own bin instead, so run the wrapper by path:
-`node bin/sapporta.mjs …`. The CLI finds a running app by itself, from
-`SAPPORTA_API_PORT` in the environment or else in the project's
-`.env.development`, the same rule dbu6 binds by; the wrapper only resolves the
-project's root and adds `SAPPORTA_API_TOKEN` from `.env.agent` when the
-environment has none. `bin/sapporta-env.mjs` holds that, with its types beside
-it and its tests in `bin/sapporta-env.test.mjs` (`pnpm run test:scripts`).
+`@sapporta/server`'s own bin instead, which is the same CLI. The CLI finds a
+running app by itself, from `SAPPORTA_API_PORT` in the environment or else in
+the project's `.env.development`, the same rule dbu6 binds by, and its token
+from `--api-token`, `SAPPORTA_API_TOKEN`, or else the project's `.env.agent`;
+the wrapper adds nothing.
 
 The project's own token is in the gitignored `.env.agent`, written by
 `dbu6 agent env` (`src/cli/agent.ts`) and, when the folder has no working

@@ -11,10 +11,6 @@
 //   src/cli            the `dbu6` command, above the rest of the Node side:
 //                      may import src/server, src/shared and src/frontend-host
 //
-// And outside src/, src/server and src/cli may import bin/sapporta-env.mjs
-// alone: it is the one definition of `.env.agent` and of the token in it,
-// kept in the bin because the bin must run with no build and no imports.
-//
 // The frontend rule is the one that matters: a server module pulled into the
 // browser bundle would bring better-sqlite3 and the rest of Node with it.
 //
@@ -42,9 +38,6 @@ const MAY_IMPORT = {
   cli: ["server", "shared", "frontend-host"],
 };
 
-// The one file outside src/ that src/server and src/cli may import.
-const BIN_ENV_FROM_SRC = path.join("..", "bin", "sapporta-env.mjs");
-
 // import/export ... from "x", import("x"), and vitest's vi.mock("x") family.
 const SPECIFIER =
   /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\bvi\.\w+\(\s*)(["'])([^"']+)\1/g;
@@ -58,11 +51,6 @@ function boundaryViolations(root = srcDir, mayImport = MAY_IMPORT) {
       )) {
         if (!specifier.startsWith(".")) continue;
         const target = path.resolve(path.dirname(file), specifier);
-        if (
-          (part === "server" || part === "cli") &&
-          path.relative(root, target) === BIN_ENV_FROM_SRC
-        )
-          continue;
         const targetPart = path.relative(root, target).split(path.sep)[0];
         if (targetPart === part || mayImport[part].includes(targetPart))
           continue;

@@ -79,7 +79,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "test": "vitest run && pnpm run test:scripts",
     "test:watch": "vitest",
-    "test:scripts": "node --test \"scripts/*.test.mjs\" \"bin/*.test.mjs\"",
+    "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test:parsers": "node bin/dbu6.mjs parser test",
     "prebuild": "pnpm run clean && pnpm typecheck",
     "build": "node scripts/build.mjs",

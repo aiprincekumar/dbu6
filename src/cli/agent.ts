@@ -21,14 +21,19 @@
  *
  * Writing is not silent: the file is a credential, so the command says where it
  * put it and what to check, and never prints the token unless asked with
- * `--print`. An older token this command made, by the same name, is revoked
- * once the new one is safely on disk, so a project does not collect one live
- * token per run. `--print` prefers the file the project already has, so it
- * mints nothing in the case it is normally used.
+ * `--print`. Once the new one is safely on disk, the coding-agent tokens dbu6
+ * wrote earlier for that account and workspace are revoked, a prompt
+ * handoff's included, so a project does not collect one live token per run; a
+ * token made in the app is left alone. `--print` prefers the file the project
+ * already has, so it mints nothing in the case it is normally used.
  */
 import { existsSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { userPrincipal } from "@sapporta/server";
+import {
+  PROJECT_API_TOKEN_FILE,
+  readProjectApiToken,
+  userPrincipal,
+} from "@sapporta/server";
 import {
   findFirstMembership,
   membershipFromRow,
@@ -37,7 +42,6 @@ import {
   mintAgentToken,
   writeAgentToken,
 } from "../server/modules/coding-agent/index.js";
-import { AGENT_ENV_FILE, readAgentToken } from "../../bin/sapporta-env.mjs";
 import { openDbu6Runtime } from "../server/runtime.js";
 import { migrateSafely } from "../server/migrate-safely.js";
 import { databaseFile } from "../server/paths.js";
@@ -52,8 +56,9 @@ import {
 const USAGE = `Usage: dbu6 agent env [--print] [--user <email>]
 
   Writes .env.agent in the project, holding SAPPORTA_API_TOKEN for a
-  coding agent, and revokes the token an earlier run of this command
-  wrote.
+  coding agent, and revokes the coding-agent tokens dbu6 wrote earlier
+  for that account, a prompt handoff's included. Tokens made in the app
+  are left alone.
 
   --print          Write the same token as an \`export\` line to stdout
                    instead, for \`eval "$(dbu6 agent env --print)"\`. A
@@ -130,7 +135,7 @@ export async function agentCommand(
       // The token to export is the one the project already uses: printing it
       // mints nothing, so `eval "$(dbu6 agent env --print)"` cannot leave a
       // trail of live tokens behind.
-      const apiToken = readAgentToken(root);
+      const apiToken = readProjectApiToken(root);
       if (apiToken !== undefined) {
         process.stdout.write(agentEnvExports({ apiToken }));
         return 0;
@@ -155,10 +160,10 @@ export async function agentCommand(
 
     if (print) {
       // Nothing stores this one, so say so: a later run of this command
-      // revokes it by name, like any other token this command made.
+      // revokes it, like any other coding-agent token dbu6 wrote.
       const minted = mintAgentToken(runtime.conn, owner, "dbu6 agent env");
       process.stderr.write(
-        `No ${AGENT_ENV_FILE} in this project, so this token is not stored: run \`dbu6 agent env\` to keep one there.\n`,
+        `No ${PROJECT_API_TOKEN_FILE} in this project, so this token is not stored: run \`dbu6 agent env\` to keep one there.\n`,
       );
       process.stdout.write(agentEnvExports(minted));
       return 0;
@@ -172,7 +177,7 @@ export async function agentCommand(
     );
     console.log(
       [
-        `Wrote ${AGENT_ENV_FILE} for ${account.email}.`,
+        `Wrote ${PROJECT_API_TOKEN_FILE} for ${account.email}.`,
         `  token ${written.tokenId.slice(0, 8)}…`,
         written.revoked > 0
           ? `  revoked ${written.revoked} earlier coding-agent token(s)`

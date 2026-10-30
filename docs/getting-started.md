@@ -139,7 +139,8 @@ npx sapporta api get /api/auth-context
 ```
 
 `agent env` writes `.env.agent` (gitignored; never commit it) with a token for
-the account you signed up with, and revokes the token its previous run wrote.
+the account you signed up with, and revokes the coding-agent tokens dbu6 wrote
+for it before, a prompt handoff's included; tokens you made in the app stay.
 It reads the project's database directly, so it needs no server; the second
 command does, and proves the token works by naming the user and workspace it
 acts as. If the project holds more than one account, say which one:
