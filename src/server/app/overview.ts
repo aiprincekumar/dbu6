@@ -14,7 +14,7 @@ import {
 } from "../../shared/index.js";
 import { accountTree, branchingLevel } from "./account-tree.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
-import { hasJournalsBesideOpenings } from "../modules/journals/index.js";
+import { cents, hasJournalsBesideOpenings } from "../modules/journals/index.js";
 import {
   readOnlyLedger,
   type ReportLedger,
@@ -103,12 +103,14 @@ export function overviewReport(
   const firstMonth =
     loadMonthlyAmounts(ledger, { fromDate: null, toDate: null })[0]?.month ??
     null;
-  // The months before `month` from that one on, for the averages.
+  // Whether the books cover a month; the months before them count as
+  // nothing, not as zeros.
+  const inBooks = (row: { month: string }) =>
+    firstMonth !== null && row.month >= firstMonth;
+  // The months before `month` the books cover, for the averages.
   const covered = report.months
     .slice(0, current)
-    .flatMap((row, index) =>
-      firstMonth !== null && row.month >= firstMonth ? [index] : [],
-    );
+    .flatMap((row, index) => (inBooks(row) ? [index] : []));
   // Null when the books cover none of them: there is nothing to average.
   const average =
     covered.length === 0
@@ -116,6 +118,32 @@ export function overviewReport(
       : (amounts: readonly number[]) =>
           covered.reduce((sum, index) => sum + amounts[index], 0) /
           covered.length;
+  // The twelve months shown, ending with `month`: the report's first month
+  // is there only for the averages.
+  const shown = <T>(values: readonly T[]) => values.slice(1);
+  // Each shown month's amount, null before the books start.
+  const monthly = (amounts: readonly number[]) =>
+    shown(
+      report.months.map((row, index) => (inBooks(row) ? amounts[index] : null)),
+    );
+  const spendingMonths = report.months.map((row) => row.spending);
+
+  const listed = branchingLevel(report.spending.accounts)
+    .filter(
+      (node) =>
+        node.months[current] !== 0 || (average?.(node.months) ?? 0) !== 0,
+    )
+    .sort(
+      (a, b) =>
+        b.months[current] - a.months[current] || a.name.localeCompare(b.name),
+    )
+    .slice(0, CATEGORY_LIMIT);
+  // What the listed categories leave of the spending, month by month. It is
+  // taken from the spending rather than summed from the rest of the tree,
+  // which leaves out an account whose months cancel out.
+  const otherMonths = spendingMonths.map((spending, index) =>
+    cents(listed.reduce((left, node) => left - node.months[index], spending)),
+  );
 
   const balances = loadBalances(ledger, monthEnd(month));
   const previous = loadBalances(
@@ -133,23 +161,31 @@ export function overviewReport(
       average: average && {
         months: covered.length,
         income: average(report.months.map((row) => row.income)),
-        spending: average(report.months.map((row) => row.spending)),
+        spending: average(spendingMonths),
       },
+      spending_monthly: monthly(spendingMonths),
     },
-    categories: branchingLevel(report.spending.accounts)
-      .map((node): OverviewCategory => ({
+    categories: [
+      ...listed.map((node): OverviewCategory => ({
         account_id: node.account_id,
         name: node.name,
         amount: node.months[current],
         average: average?.(node.months) ?? null,
-        monthly: node.months.slice(1),
-      }))
-      .filter(
-        (category) => category.amount !== 0 || (category.average ?? 0) !== 0,
-      )
-      .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name))
-      .slice(0, CATEGORY_LIMIT),
-    months: report.months.slice(1),
+        monthly: monthly(node.months),
+      })),
+      ...(otherMonths.some((amount) => amount !== 0)
+        ? [
+            {
+              account_id: null,
+              name: "Other",
+              amount: otherMonths[current],
+              average: average?.(otherMonths) ?? null,
+              monthly: monthly(otherMonths),
+            },
+          ]
+        : []),
+    ],
+    months: shown(report.months),
     net_worth: {
       assets: balances.assets,
       liabilities: balances.liabilities,

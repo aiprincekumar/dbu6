@@ -388,7 +388,13 @@ function Categories({ overview }: { overview: PostedOverview }) {
               <Th>{formatMonth(overview.month)}</Th>
               {average && (
                 <Th className="text-left">
-                  Last {plural(rows[rows.length - 1].monthly.length, "month")}
+                  Last{" "}
+                  {plural(
+                    overview.figures.spending_monthly.filter(
+                      (amount) => amount !== null,
+                    ).length,
+                    "month",
+                  )}
                 </Th>
               )}
             </tr>
@@ -482,16 +488,16 @@ function Categories({ overview }: { overview: PostedOverview }) {
   );
 }
 
+/** A bar's length in pixels for the whole month's spending, and at least. */
+const FULL_BAR = 80;
+const MIN_BAR = 3;
+
 /**
  * A category's name after a short bar as long as its share of the month's
  * spending, so what each category took reads down the column beside its
  * name. The bar has no track: an empty one would outweigh a small share.
  * Total has an empty space in its place, so its name lines up with theirs.
  */
-/** A bar's length in pixels for the whole month's spending, and at least. */
-const FULL_BAR = 80;
-const MIN_BAR = 3;
-
 function CategoryName({
   name,
   bar,

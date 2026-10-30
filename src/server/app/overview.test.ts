@@ -107,7 +107,7 @@ function books() {
 
   return {
     ...test,
-    ids: { assets, savings, card, expenses, food },
+    ids: { assets, savings, card, expenses, food, rent },
     accounts,
   };
 }
@@ -131,6 +131,8 @@ describe("overviewReport", () => {
       income: 5000,
       spending: 4000,
       average: { months: 2, income: 5000, spending: 3500 },
+      // The months before the books started are not zeros either.
+      spending_monthly: [...Array(9).fill(null), 3000, 4000, 4000],
     });
     expect(overview.months).toHaveLength(12);
     expect(overview.months[0].month).toBe("2025-05");
@@ -175,7 +177,8 @@ describe("overviewReport", () => {
       accounts: accounts("2026-04-30", "2026-04-30"),
     });
 
-    // Rent had nothing in April but is usually spent, so it stays.
+    // Rent had nothing in April but is usually spent, so it stays. They hold
+    // all the spending, so there is no Other.
     expect(
       overview.categories.map(({ name, amount, average }) => [
         name,
@@ -186,6 +189,91 @@ describe("overviewReport", () => {
       ["Travel", 3000, 0],
       ["Food", 1000, 1500],
       ["Rent", 0, 2000],
+    ]);
+    expect(overview.categories[1].monthly).toEqual([
+      ...Array(9).fill(null),
+      1000,
+      2000,
+      1000,
+    ]);
+  });
+
+  it("adds Other for what the categories leave, in every month", () => {
+    const test = books();
+    const { ledger, accounts, ids } = test;
+    // Spent in February and refunded in March: nothing over the year, so the
+    // tree leaves it out, but the spending of each month still holds it.
+    const gifts = test.addAccount({
+      name: "Gifts",
+      account_type: "Expense",
+      parent_id: ids.expenses,
+    });
+    test.addJournal({
+      date: "2026-02-20",
+      description: "NOPII gift",
+      entries: [
+        { account_id: gifts, debit: 500 },
+        { account_id: ids.savings, credit: 500 },
+      ],
+    });
+    test.addJournal({
+      date: "2026-03-20",
+      description: "NOPII gift refund",
+      entries: [
+        { account_id: ids.savings, debit: 500 },
+        { account_id: gifts, credit: 500 },
+      ],
+    });
+
+    const overview = overviewReport(ledger, {
+      month: "2026-04",
+      timeZone: ZONE,
+      accounts: accounts("2026-04-30", "2026-04-30"),
+    });
+
+    expect(overviewSchema.parse(overview)).toEqual(overview);
+    const other = overview.categories.at(-1);
+    expect(other).toEqual({
+      account_id: null,
+      name: "Other",
+      amount: 0,
+      average: 0,
+      monthly: [...Array(9).fill(null), 500, -500, 0],
+    });
+    // The categories add up to the spending in every month shown.
+    overview.figures.spending_monthly.forEach((spending, index) => {
+      expect(
+        overview.categories.reduce(
+          (sum, category) => sum + (category.monthly[index] ?? 0),
+          0,
+        ),
+      ).toBe(spending ?? 0);
+    });
+  });
+
+  it("has no Other for what adding up in floating point leaves over", () => {
+    const test = books();
+    const { ledger, accounts, ids } = test;
+    test.addJournal({
+      date: "2026-04-25",
+      description: "NOPII spend",
+      entries: [
+        { account_id: ids.food, debit: 0.1 },
+        { account_id: ids.rent, debit: 0.2 },
+        { account_id: ids.savings, credit: 0.3 },
+      ],
+    });
+
+    const overview = overviewReport(ledger, {
+      month: "2026-04",
+      timeZone: ZONE,
+      accounts: accounts("2026-04-30", "2026-04-30"),
+    });
+
+    expect(overview.categories.map((category) => category.name)).toEqual([
+      "Travel",
+      "Food",
+      "Rent",
     ]);
   });
 

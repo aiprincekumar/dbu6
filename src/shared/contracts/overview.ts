@@ -24,15 +24,19 @@ export const overviewAccountSchema = z.object({
 });
 export type OverviewAccount = z.infer<typeof overviewAccountSchema>;
 
-/** A spending category: the month's amount beside its usual one. */
+/**
+ * A spending category: the month's amount beside its usual one. With no
+ * account, it is Other: what the listed categories leave of the spending.
+ */
 export const overviewCategorySchema = z.object({
-  account_id: z.number(),
+  account_id: z.number().nullable(),
   name: z.string(),
   amount: z.number(),
   // Over the same months as the figures' average; null when there are none.
   average: z.number().nullable(),
-  // Its amount in each of the twelve months `months` lists, zero-filled.
-  monthly: z.array(z.number()),
+  // Its amount in each of the twelve months `months` lists; null for a
+  // month before `first_month`.
+  monthly: z.array(z.number().nullable()),
 });
 export type OverviewCategory = z.infer<typeof overviewCategorySchema>;
 
@@ -64,9 +68,13 @@ const postedOverviewSchema = z.object({
     average: z
       .object({ months: z.number(), income: z.number(), spending: z.number() })
       .nullable(),
+    // The spending in each of the twelve months `months` lists; null for a
+    // month before `first_month`.
+    spending_monthly: z.array(z.number().nullable()),
   }),
   // The first level of the spending tree that branches, largest first, up to
-  // a limit. Amounts are positive; a refund makes one smaller.
+  // a limit, then Other when the rest holds anything, so they add up to the
+  // spending in every month. Amounts are positive; a refund makes one smaller.
   categories: z.array(overviewCategorySchema),
   // The twelve months ending with `month`, zero-filled.
   months: z.array(

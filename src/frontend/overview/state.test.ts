@@ -77,167 +77,48 @@ describe("waitingLabel", () => {
 });
 
 describe("categoryRows", () => {
-  const overview = (
-    categories: PostedOverview["categories"],
-    spending: number,
-    average: number | null,
-  ) =>
+  const overview = (categories: PostedOverview["categories"]) =>
     ({
       categories,
-      months: [] as PostedOverview["months"],
-      first_month: null as string | null,
       figures: {
         income: 0,
-        spending,
-        average:
-          average === null ? null : { months: 3, income: 0, spending: average },
+        spending: 4000,
+        average: { months: 2, income: 0, spending: 3500 },
+        spending_monthly: [null, 3000, 4000],
       },
     }) as PostedOverview;
-  const summary = (rows: ReturnType<typeof categoryRows>) =>
-    rows.map((row) => [row.name, row.amount, row.average]);
 
-  it("gives every row its months from the books' first, Other's exact", () => {
-    const rows = categoryRows({
-      ...overview(
-        [
-          {
-            account_id: 1,
-            name: "Housing",
-            amount: 3000,
-            average: 3000,
-            monthly: [0, 3000, 3000, 3000],
-          },
-        ],
-        4000,
-        3500,
-      ),
-      // The books start in February: January's zeros are not drawn.
-      months: [
-        { month: "2026-01", income: 0, spending: 0 },
-        { month: "2026-02", income: 0, spending: 3000 },
-        { month: "2026-03", income: 0, spending: 4000 },
-        { month: "2026-04", income: 0, spending: 4000 },
-      ],
-      first_month: "2026-02",
-    });
-    expect(rows.map((row) => [row.name, row.monthly])).toEqual([
-      ["Housing", [3000, 3000, 3000]],
-      ["Other", [0, 1000, 1000]],
-      ["Total", [3000, 4000, 4000]],
-    ]);
-  });
-
-  it("adds Other and Total, so the table adds up to the spending", () => {
+  it("takes Other from the overview and adds Total from its figures", () => {
     const rows = categoryRows(
-      overview(
-        [
-          {
-            account_id: 1,
-            name: "Housing",
-            amount: 3000,
-            average: 3000,
-            monthly: [],
-          },
-          {
-            account_id: 2,
-            name: "Food",
-            amount: 1500,
-            average: 2000,
-            monthly: [],
-          },
-        ],
-        5000,
-        6000,
-      ),
+      overview([
+        {
+          account_id: 1,
+          name: "Housing",
+          amount: 3000,
+          average: 3000,
+          monthly: [null, 3000, 3000],
+        },
+        {
+          account_id: null,
+          name: "Other",
+          amount: 1000,
+          average: 500,
+          monthly: [null, 0, 1000],
+        },
+      ]),
     );
-    expect(summary(rows)).toEqual([
-      ["Housing", 3000, 3000],
-      ["Food", 1500, 2000],
-      ["Other", 500, 1000],
-      ["Total", 5000, 6000],
+    expect(
+      rows.map((row) => [row.kind, row.name, row.amount, row.average]),
+    ).toEqual([
+      ["category", "Housing", 3000, 3000],
+      ["other", "Other", 1000, 500],
+      ["total", "Total", 4000, 3500],
     ]);
-  });
-
-  it("puts a category with nothing this month in Other's average", () => {
-    // Travel had nothing this month and fell out of the list: its average
-    // is in Other's.
-    const rows = categoryRows(
-      overview(
-        [
-          {
-            account_id: 1,
-            name: "Housing",
-            amount: 3000,
-            average: 3000,
-            monthly: [],
-          },
-        ],
-        3000,
-        4000,
-      ),
-    );
-    expect(summary(rows)).toEqual([
-      ["Housing", 3000, 3000],
-      ["Other", 0, 1000],
-      ["Total", 3000, 4000],
-    ]);
-  });
-
-  it("leaves Other out when the categories cover everything", () => {
-    const rows = categoryRows(
-      overview(
-        [
-          {
-            account_id: 1,
-            name: "Housing",
-            amount: 3000.1,
-            average: 0.2,
-            monthly: [],
-          },
-          {
-            account_id: 2,
-            name: "Refunds",
-            amount: -0.1,
-            average: 0.1,
-            monthly: [],
-          },
-        ],
-        3000,
-        0.3,
-      ),
-    );
-    expect(rows.map((row) => row.kind)).toEqual([
-      "category",
-      "category",
-      "total",
-    ]);
-  });
-
-  it("has no averages before the books have a month to average", () => {
-    const rows = categoryRows(
-      overview(
-        [
-          {
-            account_id: 1,
-            name: "Housing",
-            amount: 3000,
-            average: null,
-            monthly: [],
-          },
-        ],
-        4000,
-        null,
-      ),
-    );
-    expect(summary(rows)).toEqual([
-      ["Housing", 3000, null],
-      ["Other", 1000, null],
-      ["Total", 4000, null],
-    ]);
+    expect(rows[2].monthly).toEqual([null, 3000, 4000]);
   });
 
   it("has no rows without categories", () => {
-    expect(categoryRows(overview([], 0, null))).toEqual([]);
+    expect(categoryRows(overview([]))).toEqual([]);
   });
 });
 
@@ -282,7 +163,10 @@ describe("categoryBars", () => {
 });
 
 describe("sparkline", () => {
-  const row = (monthly: number[], average: number | null): CategoryRow => ({
+  const row = (
+    monthly: (number | null)[],
+    average: number | null,
+  ): CategoryRow => ({
     kind: "category",
     account_id: 1,
     name: "Food",
@@ -292,12 +176,12 @@ describe("sparkline", () => {
   });
 
   it("scales the months and average to the highest of them, the month shown last", () => {
-    const line = sparkline(row([1000, 2000, 4000], 1500));
+    const line = sparkline(row([null, null, 1000, 0, 4000], 1500));
     expect(line?.average).toBe(0.375);
-    // Three months sit at the right of twelve slots.
+    // The months before the books start take their slots but draw nothing.
     expect(line?.points).toEqual([
-      { x: 9 / 11, y: 0.25 },
-      { x: 10 / 11, y: 0.5 },
+      { x: 0.5, y: 0.25 },
+      { x: 0.75, y: 0 },
       { x: 1, y: 1 },
     ]);
   });
@@ -306,7 +190,7 @@ describe("sparkline", () => {
     expect(
       sparkline(row([-500, 1000], 1000))?.points.map((point) => point.y),
     ).toEqual([0, 1]);
-    expect(sparkline(row([1000], 1000))).toBeNull();
+    expect(sparkline(row([null, 1000], 1000))).toBeNull();
     expect(sparkline(row([1000, 2000], null))).toBeNull();
     expect(sparkline(row([0, 0], 0))?.average).toBe(0);
   });

@@ -76,67 +76,30 @@ export type CategoryRow = {
   amount: number;
   // Null before the books have a month to average.
   average: number | null;
-  // Its amount in each month the books cover of the twelve ending with
-  // the month shown, oldest first, for its sparkline.
-  monthly: number[];
+  // Its amount in each of the twelve months ending with the month shown,
+  // oldest first; null before the books start.
+  monthly: (number | null)[];
 };
 
 /**
- * The categories, then Other for the spending they leave out, then Total,
- * so the table adds up to Spent. The categories divide the spending between
- * them, so Other is exact, month by month too. It carries no count: a
- * category with nothing this month can still be in its average. It shows
- * only when it holds anything. The months before the books start are left
- * out of the monthly amounts rather than drawn as zeros.
+ * The categories as the overview lists them, Other among them, then Total,
+ * so the table adds up to Spent.
  */
 export function categoryRows(overview: PostedOverview): CategoryRow[] {
-  const { categories, figures, months, first_month: firstMonth } = overview;
+  const { categories, figures } = overview;
   if (categories.length === 0) return [];
-  const averaged = figures.average !== null;
-  const start = months.findIndex(
-    (row) => firstMonth !== null && row.month >= firstMonth,
-  );
-  const covered = (amounts: readonly number[]) =>
-    start === -1 ? [] : amounts.slice(start);
-  const rest = (total: number, parts: readonly number[]) =>
-    cents(parts.reduce((left, part) => left - part, total));
-  const other = {
-    amount: rest(
-      figures.spending,
-      categories.map((category) => category.amount),
-    ),
-    average: figures.average
-      ? rest(
-          figures.average.spending,
-          categories.map((category) => category.average ?? 0),
-        )
-      : null,
-    monthly: covered(
-      months.map((row, index) =>
-        rest(
-          row.spending,
-          categories.map((category) => category.monthly[index]),
-        ),
-      ),
-    ),
-  };
   return [
     ...categories.map((category): CategoryRow => ({
-      kind: "category",
+      kind: category.account_id === null ? "other" : "category",
       ...category,
-      average: averaged ? category.average : null,
-      monthly: covered(category.monthly),
     })),
-    ...(other.amount !== 0 || (other.average ?? 0) !== 0
-      ? [{ kind: "other" as const, account_id: null, name: "Other", ...other }]
-      : []),
     {
       kind: "total",
       account_id: null,
       name: "Total",
       amount: figures.spending,
       average: figures.average?.spending ?? null,
-      monthly: covered(months.map((row) => row.spending)),
+      monthly: figures.spending_monthly,
     },
   ];
 }
@@ -160,29 +123,28 @@ export function categoryBars(rows: readonly CategoryRow[]): (number | null)[] {
   );
 }
 
-/** The months a sparkline has room for, the month shown at the right. */
-const SPARKLINE_MONTHS = 12;
-
 /**
  * A row's sparkline: each month's amount and the average as fractions of
  * the row's own scale, from zero to the highest of them, so a steady
  * category draws flat and a lumpy one jagged, whatever their size. Months
- * run left to right with the month shown last, at the right edge even
- * when the books cover fewer than twelve. None before there is an average
- * to set the month against; refunds sit at zero.
+ * run left to right with the month shown last; those before the books
+ * start are left out rather than drawn as zeros. None before there is an
+ * average to set the month against; refunds sit at zero.
  */
 export function sparkline(row: CategoryRow): {
   points: { x: number; y: number }[];
   average: number;
 } | null {
-  if (row.average === null || row.monthly.length < 2) return null;
-  const top = Math.max(row.average, ...row.monthly);
+  const months = row.monthly.flatMap((amount, index) =>
+    amount === null ? [] : [{ index, amount }],
+  );
+  if (row.average === null || months.length < 2) return null;
+  const top = Math.max(row.average, ...months.map((month) => month.amount));
   const at = (value: number) => (top > 0 && value > 0 ? value / top : 0);
-  const offset = SPARKLINE_MONTHS - row.monthly.length;
   return {
-    points: row.monthly.map((amount, index) => ({
-      x: (offset + index) / (SPARKLINE_MONTHS - 1),
-      y: at(amount),
+    points: months.map((month) => ({
+      x: month.index / (row.monthly.length - 1),
+      y: at(month.amount),
     })),
     average: at(row.average),
   };
