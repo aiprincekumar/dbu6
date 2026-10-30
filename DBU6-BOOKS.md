@@ -88,8 +88,8 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   `npx sapporta api get /api/overview --query '{"month":"YYYY-MM"}'` returns
   what Overview shows: the month's income and spending beside their average
   over the up to twelve months before it, the top spending categories (then
-  `Other`, with a null `account_id`, for what they leave), the twelve months
-  ending with it, each category's amounts in those months as `monthly` and the
+  `Other`, with a null `account_id`, for what they leave), the month and the
+  twelve before it, each category's amounts in those months as `monthly` and the
   spending's as `figures.spending_monthly` (`null` for a month before the books
   start), net worth at its end and the month before's with where it sits
   (`asset_groups`, `liability_groups`: the first level of each tree that

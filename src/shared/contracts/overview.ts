@@ -5,6 +5,12 @@ import { accountKindSchema } from "./account-kind.js";
 
 const c = initContract();
 
+/**
+ * How many months before the month shown Overview averages. Its charts show
+ * those and the month itself, so every month in an average is drawn.
+ */
+export const OVERVIEW_AVERAGE_MONTHS = 12;
+
 const yearMonth = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Expected a month as YYYY-MM");
@@ -34,8 +40,8 @@ export const overviewCategorySchema = z.object({
   amount: z.number(),
   // Over the same months as the figures' average; null when there are none.
   average: z.number().nullable(),
-  // Its amount in each of the twelve months `months` lists; null for a
-  // month before `first_month`.
+  // Its amount in each month `months` lists; null for a month before
+  // `first_month`.
   monthly: z.array(z.number().nullable()),
 });
 export type OverviewCategory = z.infer<typeof overviewCategorySchema>;
@@ -63,20 +69,20 @@ const postedOverviewSchema = z.object({
   figures: z.object({
     income: z.number(),
     spending: z.number(),
-    // Over the up to twelve months before `month` with income or spending
-    // from `first_month` on, and how many those are; null when there are none.
+    // Over the months before `month` that `months` lists, from `first_month`
+    // on, and how many those are; null when there are none.
     average: z
       .object({ months: z.number(), income: z.number(), spending: z.number() })
       .nullable(),
-    // The spending in each of the twelve months `months` lists; null for a
-    // month before `first_month`.
+    // The spending in each month `months` lists; null for a month before
+    // `first_month`.
     spending_monthly: z.array(z.number().nullable()),
   }),
   // The first level of the spending tree that branches, largest first, up to
   // a limit, then Other when the rest holds anything, so they add up to the
   // spending in every month. Amounts are positive; a refund makes one smaller.
   categories: z.array(overviewCategorySchema),
-  // The twelve months ending with `month`, zero-filled.
+  // `month` and the `OVERVIEW_AVERAGE_MONTHS` months before it, zero-filled.
   months: z.array(
     z.object({ month: yearMonth, income: z.number(), spending: z.number() }),
   ),

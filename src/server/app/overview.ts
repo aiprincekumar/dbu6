@@ -9,6 +9,7 @@ import {
   type OverviewAccount,
   type OverviewCategory,
   type OverviewWorthGroup,
+  OVERVIEW_AVERAGE_MONTHS,
   type PostedOverview,
   todayIn,
 } from "../../shared/index.js";
@@ -31,7 +32,8 @@ import { authorizeReport, monthEnd } from "./reports/shared.js";
 /*
  * The Overview screen's one request: where the money stands for one month.
  * The figures, categories and trend come from Income and Expenses over the
- * thirteen months ending with it, so the two screens agree; net worth and the
+ * month and the months it is averaged against, so the two screens agree, and
+ * the charts draw every month an average covers; net worth and the
  * accounts' balances are the ledger's at the month's end. Only posted entries
  * count, never drafts, and until anything beyond the opening balances is
  * posted there is nothing to show.
@@ -95,7 +97,7 @@ export function overviewReport(
 
   const yearMonth = Temporal.PlainYearMonth.from(month);
   const report = incomeExpensesReport(ledger, {
-    fromDate: `${yearMonth.subtract({ months: 12 })}-01`,
+    fromDate: `${yearMonth.subtract({ months: OVERVIEW_AVERAGE_MONTHS })}-01`,
     toDate: monthEnd(month),
   });
   const current = report.months.length - 1;
@@ -118,14 +120,9 @@ export function overviewReport(
       : (amounts: readonly number[]) =>
           covered.reduce((sum, index) => sum + amounts[index], 0) /
           covered.length;
-  // The twelve months shown, ending with `month`: the report's first month
-  // is there only for the averages.
-  const shown = <T>(values: readonly T[]) => values.slice(1);
-  // Each shown month's amount, null before the books start.
+  // Each month's amount, null before the books start.
   const monthly = (amounts: readonly number[]) =>
-    shown(
-      report.months.map((row, index) => (inBooks(row) ? amounts[index] : null)),
-    );
+    report.months.map((row, index) => (inBooks(row) ? amounts[index] : null));
   const spendingMonths = report.months.map((row) => row.spending);
 
   const listed = branchingLevel(report.spending.accounts)
@@ -185,7 +182,7 @@ export function overviewReport(
           ]
         : []),
     ],
-    months: shown(report.months),
+    months: report.months,
     net_worth: {
       assets: balances.assets,
       liabilities: balances.liabilities,

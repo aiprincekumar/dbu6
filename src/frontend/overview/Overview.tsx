@@ -347,8 +347,8 @@ function savedFigure(shown: ReturnType<typeof figures>): string {
  */
 function Categories({ overview }: { overview: PostedOverview }) {
   const dates = monthDates(overview.month);
-  // A category's name opens its month-by-month chart over the twelve months
-  // shown here; its amount opens its entries for the month.
+  // A category's name opens its month-by-month chart over the months shown
+  // here; its amount opens its entries for the month.
   const trend = {
     first_date: monthDates(overview.months[0].month).first_date,
     last_date: dates.last_date,

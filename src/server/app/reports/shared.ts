@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import { attachReferenceComputed, type SapportaEnv } from "@sapporta/server";
 import type { NavLink } from "@sapporta/shared/contracts";
+import { Temporal } from "@sapporta/shared/temporal";
 import type {
   GridDataset,
   GridDatasetColumn,
@@ -163,11 +164,8 @@ export function accountLedgerLink(
 
 /** Month end for a `%Y-%m-01` month bucket, for date-bounded drill-downs. */
 export function monthEnd(month: string): string {
-  const [year = 0, monthNumber = 0] = month
-    .split("-")
-    .map((part) => Number(part));
-  const day = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
-  return `${month.slice(0, 7)}-${String(day).padStart(2, "0")}`;
+  const yearMonth = Temporal.PlainYearMonth.from(month.slice(0, 7));
+  return yearMonth.toPlainDate({ day: yearMonth.daysInMonth }).toString();
 }
 
 export function flatResult<T extends Record<string, unknown>>(

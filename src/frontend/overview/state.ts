@@ -1,4 +1,7 @@
-import type { PostedOverview } from "../../shared/index";
+import {
+  OVERVIEW_AVERAGE_MONTHS,
+  type PostedOverview,
+} from "../../shared/index";
 import { agree, formatMonth, plural } from "../format";
 import { Temporal } from "../report-kit";
 
@@ -49,9 +52,9 @@ export function monthForKey(
   return null;
 }
 
-/** The averages' column label: "12-month average", or what it covers so far. */
+/** The averages' label: "12-month average", or what it covers so far. */
 export function averageLabel(months: number): string {
-  if (months === 12) return "12-month average";
+  if (months === OVERVIEW_AVERAGE_MONTHS) return `${months}-month average`;
   return `Average of ${plural(months, "month")}`;
 }
 
@@ -76,8 +79,8 @@ export type CategoryRow = {
   amount: number;
   // Null before the books have a month to average.
   average: number | null;
-  // Its amount in each of the twelve months ending with the month shown,
-  // oldest first; null before the books start.
+  // Its amount in each month the overview lists, oldest first, the month
+  // shown last; null before the books start.
   monthly: (number | null)[];
 };
 

@@ -11,6 +11,7 @@ import {
   type SapportaEnv,
   TsRestApi,
 } from "../../report-kit.js";
+import { Temporal } from "@sapporta/shared/temporal";
 import {
   reportsContract,
   type IncomeExpenses,
@@ -189,19 +190,14 @@ export function incomeExpensesEntries(
 
 /** Every month, as `YYYY-MM`, from the first date's month to the second's. */
 export function monthsBetween(fromDate: string, toDate: string): string[] {
+  const last = Temporal.PlainYearMonth.from(toDate.slice(0, 7));
   const months: string[] = [];
-  let year = Number(fromDate.slice(0, 4));
-  let month = Number(fromDate.slice(5, 7));
-  const last = toDate.slice(0, 7);
-  for (;;) {
-    const key = `${year}-${String(month).padStart(2, "0")}`;
-    if (key > last) break;
-    months.push(key);
-    month += 1;
-    if (month > 12) {
-      month = 1;
-      year += 1;
-    }
+  for (
+    let month = Temporal.PlainYearMonth.from(fromDate.slice(0, 7));
+    Temporal.PlainYearMonth.compare(month, last) <= 0;
+    month = month.add({ months: 1 })
+  ) {
+    months.push(month.toString());
   }
   return months;
 }
