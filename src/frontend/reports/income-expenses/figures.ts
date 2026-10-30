@@ -51,10 +51,15 @@ export type Figures = {
   remaining: Remaining;
 };
 
+/** What income and spending leave: saved when positive, overspent when not. */
+export function saved(income: number, spending: number): number {
+  return income - spending;
+}
+
 /** The header's figures for income and spending over what is in view. */
 export function figures(totals: { income: number; spending: number }): Figures {
   const { income, spending } = totals;
-  const remaining = income - spending;
+  const remaining = saved(income, spending);
   return {
     income: {
       figure: signedAmount("income", income),

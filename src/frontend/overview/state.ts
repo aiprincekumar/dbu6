@@ -1,6 +1,7 @@
 import type { HomeSummary, PostedOverview } from "../../shared/index";
 import { agree, plural } from "../format";
 import { Temporal } from "../report-kit";
+import { saved } from "../reports/income-expenses/figures";
 
 /*
  * What Overview says, as pure functions of its two requests: the overview
@@ -57,7 +58,7 @@ export function monthForKey(
 export function otherWorthChange(overview: PostedOverview): number {
   const { net_worth: worth, figures } = overview;
   return cents(
-    worth.net - worth.previous_net - (figures.income - figures.spending),
+    worth.net - worth.previous_net - saved(figures.income, figures.spending),
   );
 }
 
@@ -178,9 +179,9 @@ export function figureSeries(overview: PostedOverview): {
     },
     saved: {
       monthly: months.map(
-        (m) => m.amounts && m.amounts.income - m.amounts.spending,
+        (m) => m.amounts && saved(m.amounts.income, m.amounts.spending),
       ),
-      average: average ? average.income - average.spending : null,
+      average: average && saved(average.income, average.spending),
     },
   };
 }
