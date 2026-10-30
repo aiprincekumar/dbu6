@@ -17,7 +17,11 @@ import type {
   AccountMonthsRow,
   IncomeExpensesEntry,
 } from "../../../shared/index";
-import { accountsTablePage } from "../../accounts-page.testing";
+import {
+  accountsLookupResponse,
+  accountsTablePage,
+  serveAccountsSchema,
+} from "../../accounts-page.testing";
 import { AccountsByMonthPage } from "./AccountsByMonthPage";
 
 /*
@@ -35,6 +39,7 @@ let host: HTMLDivElement;
 let root: Root;
 let requests: URL[];
 let entryRequests: URL[];
+let unserveSchema: () => void;
 
 beforeAll(() => {
   (
@@ -51,11 +56,14 @@ beforeEach(() => {
   root = createRoot(host);
   requests = [];
   entryRequests = [];
+  unserveSchema = serveAccountsSchema();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input instanceof Request ? input.url : input);
       const request = new URL(url, "http://localhost");
+      const lookup = accountsLookupResponse(CHART, request);
+      if (lookup !== null) return lookup;
       if (request.pathname.endsWith("/entries")) {
         entryRequests.push(request);
         return Response.json({ entries: ENTRIES });
@@ -81,6 +89,7 @@ afterEach(() => {
   host.remove();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+  unserveSchema();
 });
 
 function line(

@@ -63,10 +63,18 @@ export function GroupPicker({
       </label>
       <AccountTreeCombobox
         id="accounts-by-month-account"
-        eligible={
+        narrowing={
           type === null
             ? undefined
-            : (account) => account.account_type === GROUP_TYPES[type]
+            : {
+                filter: [
+                  {
+                    column: "account_type",
+                    op: "in",
+                    values: [GROUP_TYPES[type]],
+                  },
+                ],
+              }
         }
         value={group.kind === "account" ? group.accountId : null}
         onChange={(accountId) =>

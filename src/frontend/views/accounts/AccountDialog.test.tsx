@@ -14,7 +14,11 @@ import {
 } from "vitest";
 import { AccountDialog } from "./AccountDialog";
 import type { AccountRow } from "../../queries";
-import { accountsTablePage } from "../../accounts-page.testing";
+import {
+  accountsLookupResponse,
+  accountsTablePage,
+  serveAccountsSchema,
+} from "../../accounts-page.testing";
 
 /*
  * The Accounts page's edit form on screen: a new account on the table API,
@@ -87,6 +91,7 @@ let root: Root;
 let sent: Sent[];
 let refusal: { error: string; code: string; field: string | null } | null;
 let closed: number;
+let unserveSchema: () => void;
 
 beforeAll(() => {
   (
@@ -108,6 +113,7 @@ beforeEach(() => {
   sent = [];
   refusal = null;
   closed = 0;
+  unserveSchema = serveAccountsSchema();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -121,6 +127,8 @@ beforeEach(() => {
           : null;
       const accountPath = /\/accounts\/\d+$/.test(url.pathname);
 
+      const lookup = accountsLookupResponse(CHART, url);
+      if (lookup !== null) return lookup;
       if (method === "GET" && url.pathname.endsWith("/tables/accounts")) {
         return Response.json(accountsTablePage(CHART));
       }
@@ -186,6 +194,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  unserveSchema();
 });
 
 /** Lets the stubbed fetches answer and the screen catch up. */

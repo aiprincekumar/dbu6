@@ -20,7 +20,10 @@ import type {
 } from "../../shared/index";
 import { carriedFiles } from "../views/import-statements/files";
 import { AddAccount } from "./AddAccount";
-import { accountsLookup } from "../accounts-page.testing";
+import {
+  accountsLookupResponse,
+  serveAccountsSchema,
+} from "../accounts-page.testing";
 
 /*
  * /add end to end against a stubbed server: drop, read, the cards the read
@@ -33,6 +36,7 @@ vi.mock("../reports/shared", () => ({ today: () => "2026-09-25" }));
 type Answer = { status: number; body: unknown };
 
 let host: HTMLDivElement;
+let unserveSchema: () => void;
 let root: Root;
 let answers: Record<
   string,
@@ -57,6 +61,7 @@ beforeEach(() => {
   sent = [];
   progressIds = [];
   progress = null;
+  unserveSchema = serveAccountsSchema();
   books = structuredClone(DATA);
   answers = {
     "GET /agent-handoff": () => ok({ mode: "none" }),
@@ -97,9 +102,8 @@ beforeEach(() => {
           fields,
         });
       }
-      if (path === "/tables/accounts/_lookup") {
-        return Response.json(accountsLookup(ACCOUNT_ROWS, url));
-      }
+      const lookup = accountsLookupResponse(ACCOUNT_ROWS, url);
+      if (lookup !== null) return lookup;
       if (path.startsWith("/add-account/progress/")) {
         return progress === null
           ? Response.json({ error: "No add is running." }, { status: 404 })
@@ -117,6 +121,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  unserveSchema();
 });
 
 const ok = (body: unknown): Answer => ({ status: 200, body });

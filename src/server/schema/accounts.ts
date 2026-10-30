@@ -63,8 +63,14 @@ export const accounts = sapportaTable({
     label: "Accounts",
     rowLabelColumns: ["name"],
     rowScope: "workspaceUserScoped",
-    // The Accounts page shows one indented tree; siblings sort by name.
-    tree: { parentColumn: "parent_id" },
+    // The Accounts page and the account pickers show one indented tree: top
+    // accounts in the ledger's type order, siblings by name. Pickers draw a
+    // chosen account's `parentPath` before its name.
+    tree: {
+      parentColumn: "parent_id",
+      path: "parentPath",
+      rootOrder: { column: "account_type", values: accountTypeOptions },
+    },
     // Outside the tree, Sapporta draws an account with its parent path,
     // "Expenses > Kitchen", under its name: in pickers, the record sheet,
     // and wherever the frontend's label slot (`accountRowDisplays`) draws it.

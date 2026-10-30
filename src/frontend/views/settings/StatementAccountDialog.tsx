@@ -137,7 +137,7 @@ function DialogBody({
       <AccountCombobox
         id={ids.parent}
         choices={data.parents[draft.kind]}
-        self={row.account_id}
+        notUnder={row.account_id}
         value={draft.parentId}
         onChange={(parentId) => set({ parentId })}
         placeholder="Choose an account…"

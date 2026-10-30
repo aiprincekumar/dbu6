@@ -18,7 +18,7 @@ import {
 import { AccountsPage } from "./AccountsPage";
 import { EditAccountDialog, NewAccountDialog } from "./AccountDialogRoute";
 import { EDIT_ACCOUNT_PATH, NEW_ACCOUNT_PATH, editAccountHref } from "./routes";
-import { accountsLookup } from "../../accounts-page.testing";
+import { accountsLookupResponse } from "../../accounts-page.testing";
 
 /*
  * The chart on screen with a form open: the chart is not rebuilt. The grid
@@ -121,10 +121,9 @@ beforeEach(() => {
       if (method === "GET" && url.pathname.endsWith("/tables/accounts")) {
         return rowsResponse(searched(url.searchParams.get("q")));
       }
-      if (url.pathname.endsWith("/tables/accounts/_lookup")) {
-        // The form's parent picker.
-        return Response.json(accountsLookup(rows, url));
-      }
+      // The form's parent picker.
+      const lookup = accountsLookupResponse(rows, url);
+      if (lookup !== null) return lookup;
       if (method === "POST" && url.pathname.endsWith("/tables/accounts")) {
         const body = JSON.parse(
           String(request ? await request.text() : init?.body),

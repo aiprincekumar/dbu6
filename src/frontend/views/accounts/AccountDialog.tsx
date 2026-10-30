@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@sapporta/ui/dialog";
 import { createTableRow } from "@sapporta/frontend";
+import type { LookupNarrowing } from "@sapporta/frontend/lookup";
 import {
   LEDGER_ACCOUNT_TYPES,
   type LedgerAccountType,
@@ -44,7 +45,6 @@ import {
   draftOf,
   moveNotice,
   nameLocked,
-  parentFits,
   readDraft,
   refusalField,
   typeLock,
@@ -172,18 +172,19 @@ function DialogBody({
   };
   const lock =
     account === null ? { locked: false as const } : typeLock(account, context);
-  // A fixed type keeps the parent to the accounts that fit it; otherwise any
-  // account will do, and the type follows the one chosen. Never the account
-  // itself or one under it (`self`), which would make a loop.
-  const parentEligible = lock.locked
-    ? (one: AccountRow) =>
-        parentFits(
-          context.chart,
-          draft.account_type,
-          account?.id ?? null,
-          one.id,
-        )
-    : undefined;
+  // A fixed type keeps the parent to the accounts of that type; otherwise
+  // any account will do, and the type follows the one chosen. Never the
+  // account itself or one under it (`notUnder`), which would make a loop.
+  const parentNarrowing: LookupNarrowing = {
+    ...(lock.locked
+      ? {
+          filter: [
+            { column: "account_type", op: "in", values: [draft.account_type] },
+          ],
+        }
+      : {}),
+    notUnder: account?.id,
+  };
   const parent =
     context.chart.find((one) => one.id === draft.parent_id) ?? null;
   const notice =
@@ -294,8 +295,7 @@ function DialogBody({
           {/* Cleared, it is a top-level account. */}
           <AccountTreeCombobox
             id={ids.parent}
-            eligible={parentEligible}
-            self={account?.id}
+            narrowing={parentNarrowing}
             value={draft.parent_id}
             onChange={(parent_id) =>
               set(withParent(draft, parent_id, context.chart))

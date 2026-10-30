@@ -1,77 +1,24 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
+import {
+  LookupPicker,
+  useTableLookup,
+  type LookupNarrowing,
+  type LookupPickerLabels,
+} from "@sapporta/frontend/lookup";
 import { Combobox, comboboxClassNames } from "@sapporta/ui/combobox";
 import { cn } from "@sapporta/ui/cn";
-import {
-  ACCOUNT_PATH_SEPARATOR,
-  LEDGER_ACCOUNT_TYPES,
-  knownInstitution,
-  type ChartChoice,
-} from "../../shared/index";
-import { accountChartQuery, type AccountRow } from "../queries";
-import { useAccountParentPaths } from "./account-name";
+import { knownInstitution, type ChartChoice } from "../../shared/index";
 
 /*
- * The forms' pickers, on Base UI's Combobox with Sapporta's style tokens.
- * `AccountTreeCombobox` picks an account from the chart, drawn as the tree it
- * is: the chosen account's parents sit before its name in the field, the list
- * indents each account under its parent, and a search lists the matches with
- * their paths. `InstitutionCombobox` picks a bank by name.
+ * The forms' pickers. `AccountTreeCombobox` picks an account with Sapporta's
+ * tree picker over the accounts table: the server sends the chart as its
+ * tree, narrowed, the picker searches it in the browser, the list indents
+ * each account under its parent, and the chosen account's parents sit before
+ * its name in the field.
+ * `InstitutionCombobox` picks a bank by name, on Base UI's Combobox with
+ * Sapporta's style tokens.
  */
-
-// One account in the list: how deep it sits, and whether it can be picked.
-// An account that can't is drawn only to place the ones under it that can.
-interface TreeItem {
-  account: AccountRow;
-  depth: number;
-  pickable: boolean;
-  self: boolean;
-}
-
-/**
- * The chart in tree order: top accounts by type, children under their
- * parent, each level in the chart's own name order. Kept are the accounts
- * `eligible` lets through, the ones above them, and `self`, which can't be
- * picked and is drawn without its branch.
- */
-function treeItems(
-  accounts: readonly AccountRow[],
-  eligible: (account: AccountRow) => boolean,
-  self: number | undefined,
-): TreeItem[] {
-  const children = new Map<number | null, AccountRow[]>();
-  for (const account of accounts) {
-    const siblings = children.get(account.parent_id) ?? [];
-    siblings.push(account);
-    children.set(account.parent_id, siblings);
-  }
-  const typeOrder = (account: AccountRow) =>
-    LEDGER_ACCOUNT_TYPES.indexOf(account.account_type);
-  const roots = [...(children.get(null) ?? [])].sort(
-    (a, b) => typeOrder(a) - typeOrder(b),
-  );
-
-  const items: TreeItem[] = [];
-  // Returns whether anything at or under `account` was kept.
-  const walk = (account: AccountRow, depth: number): boolean => {
-    const isSelf = account.id === self;
-    const pickable = !isSelf && eligible(account);
-    const at = items.length;
-    items.push({ account, depth, pickable, self: isSelf });
-    let kept = pickable || isSelf;
-    // Under itself, only the account is drawn: its branch moves with it.
-    if (!isSelf) {
-      for (const child of children.get(account.id) ?? []) {
-        if (walk(child, depth + 1)) kept = true;
-      }
-    }
-    if (!kept) items.splice(at, 1);
-    return kept;
-  };
-  for (const root of roots) walk(root, 0);
-  return items;
-}
 
 function Popup({
   empty,
@@ -108,46 +55,21 @@ function Field({
   id,
   placeholder,
   invalid,
-  describedBy,
-  clearLabel,
-  prefix,
 }: {
   id: string;
   placeholder: string;
   invalid?: boolean;
-  describedBy?: string;
-  /** Show a clear button named this, for a choice that may be left empty. */
-  clearLabel?: string;
-  /** Drawn before the input's text, such as the chosen account's parents. */
-  prefix?: string;
 }) {
   return (
     <Combobox.InputGroup
       className={cn(comboboxClassNames.inputGroup, "bg-card")}
     >
-      {prefix && (
-        <span
-          title={prefix}
-          className="max-w-[55%] shrink-0 truncate pl-3 text-sap-emph text-ink-meta"
-        >
-          {prefix}
-        </span>
-      )}
       <Combobox.Input
         id={id}
         placeholder={placeholder}
         aria-invalid={invalid || undefined}
-        aria-describedby={describedBy}
-        className={cn(comboboxClassNames.input, prefix && "pl-1.5")}
+        className={comboboxClassNames.input}
       />
-      {clearLabel !== undefined && (
-        <Combobox.Clear
-          aria-label={clearLabel}
-          className={comboboxClassNames.action}
-        >
-          <X />
-        </Combobox.Clear>
-      )}
       <Combobox.Trigger
         aria-label="Show the choices"
         className={cn(comboboxClassNames.action, comboboxClassNames.trigger)}
@@ -158,16 +80,27 @@ function Field({
   );
 }
 
+// How the account pickers word Sapporta's picker.
+const ACCOUNT_PICKER_LABELS: LookupPickerLabels = {
+  open: "Show the choices",
+  empty: "No account matches.",
+  loading: "Reading the chart…",
+  tooLarge: "Too many accounts to show here. Type to search.",
+  loadFailed: "Could not read the chart.",
+  editing: "(this account)",
+};
+
 /**
- * One account from the chart, by id, among those `eligible` lets through.
- * With `self`, the account being edited is shown, greyed, where it sits, and
- * nothing under it can be picked. With `clearLabel`, it may be left empty:
- * the placeholder says what empty means, and a button clears a choice.
+ * One account from the chart, by id, narrowed by `narrowing`, such as to
+ * the accounts of one type. With `notUnder`, that account, the one being
+ * edited, is shown greyed where it sits, and nothing under it can be picked.
+ * Typing searches the chart the picker was sent, in its tree order. With
+ * `clearLabel`, it may be left empty: the placeholder says what empty means,
+ * and a button named `clearLabel` clears a choice.
  */
 export function AccountTreeCombobox({
   id,
-  eligible,
-  self,
+  narrowing,
   value,
   onChange,
   placeholder,
@@ -175,12 +108,12 @@ export function AccountTreeCombobox({
   describedBy,
   disabled,
   clearLabel,
+  labels,
   className,
 }: {
   id: string;
   /** The accounts that can be picked; leave it out for any account. */
-  eligible?: (account: AccountRow) => boolean;
-  self?: number;
+  narrowing?: LookupNarrowing;
   value: number | null;
   onChange: (id: number | null) => void;
   placeholder: string;
@@ -190,117 +123,69 @@ export function AccountTreeCombobox({
   disabled?: boolean;
   /** Name a button that empties the choice; omitted, one is required. */
   clearLabel?: string;
+  /** Wording beyond the account pickers' own, such as the empty list's. */
+  labels?: Omit<LookupPickerLabels, "clear">;
   className?: string;
 }) {
-  const { data } = useQuery(accountChartQuery);
-  const paths = useAccountParentPaths();
-  const items = treeItems(data?.rows ?? [], eligible ?? (() => true), self);
-  const selected =
-    value === null
-      ? null
-      : (items.find((item) => item.account.id === value) ?? null);
-  // What is typed to search; null while the input shows the chosen name.
-  const [query, setQuery] = useState<string | null>(null);
-  const needle = (query ?? "").trim().toLowerCase();
-  const searching = needle !== "";
-  const shown = searching
-    ? items.filter(
-        (item) =>
-          item.pickable && item.account.name.toLowerCase().includes(needle),
-      )
-    : items;
-  const selectedPath =
-    selected === null ? null : paths.byId(selected.account.id);
-  const prefix =
-    selectedPath === null || searching
-      ? undefined
-      : selectedPath + ACCOUNT_PATH_SEPARATOR.trimEnd();
+  // The chart is in the browser already; searching it there finds every
+  // account in tree order, not the first page of the server's matches.
+  const lookup = useTableLookup<number>("accounts", narrowing, {
+    search: "client",
+  });
   return (
     <div className={className}>
-      <Combobox.Root<TreeItem>
-        items={items}
-        filteredItems={shown}
-        value={selected}
+      <LookupPicker<number>
+        lookup={lookup}
+        id={id}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
         disabled={disabled}
-        onValueChange={(next) => {
-          setQuery(null);
-          onChange(next?.account.id ?? null);
+        allowClear={clearLabel !== undefined && value !== null}
+        labels={{
+          ...ACCOUNT_PICKER_LABELS,
+          ...labels,
+          ...(clearLabel === undefined ? {} : { clear: clearLabel }),
         }}
-        // The input is controlled: the list is rebuilt from the chart on
-        // every render, so Base UI would otherwise reset what is typed.
-        inputValue={query ?? selected?.account.name ?? ""}
-        onInputValueChange={(text, details) =>
-          setQuery(details.reason === "input-change" ? text : null)
-        }
-        onOpenChange={(open) => !open && setQuery(null)}
-        itemToStringLabel={(item) => item.account.name}
-        isItemEqualToValue={(a, b) => a.account.id === b.account.id}
-      >
-        <Field
-          id={id}
-          placeholder={placeholder}
-          invalid={invalid}
-          describedBy={describedBy}
-          clearLabel={selected === null ? undefined : clearLabel}
-          prefix={prefix}
-        />
-        <Popup empty="No account matches.">
-          {(item: TreeItem) => (
-            <Combobox.Item
-              key={item.account.id}
-              value={item}
-              disabled={!item.pickable}
-              className={cn(
-                comboboxClassNames.item,
-                // Greyed, not faded: it is there to place the others.
-                "data-disabled:opacity-100",
-                !item.pickable && "text-ink-meta",
-              )}
-              style={
-                searching
-                  ? undefined
-                  : { paddingLeft: `${0.5 + item.depth * 1.125}rem` }
-              }
-            >
-              <span className="min-w-0 truncate">
-                {searching && paths.byId(item.account.id) !== null && (
-                  <span className="text-ink-meta">
-                    {paths.byId(item.account.id) + ACCOUNT_PATH_SEPARATOR}
-                  </span>
-                )}
-                {item.account.name}
-                {item.self && (
-                  <span className="text-ink-meta"> (this account)</span>
-                )}
-              </span>
-              <Combobox.ItemIndicator
-                className={comboboxClassNames.itemIndicator}
-              >
-                <Check />
-              </Combobox.ItemIndicator>
-            </Combobox.Item>
-          )}
-        </Popup>
-      </Combobox.Root>
+        ariaInvalid={invalid}
+        ariaDescribedBy={describedBy}
+        className="bg-card"
+      />
     </div>
   );
 }
 
 /**
  * One account from `choices`, by id, drawn in the chart's tree as
- * `AccountTreeCombobox` draws it.
+ * `AccountTreeCombobox` draws it. The ids travel in the request, so the
+ * list stays short: a few parents or unlisted accounts, not the chart.
  */
 export function AccountCombobox({
   choices,
+  notUnder,
   ...props
-}: Omit<Parameters<typeof AccountTreeCombobox>[0], "eligible"> & {
+}: Omit<Parameters<typeof AccountTreeCombobox>[0], "narrowing"> & {
   choices: readonly ChartChoice[];
+  /** The account being edited, greyed, with nothing under it pickable. */
+  notUnder?: number;
 }) {
-  const ids = new Set(choices.map((choice) => choice.id));
   return (
     <AccountTreeCombobox
       {...props}
-      eligible={(account) => ids.has(account.id)}
+      narrowing={{
+        filter: [
+          choices.length === 0
+            ? // Nothing to choose, so the list says no account matches.
+              // An empty `in` can't be sent; an id is never null.
+              { column: "id", op: "is", polarity: "null" }
+            : {
+                column: "id",
+                op: "in",
+                values: choices.map((choice) => choice.id),
+              },
+        ],
+        notUnder,
+      }}
     />
   );
 }

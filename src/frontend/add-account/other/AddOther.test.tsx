@@ -18,7 +18,11 @@ import type {
   StatementAccounts,
 } from "../../../shared/index";
 import { AddOther } from "./AddOther";
-import { accountsTablePage } from "../../accounts-page.testing";
+import {
+  accountsLookupResponse,
+  accountsTablePage,
+  serveAccountsSchema,
+} from "../../accounts-page.testing";
 
 /*
  * /add/other end to end against a stubbed server: card 6 on the first run,
@@ -35,6 +39,7 @@ let root: Root;
 let answers: Record<string, (body: unknown) => Answer>;
 let sent: { key: string; body: unknown }[];
 let balances: OpeningBalances;
+let unserveSchema: () => void;
 
 beforeAll(() => {
   (
@@ -48,6 +53,7 @@ beforeEach(() => {
   root = createRoot(host);
   sent = [];
   balances = structuredClone(BALANCES);
+  unserveSchema = serveAccountsSchema();
   answers = {
     "GET /opening-balances": () => ok(balances),
     "GET /setup/statement-accounts": () => ok(STATEMENT_ACCOUNTS),
@@ -85,6 +91,8 @@ beforeEach(() => {
       const request = input instanceof Request ? input : null;
       const url = new URL(request?.url ?? String(input), "http://localhost");
       const method = request?.method ?? init?.method ?? "GET";
+      const lookup = accountsLookupResponse(ACCOUNT_ROWS, url);
+      if (lookup !== null) return lookup;
       const path = url.pathname.replace(/^\/api/, "");
       const key = `${method} ${path}`;
       const raw = request ? await request.clone().text() : init?.body;
@@ -102,6 +110,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  unserveSchema();
 });
 
 const ok = (body: unknown): Answer => ({ status: 200, body });

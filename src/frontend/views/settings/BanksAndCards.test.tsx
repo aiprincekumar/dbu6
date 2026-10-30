@@ -23,7 +23,11 @@ import {
   EDIT_STATEMENT_ACCOUNT_PATH,
   statementAccountHref,
 } from "./routes";
-import { accountsLookup, accountsTablePage } from "../../accounts-page.testing";
+import {
+  accountsLookupResponse,
+  accountsTablePage,
+  serveAccountsSchema,
+} from "../../accounts-page.testing";
 
 /*
  * Settings' Banks & cards on screen: one flat table with its marks, the
@@ -33,6 +37,7 @@ import { accountsLookup, accountsTablePage } from "../../accounts-page.testing";
  */
 
 let host: HTMLDivElement;
+let unserveSchema: () => void;
 let root: Root;
 let accounts: StatementAccounts;
 let posts: unknown[];
@@ -125,6 +130,7 @@ beforeEach(() => {
   posts = [];
   refusal = null;
   reads = 0;
+  unserveSchema = serveAccountsSchema();
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -143,9 +149,8 @@ beforeEach(() => {
       if (method === "GET" && url.pathname.endsWith("/tables/accounts")) {
         return Response.json(accountsTablePage(ACCOUNT_ROWS));
       }
-      if (url.pathname.endsWith("/tables/accounts/_lookup")) {
-        return Response.json(accountsLookup(ACCOUNT_ROWS, url));
-      }
+      const lookup = accountsLookupResponse(ACCOUNT_ROWS, url);
+      if (lookup !== null) return lookup;
       return Response.json({ error: "Not here" }, { status: 404 });
     }),
   );
@@ -155,6 +160,7 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  unserveSchema();
 });
 
 /** Lets the stubbed fetches answer and the screen catch up. */
