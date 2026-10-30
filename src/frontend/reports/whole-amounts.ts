@@ -6,8 +6,8 @@ import type {
 import { wholeUnits } from "../format";
 
 /**
- * A report's grid with its amounts in whole units, for the screens that sum
- * up the books rather than list their entries. The grid draws a currency
+ * A report's grid with its amounts in whole units, for a screen that asks
+ * with `wholeAmounts` on `ReportResultBody`. The grid draws a currency
  * column with paise, so each currency column's values are rounded here,
  * each from its exact value, and the column is drawn as a plain number.
  * Nothing else changes: a total can differ by 1 from the sum of its rounded

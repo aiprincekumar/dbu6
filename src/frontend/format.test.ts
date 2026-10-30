@@ -10,6 +10,8 @@ import {
   formatMonthSpan,
   formatRelativeDate,
   formatShortDate,
+  formatWholeMoney,
+  wholeUnits,
 } from "./format";
 
 const span = (first_date: string, last_date: string) => ({
@@ -156,5 +158,15 @@ describe("agree", () => {
     expect(agree(1, "fails", "fail")).toBe("fails");
     expect(agree(0, "fails", "fail")).toBe("fail");
     expect(agree(3, "needs", "need")).toBe("need");
+  });
+});
+
+describe("wholeUnits", () => {
+  it("rounds a half away from zero, either way, and never to −0", () => {
+    expect(wholeUnits(2.5)).toBe(3);
+    expect(wholeUnits(-2.5)).toBe(-3);
+    expect(wholeUnits(-2.4)).toBe(-2);
+    expect(Object.is(wholeUnits(-0.4), -0)).toBe(false);
+    expect(formatWholeMoney(-1200.5)).toBe("-1,201");
   });
 });

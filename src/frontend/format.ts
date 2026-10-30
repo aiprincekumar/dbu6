@@ -19,18 +19,20 @@ const wholeMoney = new Intl.NumberFormat("en-IN", {
 });
 
 /**
- * A report's amount in whole units, rounded from its exact value: "1,20,000".
- * Each figure is rounded on its own, so a total can differ by 1 from the sum
- * of its rounded rows. Entry forms, drafts and statements keep their paise
- * with `formatMoney`.
+ * An amount in whole units, rounded from its exact value: "1,20,000". Each
+ * figure is rounded on its own, so a total can differ by 1 from the sum of
+ * its rounded rows.
  */
 export function formatWholeMoney(value: number): string {
   return wholeMoney.format(wholeUnits(value));
 }
 
-/** An amount rounded to whole units, never −0. */
+/**
+ * An amount rounded to whole units, a half away from zero so that −2.50
+ * rounds as 2.50 does; never −0.
+ */
 export function wholeUnits(value: number): number {
-  const rounded = Math.round(value);
+  const rounded = Math.sign(value) * Math.round(Math.abs(value));
   return rounded === 0 ? 0 : rounded;
 }
 
