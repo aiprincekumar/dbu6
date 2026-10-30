@@ -5,12 +5,6 @@ import { accountKindSchema } from "./account-kind.js";
 
 const c = initContract();
 
-/**
- * How many months before the month shown Overview averages. Its charts show
- * those and the month itself, so every month in an average is drawn.
- */
-export const OVERVIEW_AVERAGE_MONTHS = 12;
-
 const yearMonth = z
   .string()
   .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Expected a month as YYYY-MM");
@@ -79,9 +73,8 @@ const postedOverviewSchema = z.object({
   // a limit, then Other when the rest holds anything, so they add up to the
   // spending in every month. Amounts are positive; a refund makes one smaller.
   categories: z.array(overviewCategorySchema),
-  // `month` and the `OVERVIEW_AVERAGE_MONTHS` months before it, oldest
-  // first. `amounts` is null for a month before `first_month`: no month at
-  // all, not a zero.
+  // `month` and the months its average covers, oldest first. `amounts` is
+  // null for a month before `first_month`: no month at all, not a zero.
   months: z.array(
     z.object({
       month: yearMonth,

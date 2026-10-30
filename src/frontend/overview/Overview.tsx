@@ -245,8 +245,8 @@ function StatusLine({ summary }: { summary: HomeSummary }) {
 
 /**
  * The month's income, spending and savings in one tinted strip, each beside
- * its last twelve months, so a month off its usual shows at a glance. Saved %
- * has no line: it would draw Saved's again.
+ * the month and the months its average covers, so a month off its usual
+ * shows at a glance. Saved % has no line: it would draw Saved's again.
  */
 function MonthFigures({ overview }: { overview: PostedOverview }) {
   const current = figures(overview.figures);
@@ -348,8 +348,9 @@ function SheetHead({
 const SHEET = "mt-10 w-full border-collapse text-row";
 
 /**
- * The month's largest spending categories beside their last twelve months,
- * then the rest and the total, so the table adds up to Spent.
+ * The month's largest spending categories, each beside the month and the
+ * months its average covers, then the rest and the total, so the table adds
+ * up to Spent.
  */
 function Categories({ overview }: { overview: PostedOverview }) {
   const dates = monthDates(overview.month);

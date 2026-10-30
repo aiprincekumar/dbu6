@@ -9,13 +9,13 @@ import {
   type OverviewAccount,
   type OverviewCategory,
   type OverviewWorthGroup,
-  OVERVIEW_AVERAGE_MONTHS,
   type PostedOverview,
   todayIn,
 } from "../../shared/index.js";
 import { accountTree, branchingLevel } from "./account-tree.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
-import { cents, hasJournalsBesideOpenings } from "../modules/journals/index.js";
+import { sameAmount } from "../modules/values/index.js";
+import { hasJournalsBesideOpenings } from "../modules/journals/index.js";
 import {
   readOnlyLedger,
   type ReportLedger,
@@ -83,6 +83,12 @@ export type OverviewAccountInput = Omit<OverviewAccount, "balance">;
 /** The most categories Overview lists. */
 const CATEGORY_LIMIT = 8;
 
+/**
+ * How many months before the month shown Overview averages. Its charts show
+ * those and the month itself, so every month in an average is drawn.
+ */
+const AVERAGE_MONTHS = 12;
+
 export function overviewReport(
   ledger: ReportLedger,
   query: {
@@ -97,7 +103,7 @@ export function overviewReport(
 
   const yearMonth = Temporal.PlainYearMonth.from(month);
   const report = incomeExpensesReport(ledger, {
-    fromDate: `${yearMonth.subtract({ months: OVERVIEW_AVERAGE_MONTHS })}-01`,
+    fromDate: `${yearMonth.subtract({ months: AVERAGE_MONTHS })}-01`,
     toDate: monthEnd(month),
   });
   const current = report.months.length - 1;
@@ -139,7 +145,7 @@ export function overviewReport(
   // taken from the spending rather than summed from the rest of the tree,
   // which leaves out an account whose months cancel out.
   const otherMonths = spendingMonths.map((spending, index) =>
-    cents(listed.reduce((left, node) => left - node.months[index], spending)),
+    listed.reduce((left, node) => left - node.months[index], spending),
   );
 
   const balances = loadBalances(ledger, monthEnd(month));
@@ -169,7 +175,7 @@ export function overviewReport(
         average: average?.(node.months) ?? null,
         monthly: monthly(node.months),
       })),
-      ...(otherMonths.some((amount) => amount !== 0)
+      ...(otherMonths.some((amount) => !sameAmount(amount, 0))
         ? [
             {
               account_id: null,

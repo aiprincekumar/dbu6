@@ -189,7 +189,6 @@ export {
   type HomeSummary,
 } from "./home.js";
 export {
-  OVERVIEW_AVERAGE_MONTHS,
   overviewContract,
   overviewAccountSchema,
   overviewCategorySchema,
