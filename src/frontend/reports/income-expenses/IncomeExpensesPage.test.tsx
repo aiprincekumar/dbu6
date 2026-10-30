@@ -22,9 +22,10 @@ import { IncomeExpensesPage } from "./IncomeExpensesPage";
 /*
  * The page's own behaviour (PLAN.md §11 P4): the period it asks the server
  * for and writes to the URL; a bar or a row brings its month or account
- * into focus, and the figures, the chart and the entries follow; rows open
- * level by level with the parent's own entries as a row of their own; Esc
- * steps back out; and the empty state.
+ * into focus, and the figures, the chart and the entries beside the table
+ * follow; nothing shows as selected at rest; rows open level by level with
+ * the parent's own entries as a row of their own; Esc steps back out; and
+ * the empty state.
  */
 
 vi.mock("@sapporta/frontend", () => ({ appTimeZone: () => "Asia/Kolkata" }));
@@ -218,17 +219,18 @@ function row(name: string): HTMLElement {
   return found;
 }
 
-/** The rows as they read: name, amount, share. */
+/** The rows as they read, below the headings: name, amount, share. */
 function rows(): string[] {
-  return Array.from(host.querySelectorAll('[role="row"]')).map((candidate) =>
-    Array.from(candidate.children)
-      .map((cell) => cell.textContent)
-      .filter(Boolean)
-      .join(" "),
+  return Array.from(host.querySelectorAll('[role="row"][tabindex]')).map(
+    (candidate) =>
+      Array.from(candidate.children)
+        .map((cell) => cell.textContent)
+        .filter(Boolean)
+        .join(" "),
   );
 }
 
-/** The entries panel's rows, as their narrations. */
+/** The entries beside the table, as their narrations. */
 function panelEntries(): string[] {
   return Array.from(host.querySelectorAll("aside li a")).map(
     (link) => link.querySelector("span + span span")?.textContent ?? "",
@@ -246,8 +248,10 @@ describe("Income and Expenses", () => {
 
     expect(asked(0)).toBe("2025-10-01 – 2026-09-16");
     expect(text()).toContain("1 October 2025 – 16 September 2026");
-    expect(text()).toContain("+50,000");
+    expect(text()).toContain("50,000");
+    expect(text()).not.toContain("+50,000");
     expect(text()).toContain("53%");
+    expect(text()).toContain("books until 12 Sep 2026");
 
     await act(async () => button("Period: Last 12 months").click());
     await settle();
@@ -308,8 +312,9 @@ describe("Income and Expenses", () => {
     );
     expect(requests).toHaveLength(1);
     // The figures, the rows and the entries are August's.
-    expect(text()).toContain("−11,500");
-    expect(rows()).toContain("Rent −10,000 87%");
+    expect(text()).toContain("Showing");
+    expect(text()).toContain("11,500");
+    expect(rows()).toContain("Rent 10,000 87%");
     expect(panelEntries()).toEqual(["Rent August", "SAMPLE GROCER"]);
 
     await act(async () => press("Escape"));
@@ -322,17 +327,20 @@ describe("Income and Expenses", () => {
     responses = [report()];
     await renderAt("/reports/income-expenses");
 
-    expect(rows().slice(0, 3)).toEqual([
-      "Spending −23,500",
-      "Rent −20,000 85%",
-      "Food −3,500 15%",
+    // Income first, then spending, each closed by its total; no signs.
+    expect(rows().slice(0, 4)).toEqual([
+      "Salary 50,000 100%",
+      "Total income 50,000",
+      "Rent 20,000 85%",
+      "Food 3,500 15%",
     ]);
     expect(rows().join()).not.toContain("Groceries");
 
     await act(async () => button("Open Food").click());
-    expect(rows().slice(3, 5)).toEqual([
-      "Groceries −3,000 13%",
-      "Food, not in a sub-account −500 2%",
+    expect(rows().slice(4, 7)).toEqual([
+      "Groceries 3,000 13%",
+      "Food, not in a sub-account 500 2%",
+      "Total spent 23,500",
     ]);
     // Opening a row doesn't focus it.
     expect(location()).toBe("/reports/income-expenses");
@@ -346,7 +354,10 @@ describe("Income and Expenses", () => {
     await renderAt("/reports/income-expenses");
     await settle();
 
-    // At rest, the panel lists all spending, largest first.
+    // At rest nothing is selected, and the entries are all spending's,
+    // largest first.
+    expect(host.querySelector('[aria-selected="true"]')).toBeNull();
+    expect(text()).toContain("Income and spending");
     expect(panelEntries()).toEqual([
       "Rent August",
       "Rent September",
@@ -365,9 +376,13 @@ describe("Income and Expenses", () => {
       "SAMPLE GROCER",
       "Sample snacks",
     ]);
-    expect(text()).toContain("Food by month");
+    // The chart draws Food's months.
+    expect(
+      host.querySelector('[aria-label="September 2026 · Food −2,000"]'),
+    ).toBeTruthy();
+    expect(text()).toContain("Share of spending");
     const ledger = Array.from(host.querySelectorAll("aside a")).find(
-      (link) => link.textContent === "Open ledger ›",
+      (link) => link.textContent === "Open ledger",
     );
     expect(ledger?.getAttribute("href")).toBe(
       "/reports/account-ledger?account_id=2&from_date=2025-10-01&to_date=2026-09-16",
@@ -394,13 +409,13 @@ describe("Income and Expenses", () => {
     await renderAt("/reports/income-expenses?period=this-month");
 
     const link = Array.from(host.querySelectorAll("a")).find(
-      (a) => a.textContent === "See these figures as an income statement",
+      (a) => a.textContent === "Income statement",
     );
     expect(link?.getAttribute("href")).toBe(
       "/reports/income-statement?from_date=2026-09-01&to_date=2026-09-16",
     );
     // A period within one month has no chart.
-    expect(text()).not.toContain("Month by month");
+    expect(host.querySelector('[aria-label="Month by month"]')).toBeNull();
   });
 
   it("says when nothing falls in the period", async () => {

@@ -51,6 +51,15 @@ export type Figures = {
   remaining: Remaining;
 };
 
+/**
+ * An amount as its section shows it, in whole units: unsigned when it runs
+ * the section's way, since the section already says which way that is, and
+ * signed when it runs the other (refunds larger than the spending, say).
+ */
+export function sectionAmount(section: Section, value: number): string {
+  return value < 0 ? signedAmount(section, value) : formatWholeMoney(value);
+}
+
 /** What income and spending leave: saved when positive, overspent when not. */
 export function saved(income: number, spending: number): number {
   return income - spending;

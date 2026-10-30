@@ -9,6 +9,7 @@ import {
   figures,
   formatShare,
   isEmptyPeriod,
+  sectionAmount,
   shareOf,
   signedAmount,
 } from "./figures";
@@ -79,6 +80,19 @@ describe("figures", () => {
   it("know an empty period", () => {
     expect(isEmptyPeriod(report([], []))).toBe(true);
     expect(isEmptyPeriod(report([], [account("rent", 100)]))).toBe(false);
+  });
+});
+
+describe("section amounts", () => {
+  it("leaves the sign off an amount that runs the section's way", () => {
+    expect(sectionAmount("spending", 2500)).toBe("2,500");
+    expect(sectionAmount("income", 120000)).toBe("1,20,000");
+    expect(sectionAmount("spending", 0)).toBe("0");
+  });
+
+  it("signs one that runs the other way", () => {
+    expect(sectionAmount("spending", -500)).toBe("+500");
+    expect(sectionAmount("income", -1000)).toBe(`${MINUS}1,000`);
   });
 });
 

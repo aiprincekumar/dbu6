@@ -8,27 +8,34 @@ import type {
   IncomeExpenses,
   IncomeExpensesAccount,
 } from "../../../shared/index";
-import { barSeries, type ChartBar } from "./chart";
+import { amountInView, type ChartBar } from "./chart";
 import { shadeColor } from "./shade";
 import {
   amountDirection,
   formatShare,
+  sectionAmount,
   shareOf,
-  signedAmount,
   type Section,
 } from "./figures";
-import { ownMonths, sameFocus, sectionRows, type Focus } from "./selection";
+import {
+  DEFAULT_FOCUS,
+  ownMonths,
+  sameFocus,
+  sectionRows,
+  type Focus,
+} from "./selection";
 
 /*
- * Spending and Income as one table of accounts (PLAN.md §11 P4): each
- * section's accounts as their tree, one level open at a time, with what each
- * took in view (the period, or the chart's selected bar), its share of the
- * section as a bar, and its months as a small chart. Names, amounts and bars
- * share columns across both sections, so a name sits beside its amount and
- * the eye runs down each column.
+ * Income and Spending as two sheets of accounts (PLAN.md §11 P4), on one
+ * grid so their columns line up: each section's accounts as their tree, one
+ * level open at a time, with what each took in view (the period, or the
+ * chart's selected bar) and its share of the section as a bar and a
+ * percentage. Each section's heading holds its title and the column labels
+ * over one rule; its total closes it.
  *
  * Every row does one thing on click: it brings its account into focus, and
- * the chart and the entries follow. The chevron alone opens a row.
+ * the chart and the entries beside the table follow. The chevron alone opens
+ * a row. The total row brings its whole section into focus.
  */
 
 const TITLES: Record<Section, string> = {
@@ -36,15 +43,17 @@ const TITLES: Record<Section, string> = {
   income: "Income",
 };
 
+const TOTALS: Record<Section, string> = {
+  spending: "Total spent",
+  income: "Total income",
+};
+
 type RowContext = {
   section: Section;
   sectionTotal: number;
   /** The largest of the section's first rows in view, for the bars' shade. */
   largest: number;
-  /** The row's amount in view: its total, or its months in the bar. */
-  amountOf: (months: readonly number[], total: number) => number;
-  bars: readonly ChartBar[];
-  selectedIndex: number | null;
+  selectedBar: ChartBar | null;
   focus: Focus;
   onFocus: (focus: Focus) => void;
   open: ReadonlySet<number>;
@@ -53,7 +62,6 @@ type RowContext = {
 
 export function AccountTable({
   report,
-  bars,
   selectedBar,
   focus,
   onFocus,
@@ -61,46 +69,24 @@ export function AccountTable({
   onToggle,
 }: {
   report: IncomeExpenses;
-  bars: readonly ChartBar[];
   selectedBar: ChartBar | null;
   focus: Focus;
   onFocus: (focus: Focus) => void;
   open: ReadonlySet<number>;
   onToggle: (accountId: number) => void;
 }) {
-  const amountOf = (months: readonly number[], total: number) =>
-    selectedBar === null
-      ? total
-      : selectedBar.months.reduce(
-          (sum, index) => sum + (months[index] ?? 0),
-          0,
-        );
-  const selectedIndex =
-    selectedBar === null
-      ? null
-      : bars.findIndex((bar) => bar.key === selectedBar.key);
-  const context = {
-    amountOf,
-    bars,
-    selectedIndex,
-    focus,
-    onFocus,
-    open,
-    onToggle,
-  };
-
+  const context = { selectedBar, focus, onFocus, open, onToggle };
   return (
     <section
       role="table"
-      aria-label="Spending and income by account"
-      className="grid grid-cols-[minmax(0,1fr)_auto] rounded-card sm:grid-cols-[minmax(8rem,max-content)_auto_minmax(48px,1fr)_auto_auto] border border-sap-border bg-card pb-2 shadow-card"
+      aria-label="Income and spending by account"
+      className="grid grid-cols-[minmax(0,1fr)_auto] text-row sm:grid-cols-[minmax(8rem,max-content)_auto_minmax(48px,1fr)_auto]"
     >
-      {(["spending", "income"] as const).map((section) => (
+      {(["income", "spending"] as const).map((section) => (
         <SectionRows
           key={section}
           section={section}
           report={report}
-          selectedBar={selectedBar}
           context={context}
         />
       ))}
@@ -111,21 +97,21 @@ export function AccountTable({
 function SectionRows({
   section,
   report,
-  selectedBar,
   context,
 }: {
   section: Section;
   report: IncomeExpenses;
-  selectedBar: ChartBar | null;
   context: Omit<RowContext, "section" | "sectionTotal" | "largest">;
 }) {
+  const { selectedBar } = context;
   const data = report[section];
   const sectionTotal = selectedBar === null ? data.total : selectedBar[section];
-  const months = report.months.map((month) => month[section]);
   const { rows, ownOf } = sectionRows(data.accounts);
   const largest = Math.max(
     0,
-    ...rows.map((account) => context.amountOf(account.months, account.total)),
+    ...rows.map((account) =>
+      amountInView(selectedBar, account.months, account.total),
+    ),
   );
   const rowContext: RowContext = {
     ...context,
@@ -133,35 +119,34 @@ function SectionRows({
     sectionTotal,
     largest,
   };
-  const focus: Focus = { kind: "section", section };
 
   return (
-    <div role="rowgroup" className="col-span-full grid grid-cols-subgrid">
-      <Row
-        context={rowContext}
-        focus={focus}
-        className={cn("pt-3 pb-2", section === "income" && "mt-4")}
-        name={
-          <h2 className="text-heading text-foreground">{TITLES[section]}</h2>
-        }
-        amount={
-          <span
-            className={cn(
-              "tnum font-mono text-[17px] font-semibold",
-              amountDirection(section, sectionTotal) === "in"
-                ? "text-money-in"
-                : "text-foreground",
-            )}
-          >
-            {signedAmount(section, sectionTotal)}
-          </span>
-        }
-        months={months}
-        depth={0}
-        header
-      />
+    <div
+      role="rowgroup"
+      className={cn(
+        "col-span-full grid grid-cols-subgrid",
+        section === "spending" && "mt-10",
+      )}
+    >
+      <div
+        role="row"
+        className="col-span-full mb-1.5 grid grid-cols-subgrid items-end gap-x-4 border-b border-sap-border pb-2 text-meta text-ink-meta"
+      >
+        <div role="columnheader">
+          <h2 className="text-subheading text-foreground">{TITLES[section]}</h2>
+        </div>
+        <div role="columnheader" className="justify-self-end">
+          {selectedBar?.name ?? "Amount"}
+        </div>
+        <div
+          role="columnheader"
+          className="col-span-2 hidden justify-self-end sm:block"
+        >
+          Share
+        </div>
+      </div>
       {data.accounts.length === 0 ? (
-        <p className="col-span-full border-t border-line-inner px-4 py-3 text-meta text-ink-meta">
+        <p className="col-span-full py-1.5 text-meta text-ink-meta">
           No {section} in these months
         </p>
       ) : (
@@ -177,6 +162,14 @@ function SectionRows({
           {ownOf && <OwnRow parent={ownOf} depth={0} context={rowContext} />}
         </>
       )}
+      <Row
+        context={rowContext}
+        focus={{ kind: "section", section }}
+        name={<span className="pl-7">{TOTALS[section]}</span>}
+        total={sectionTotal}
+        depth={0}
+        totalRow
+      />
     </div>
   );
 }
@@ -205,15 +198,14 @@ function AccountRow({
           <span
             title={account.name}
             className={cn(
-              "block max-w-[22rem] truncate text-row text-foreground",
-              depth === 0 ? "font-medium" : "font-normal",
+              "block max-w-[22rem] truncate",
+              depth === 0 ? "text-foreground" : "text-ink-soft",
             )}
           >
             {account.name}
           </span>
         }
-        total={context.amountOf(account.months, account.total)}
-        months={account.months}
+        total={amountInView(context.selectedBar, account.months, account.total)}
         depth={depth}
         expander={
           hasChildren
@@ -257,7 +249,6 @@ function OwnRow({
   depth: number;
   context: RowContext;
 }) {
-  const months = ownMonths(parent);
   const name = `${parent.name}, not in a sub-account`;
   return (
     <Row
@@ -270,13 +261,12 @@ function OwnRow({
       name={
         <span
           title={name}
-          className="block max-w-[22rem] truncate text-row italic text-ink-soft"
+          className="block max-w-[22rem] truncate italic text-ink-soft"
         >
           {name}
         </span>
       }
-      total={context.amountOf(months, parent.own)}
-      months={months}
+      total={amountInView(context.selectedBar, ownMonths(parent), parent.own)}
       depth={depth}
     />
   );
@@ -284,36 +274,31 @@ function OwnRow({
 
 /**
  * One line of the table, on the table's columns: name, amount, share bar,
- * share, months. Clicking anywhere on it but the chevron focuses it.
+ * share. Clicking anywhere on it but the chevron focuses it. Nothing shows
+ * as selected while the page is at rest.
  */
 function Row({
   context,
   focus,
   name,
-  amount,
   total,
-  months,
   depth,
   expander = null,
-  header = false,
-  className,
+  totalRow = false,
 }: {
   context: RowContext;
   focus: Focus;
   name: ReactNode;
-  /** The amount cell, when it isn't `total` as a row shows it. */
-  amount?: ReactNode;
-  total?: number;
-  months: readonly number[];
+  total: number;
   depth: number;
   expander?: { open: boolean; onToggle: () => void; name: string } | null;
-  header?: boolean;
-  className?: string;
+  /** The section's total, closing it under a rule. */
+  totalRow?: boolean;
 }) {
   const { section, sectionTotal } = context;
-  const selected = sameFocus(focus, context.focus);
-  const share =
-    header || total === undefined ? null : shareOf(total, sectionTotal);
+  const selected =
+    sameFocus(focus, context.focus) && !sameFocus(focus, DEFAULT_FOCUS);
+  const share = totalRow ? null : shareOf(total, sectionTotal);
   const select = () => context.onFocus(focus);
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.target !== event.currentTarget) return;
@@ -336,19 +321,16 @@ function Row({
       onClick={select}
       onKeyDown={onKeyDown}
       className={cn(
-        "col-span-full grid cursor-pointer grid-cols-subgrid items-center gap-x-4 pr-4 outline-none",
+        "col-span-full grid min-h-8 cursor-pointer grid-cols-subgrid items-center gap-x-4 pr-1 outline-none",
         "focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/40",
-        !header && "min-h-[38px] border-t border-line-inner",
-        selected
-          ? "bg-primary/[0.07] shadow-[inset_3px_0_0_var(--primary)]"
-          : "hover:bg-muted",
-        className,
+        totalRow && "mt-1 border-t border-sap-border font-semibold",
+        selected ? "bg-primary/[0.07] font-semibold" : "hover:bg-sap-row-hover",
       )}
     >
       <div
         role="rowheader"
-        className="flex min-w-0 items-center gap-1"
-        style={{ paddingLeft: `${8 + depth * 20}px` }}
+        className="flex min-w-0 items-center"
+        style={{ paddingLeft: `${depth * 20}px` }}
       >
         {expander ? (
           <button
@@ -363,33 +345,27 @@ function Row({
           >
             <ChevronRight
               aria-hidden="true"
-              className={cn(
-                "size-4",
-                expander.open && "rotate-90",
-              )}
+              className={cn("size-4", expander.open && "rotate-90")}
             />
           </button>
         ) : (
-          <span aria-hidden="true" className="w-7 shrink-0" />
+          !totalRow && <span aria-hidden="true" className="w-7 shrink-0" />
         )}
         {name}
       </div>
       <div role="cell" className="justify-self-end">
-        {amount ??
-          (total !== undefined && (
-            <span
-              className={cn(
-                "tnum font-mono text-[14.5px]",
-                total === 0
-                  ? "text-ink-meta"
-                  : amountDirection(section, total) === "in"
-                    ? "text-money-in"
-                    : "text-foreground",
-              )}
-            >
-              {total === 0 ? "–" : signedAmount(section, total)}
-            </span>
-          ))}
+        <span
+          className={cn(
+            "tnum font-mono",
+            total === 0
+              ? "text-ink-meta"
+              : amountDirection(section, total) === "in"
+                ? "text-money-in"
+                : "text-foreground",
+          )}
+        >
+          {total === 0 ? "–" : sectionAmount(section, total)}
+        </span>
       </div>
       {/* On a phone, name and amount alone. */}
       <div role="cell" aria-hidden="true" className="hidden min-w-0 sm:block">
@@ -401,9 +377,7 @@ function Row({
               // The biggest account deepest.
               background: shadeColor(
                 section,
-                context.largest > 0
-                  ? Math.min(1, (total ?? 0) / context.largest)
-                  : 0,
+                context.largest > 0 ? Math.min(1, total / context.largest) : 0,
               ),
             }}
           />
@@ -411,56 +385,10 @@ function Row({
       </div>
       <div
         role="cell"
-        className="tnum hidden w-10 sm:block text-right font-mono text-meta text-ink-meta"
+        className="tnum hidden w-10 text-right font-mono text-meta text-ink-meta sm:block"
       >
         {share !== null ? formatShare(share) : null}
       </div>
-      <div role="cell" aria-hidden="true" className="hidden sm:block">
-        <Sparkline
-          values={barSeries(context.bars, months)}
-          selectedIndex={context.selectedIndex}
-          section={section}
-        />
-      </div>
     </div>
-  );
-}
-
-/**
- * An account's bars in the chart's buckets, small: its shape over the
- * period, on its own scale, with the selected bar picked out.
- */
-function Sparkline({
-  values,
-  selectedIndex,
-  section,
-}: {
-  values: readonly number[];
-  selectedIndex: number | null;
-  section: Section;
-}) {
-  if (values.length < 2) return <span className="block w-[84px]" />;
-  const top = Math.max(0, ...values);
-  return (
-    <span className="flex h-5 w-[84px] items-end gap-px">
-      {values.map((value, index) => (
-        <span
-          key={index}
-          className={cn(
-            "min-w-0 flex-1 rounded-t-[1px]",
-            section === "income" ? "bg-money-in" : "bg-foreground",
-            selectedIndex === null
-              ? "opacity-40"
-              : index === selectedIndex
-                ? "opacity-100"
-                : "opacity-20",
-          )}
-          style={{
-            height:
-              top > 0 && value > 0 ? `max(1px, ${(value / top) * 100}%)` : 0,
-          }}
-        />
-      ))}
-    </span>
   );
 }

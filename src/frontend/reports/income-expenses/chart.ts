@@ -109,6 +109,38 @@ export function barSeries(
   );
 }
 
+/**
+ * What an account took in view: its total over the period, or its months in
+ * the selected bar.
+ */
+export function amountInView(
+  bar: ChartBar | null,
+  monthly: readonly number[],
+  total: number,
+): number {
+  return bar === null
+    ? total
+    : bar.months.reduce((sum, index) => sum + (monthly[index] ?? 0), 0);
+}
+
+/**
+ * A series' usual bar: its average over the bars the books reach, so months
+ * not imported yet don't pull it down. Null when the books reach none.
+ */
+export function usualAmount(
+  bars: readonly ChartBar[],
+  values: readonly number[],
+  booksUntil: string | null,
+): number | null {
+  const counted = values.filter(
+    (_, index) =>
+      booksUntil === null || bars[index].dates.first_date <= booksUntil,
+  );
+  return counted.length === 0
+    ? null
+    : counted.reduce((sum, value) => sum + value, 0) / counted.length;
+}
+
 /** The bar with this key, if the chart has one. */
 export function barByKey(
   bars: readonly ChartBar[],

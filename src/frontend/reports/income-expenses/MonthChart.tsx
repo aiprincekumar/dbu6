@@ -6,9 +6,9 @@ import {
   TooltipTrigger,
   X,
 } from "../../report-kit";
-import { barHeight, chartScale, type ChartBar } from "./chart";
-import { signedAmount, type Section } from "./figures";
-import { shadeColor, shades } from "./shade";
+import { barHeight, chartScale, type ChartBar, usualAmount } from "./chart";
+import { sectionAmount, signedAmount, type Section } from "./figures";
+import { shadeColor } from "./shade";
 
 /** An account's bars, drawn in place of income and spending. */
 export type AccountSeries = {
@@ -19,143 +19,93 @@ export type AccountSeries = {
 };
 
 /**
- * Month by month: a pair of bars per month (or financial year), income green
- * and spending ink on one scale; or, while an account is in focus, that
- * account's bars and its average. Each bar is a button; its figures show on
- * hover and focus and are its accessible name. Clicking one selects it, so
- * the accounts and the entries narrow to it; clicking it again lets go.
+ * Month by month, drawn bare under what is in focus: a pair of bars per
+ * month (or financial year), income green and spending warm on one scale;
+ * or, while an account is in focus, that account's bars and their average
+ * over the months the books reach, as a dashed line. The bars are light and the selected one deep. Each bar
+ * is a button; its figures show on hover and focus and are its accessible
+ * name. Clicking one selects it, so the accounts and the entries narrow to
+ * it; clicking it again lets go. Months past the books' last day say so.
  */
 export function MonthChart({
   bars,
   selected,
   onSelect,
   series,
-  onClearSeries,
-  alwaysSelected = false,
-  spendingAverage = null,
+  booksUntil,
 }: {
   bars: readonly ChartBar[];
   selected: string | null;
   onSelect: (key: string | null) => void;
   series: AccountSeries | null;
-  onClearSeries: () => void;
-  /**
-   * A bar is always selected, as Overview's month is: no chip to let go of
-   * it, and clicking it again keeps it.
-   */
-  alwaysSelected?: boolean;
-  /**
-   * The usual month's spending and what it averages, as Overview has it: a
-   * dashed line across the income and spending bars, its figure in the
-   * legend, so the bars have a scale without hovering.
-   */
-  spendingAverage?: { label: string; value: number } | null;
+  /** The books' last day, when the period runs past it. */
+  booksUntil: string | null;
 }) {
   const scale = series ? Math.max(0, ...series.values) : chartScale(bars);
-  const average = series
-    ? series.values.length > 0
-      ? series.values.reduce((sum, value) => sum + value, 0) /
-        series.values.length
-      : null
-    : (spendingAverage?.value ?? null);
+  const average = series && usualAmount(bars, series.values, booksUntil);
   const selectedBar = bars.find((bar) => bar.key === selected) ?? null;
-  // Each series shaded on its own: the heaviest month deepest.
-  const incomeShades = shades(bars.map((bar) => bar.income));
-  const spendingShades = shades(bars.map((bar) => bar.spending));
-  const seriesShades = series ? shades(series.values) : [];
 
   return (
-    <ChartCard
-      title={
-        series ? (
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate">{series.name}</span>{" "}
-            <span className="shrink-0 text-ink-meta">by month</span>
-            <button
-              type="button"
-              onClick={onClearSeries}
-              aria-label="Show income and spending"
-              title="Show income and spending"
-              className="grid size-6 shrink-0 place-items-center rounded-control text-ink-meta outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          </span>
-        ) : (
-          "Month by month"
-        )
-      }
-      legend={
-        series ? (
-          average !== null && (
-            <li className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="w-4 border-t-2 border-dashed border-ink-meta"
-              />
-              <span className="tnum font-mono">
-                Average {signedAmount(series.section, average)}
-              </span>
-            </li>
-          )
-        ) : (
-          <>
-            <LegendItem section="income">Income</LegendItem>
-            <LegendItem section="spending">Spending</LegendItem>
-            {spendingAverage && (
+    <section aria-label="Month by month" className="mt-5">
+      <div className="flex min-h-7 flex-wrap items-center gap-x-5 gap-y-2 text-meta text-ink-soft">
+        <ul className="flex gap-5">
+          {series ? (
+            average !== null && (
               <li className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
                   className="w-4 border-t-2 border-dashed border-ink-meta"
                 />
                 <span className="tnum font-mono">
-                  {spendingAverage.label}{" "}
-                  {signedAmount("spending", spendingAverage.value)}
+                  Average {sectionAmount(series.section, average)}
                 </span>
               </li>
-            )}
-          </>
-        )
-      }
-      selected={
-        selectedBar &&
-        !alwaysSelected && (
+            )
+          ) : (
+            <>
+              <LegendItem section="income">Income</LegendItem>
+              <LegendItem section="spending">Spending</LegendItem>
+            </>
+          )}
+        </ul>
+        {selectedBar && (
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="flex h-7 items-center gap-1.5 rounded-full border border-sap-border-strong bg-card pl-3 pr-2 text-meta text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            className="ml-auto flex h-7 items-center gap-1.5 rounded-full border border-sap-border-strong bg-card pl-3 pr-2 text-meta text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/40"
             title="Show every month (Esc)"
           >
             {selectedBar.name}
             <X className="size-3.5 text-ink-meta" aria-hidden="true" />
           </button>
-        )
-      }
-    >
-      <div className="-mx-2 mt-3 overflow-x-auto px-2 pb-1">
+        )}
+      </div>
+      <div className="-mx-2 mt-2 overflow-x-auto px-2 pb-1">
         <ol className="flex min-w-full">
           {bars.map((bar, index) => {
             const dimmed = selected !== null && bar.key !== selected;
             const isSelected = bar.key === selected;
-            const description = series
-              ? `${bar.name} · ${series.name} ${signedAmount(series.section, series.values[index] ?? 0)}`
-              : bar.description;
+            const notInBooks =
+              booksUntil !== null && bar.dates.first_date > booksUntil;
+            const description = notInBooks
+              ? `${bar.name} · not in your books yet`
+              : series
+                ? `${bar.name} · ${series.name} ${signedAmount(series.section, series.values[index] ?? 0)}`
+                : bar.description;
             return (
-              <li key={bar.key} className="flex min-w-[42px] flex-1">
+              <li key={bar.key} className="flex min-w-[38px] flex-1">
                 <Tooltip>
                   <TooltipTrigger
                     delay={0}
                     closeDelay={0}
                     aria-label={description}
                     aria-pressed={isSelected}
-                    onClick={() =>
-                      onSelect(isSelected && !alwaysSelected ? null : bar.key)
-                    }
-                    className="group flex w-full flex-col items-center rounded-control px-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+                    onClick={() => onSelect(isSelected ? null : bar.key)}
+                    className="group flex w-full flex-col items-center rounded-control px-0.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
                   >
                     <span
                       className={cn(
-                        "relative flex h-[116px] w-full items-end justify-center gap-[3px] rounded-t-control border-b border-sap-border-strong group-hover:bg-muted",
+                        "relative flex h-[104px] w-full items-end justify-center gap-[3px] rounded-t-control border-b border-sap-border-strong group-hover:bg-muted",
                         isSelected && "bg-muted",
                       )}
                     >
@@ -167,12 +117,19 @@ export function MonthChart({
                           style={{ bottom: `${(average / scale) * 100}%` }}
                         />
                       )}
-                      {series ? (
+                      {notInBooks ? (
+                        <span
+                          aria-hidden="true"
+                          className="pb-1 text-center text-[11px] leading-tight text-ink-meta"
+                        >
+                          not in books
+                        </span>
+                      ) : series ? (
                         <Bar
                           value={series.values[index] ?? 0}
                           scale={scale}
                           tone={series.section}
-                          shade={seriesShades[index] ?? null}
+                          deep={isSelected}
                           dimmed={dimmed}
                           wide
                         />
@@ -182,14 +139,14 @@ export function MonthChart({
                             value={bar.income}
                             scale={scale}
                             tone="income"
-                            shade={incomeShades[index] ?? null}
+                            deep={isSelected}
                             dimmed={dimmed}
                           />
                           <Bar
                             value={bar.spending}
                             scale={scale}
                             tone="spending"
-                            shade={spendingShades[index] ?? null}
+                            deep={isSelected}
                             dimmed={dimmed}
                           />
                         </>
@@ -197,7 +154,7 @@ export function MonthChart({
                     </span>
                     <span
                       className={cn(
-                        "mt-2 text-meta",
+                        "mt-1.5 text-meta",
                         isSelected
                           ? "font-semibold text-foreground"
                           : "text-ink-soft",
@@ -218,46 +175,11 @@ export function MonthChart({
           })}
         </ol>
       </div>
-    </ChartCard>
-  );
-}
-
-/** The chart's card while its figures load. */
-export function MonthChartSkeleton() {
-  return (
-    <ChartCard title="Month by month">
-      <div
-        aria-hidden="true"
-        className="mt-3 h-[116px] rounded-control bg-sap-nested"
-      />
-    </ChartCard>
-  );
-}
-
-function ChartCard({
-  title,
-  legend,
-  selected,
-  children,
-}: {
-  title: ReactNode;
-  legend?: ReactNode;
-  selected?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="mt-5 rounded-card border border-sap-border bg-card px-4 py-3 shadow-card">
-      <div className="flex min-h-7 flex-wrap items-center gap-x-6 gap-y-2">
-        <h2 className="min-w-0 text-subheading text-foreground">{title}</h2>
-        <ul className="flex gap-5 text-meta text-ink-soft">{legend}</ul>
-        <div className="ml-auto">{selected}</div>
-      </div>
-      {children}
     </section>
   );
 }
 
-/** A series' name beside its hue, light to deep. */
+/** A series' name beside its hue. */
 function LegendItem({
   section,
   children,
@@ -269,10 +191,8 @@ function LegendItem({
     <li className="flex items-center gap-2">
       <span
         aria-hidden="true"
-        className="h-2.5 w-5 rounded-[3px]"
-        style={{
-          background: `linear-gradient(to right, ${shadeColor(section, 0)}, ${shadeColor(section, 1)})`,
-        }}
+        className="h-2.5 w-4 rounded-[3px]"
+        style={{ background: shadeColor(section, 0) }}
       />
       {children}
     </li>
@@ -283,14 +203,15 @@ function Bar({
   value,
   scale,
   tone,
-  shade,
+  deep,
   dimmed,
   wide = false,
 }: {
   value: number;
   scale: number;
   tone: Section;
-  shade: number | null;
+  /** The selected bar, in the section's deepest shade. */
+  deep: boolean;
   dimmed: boolean;
   wide?: boolean;
 }) {
@@ -300,13 +221,13 @@ function Bar({
       aria-hidden="true"
       className={cn(
         "rounded-t-[3px]",
-        wide ? "w-[56%] max-w-[36px]" : "w-[34%] max-w-[26px]",
+        wide ? "w-[56%] max-w-[30px]" : "w-[34%] max-w-[22px]",
         dimmed && "opacity-25",
       )}
       style={{
         // A sliver stays visible; nothing at all draws nothing.
         height: height > 0 ? `max(2px, ${height * 100}%)` : 0,
-        background: shade === null ? undefined : shadeColor(tone, shade),
+        background: shadeColor(tone, deep ? 1 : 0),
       }}
     />
   );

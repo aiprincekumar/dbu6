@@ -2,14 +2,16 @@ import {
   accountLedgerHref,
   apiErrorMessage,
   cn,
+  type Direction,
   FRESH_QUERY,
   formatShortDate,
   journalHref,
   Link,
   plural,
   queryOptions,
-  ToggleGroup,
-  ToggleGroupItem,
+  type ReactNode,
+  SheetHead,
+  Th,
   useQuery,
   useState,
   X,
@@ -21,20 +23,36 @@ import type {
   IncomeExpensesEntry,
 } from "../../../shared/index";
 import { inBar, type ChartBar } from "./chart";
-import { amountDirection, signedAmount, type Section } from "./figures";
-import { findAccount, subtreeIds, type Focus } from "./selection";
+import { amountDirection, sectionAmount, type Section } from "./figures";
+import {
+  DEFAULT_FOCUS,
+  findAccount,
+  sameFocus,
+  subtreeIds,
+  type Focus,
+} from "./selection";
 
 /*
- * The entries behind what is in focus (PLAN.md §11 P4), beside the table:
- * a section's, an account's with its sub-accounts', or a parent's own, over
- * the period or the chart's selected bar. Largest first, since the question
- * is usually "what made this so big"; or by date, as a ledger reads. Each
- * opens its journal; the account's ledger is one link away.
+ * The one thing in focus (PLAN.md §11 P4), beside the table: a section, an
+ * account with its sub-accounts, or a parent's own, over the period or the
+ * chart's selected bar. Its figures, its months in the chart, then the
+ * entries behind it: largest first, since the question is usually "what
+ * made this so big", or by date, as a ledger reads. Each entry opens its
+ * journal; the account's ledger is one link away. At rest it is income and
+ * spending side by side, with spending's entries.
  */
 
 const FIRST_ROWS = 50;
 
 type Order = "largest" | "date";
+
+/** One of the focus's figures, as a label over its value. */
+export type DetailFigure = {
+  label: string;
+  figure: string;
+  /** Null for a figure with no direction, such as a share. */
+  direction: Direction | null;
+};
 
 function entriesQuery(section: Section, dates: DateSpan) {
   return queryOptions({
@@ -65,6 +83,8 @@ export function EntriesPanel({
   selectedBar,
   focus,
   onClose,
+  figures,
+  chart,
   className,
 }: {
   report: IncomeExpenses;
@@ -74,6 +94,9 @@ export function EntriesPanel({
   focus: Focus;
   /** Null when there is nothing to close back to. */
   onClose: (() => void) | null;
+  figures: readonly DetailFigure[];
+  /** The focus's months, when the period has more than one. */
+  chart: ReactNode;
   className?: string;
 }) {
   const [order, setOrder] = useState<Order>("largest");
@@ -90,7 +113,7 @@ export function EntriesPanel({
       : focus.kind === "own"
         ? new Set([focus.accountId])
         : subtreeIds(account);
-  // Name each entry's account when the panel spans more than one.
+  // Name each entry's account when the list spans more than one.
   const namesAccounts = accountIds === null || accountIds.size > 1;
   const accountNames = new Map<number, string>();
   const collect = (accounts: IncomeExpenses["income"]["accounts"]) => {
@@ -110,13 +133,13 @@ export function EntriesPanel({
     order === "largest"
       ? [...entries].sort((a, b) => b.amount - a.amount)
       : [...entries].reverse();
-  const total = entries.reduce((sum, entry) => sum + entry.amount, 0);
   const shown = showAll ? sorted : sorted.slice(0, FIRST_ROWS);
+  const sectionName = section === "spending" ? "Spending" : "Income";
   const title =
     account === null
-      ? section === "spending"
-        ? "Spending"
-        : "Income"
+      ? sameFocus(focus, DEFAULT_FOCUS)
+        ? "Income and spending"
+        : sectionName
       : focus.kind === "own"
         ? `${account.name}, not in a sub-account`
         : account.name;
@@ -130,82 +153,95 @@ export function EntriesPanel({
 
   return (
     <aside
-      aria-label={`Entries: ${title}`}
-      className={cn(
-        "flex min-h-0 flex-col rounded-card border border-sap-border bg-card shadow-card",
-        className,
-      )}
+      aria-label={`In focus: ${title}`}
+      className={cn("flex min-h-0 flex-col", className)}
     >
-      <header className="border-b border-line-inner px-4 pt-3 pb-3">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-heading text-foreground" title={title}>
-              {title}
-            </h2>
-            <p className="mt-0.5 text-meta text-ink-meta">
-              {selectedBar?.name ?? periodLabel}
-              {query.data && ` · ${plural(entries.length, "entry", "entries")}`}
-            </p>
-          </div>
-          {query.data && (
+      <table className="w-full border-collapse text-row">
+        <SheetHead
+          title={
             <span
+              className="inline-block max-w-[24rem] truncate align-bottom"
+              title={title}
+            >
+              {title}
+            </span>
+          }
+          open={
+            ledgerHref
+              ? { to: ledgerHref, name: "Account ledger", label: "Open ledger" }
+              : undefined
+          }
+        >
+          <Th>{selectedBar?.name ?? periodLabel}</Th>
+          {onClose && (
+            <Th className="w-0 pl-2">
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                title="Close (Esc)"
+                className="-my-1 grid size-6 place-items-center rounded-control text-ink-meta outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            </Th>
+          )}
+        </SheetHead>
+      </table>
+      <dl className="mt-2 flex flex-wrap gap-x-9 gap-y-2">
+        {figures.map((figure) => (
+          <div key={figure.label} className="min-w-0">
+            <dt className="text-meta text-ink-meta">{figure.label}</dt>
+            <dd
               className={cn(
-                "tnum mt-0.5 font-mono text-[17px] font-semibold",
-                amountDirection(section, total) === "in"
-                  ? "text-money-in"
-                  : "text-foreground",
+                "tnum font-mono text-[17px] font-medium",
+                figure.direction === "in" ? "text-money-in" : "text-foreground",
               )}
             >
-              {signedAmount(section, total)}
+              {figure.figure}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {chart}
+      <table className="mt-8 w-full border-collapse text-row">
+        <SheetHead
+          title={
+            <>
+              {account === null ? `${sectionName} entries` : "Entries"}
+              {query.data && (
+                <span className="ml-2 text-meta font-normal text-ink-meta">
+                  {plural(entries.length, "entry", "entries")}
+                </span>
+              )}
+            </>
+          }
+        >
+          <Th>
+            <span role="group" aria-label="Order" className="flex gap-3">
+              <OrderButton order="largest" current={order} onPick={setOrder}>
+                Largest
+              </OrderButton>
+              <OrderButton order="date" current={order} onPick={setOrder}>
+                Latest
+              </OrderButton>
             </span>
-          )}
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              title="Close (Esc)"
-              className="-mr-1 grid size-8 shrink-0 place-items-center rounded-control text-ink-meta outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <ToggleGroup<Order>
-            aria-label="Order"
-            value={[order]}
-            onValueChange={(value) => {
-              const [next] = value;
-              if (next !== undefined) setOrder(next);
-            }}
-          >
-            <ToggleGroupItem<Order> value="largest">Largest</ToggleGroupItem>
-            <ToggleGroupItem<Order> value="date">Latest</ToggleGroupItem>
-          </ToggleGroup>
-          {ledgerHref && (
-            <Link
-              to={ledgerHref}
-              className="text-meta font-medium text-sap-link no-underline hover:underline"
-            >
-              Open ledger ›
-            </Link>
-          )}
-        </div>
-      </header>
+          </Th>
+        </SheetHead>
+      </table>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {query.isError ? (
-          <p className="px-4 py-3 text-meta text-ink-meta">
+          <p className="py-1.5 text-meta text-ink-meta">
             Couldn't load the entries: {apiErrorMessage(query.error)}
           </p>
         ) : !query.data ? (
-          <ul aria-hidden="true" className="px-4 py-2">
+          <ul aria-hidden="true">
             {[0, 1, 2, 3, 4].map((i) => (
-              <li key={i} className="my-2 h-9 rounded-control bg-sap-nested" />
+              <li key={i} className="my-2 h-8 rounded-control bg-sap-nested" />
             ))}
           </ul>
         ) : entries.length === 0 ? (
-          <p className="px-4 py-3 text-meta text-ink-meta">
+          <p className="py-1.5 text-meta text-ink-meta">
             No entries in {selectedBar?.name ?? "these months"}
           </p>
         ) : (
@@ -223,7 +259,7 @@ export function EntriesPanel({
               />
             ))}
             {!showAll && sorted.length > FIRST_ROWS && (
-              <li className="border-t border-line-inner px-4 py-2">
+              <li className="py-1.5">
                 <button
                   type="button"
                   onClick={() => setShowAll(true)}
@@ -237,6 +273,36 @@ export function EntriesPanel({
         )}
       </div>
     </aside>
+  );
+}
+
+/** One of the entries' orders, as a word that is underlined when chosen. */
+function OrderButton({
+  order,
+  current,
+  onPick,
+  children,
+}: {
+  order: Order;
+  current: Order;
+  onPick: (order: Order) => void;
+  children: ReactNode;
+}) {
+  const on = order === current;
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={() => onPick(order)}
+      className={cn(
+        "rounded-control outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
+        on
+          ? "font-semibold text-foreground underline underline-offset-4"
+          : "text-ink-meta hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -255,13 +321,13 @@ function EntryRow({
       <Link
         to={journalHref(entry.journal_id)}
         title="Open journal"
-        className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-baseline gap-x-3 border-t border-line-inner px-4 py-2 text-foreground no-underline outline-none first:border-t-0 hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/40"
+        className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-baseline gap-x-3 py-1.5 text-foreground no-underline outline-none hover:bg-sap-row-hover focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/40"
       >
         <span className="tnum font-mono text-meta text-ink-meta">
           {formatShortDate(entry.date)}
         </span>
         <span className="min-w-0">
-          <span className="block truncate text-[14px]" title={entry.narration}>
+          <span className="block truncate" title={entry.narration}>
             {entry.narration || "—"}
           </span>
           {meta && (
@@ -272,13 +338,13 @@ function EntryRow({
         </span>
         <span
           className={cn(
-            "tnum font-mono text-[14px]",
+            "tnum font-mono",
             amountDirection(section, entry.amount) === "in"
               ? "text-money-in"
               : "text-foreground",
           )}
         >
-          {signedAmount(section, entry.amount)}
+          {sectionAmount(section, entry.amount)}
         </span>
       </Link>
     </li>
