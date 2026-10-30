@@ -33,7 +33,7 @@ token, by the app as it hands a prompt to the coding agent
 (`src/server/modules/coding-agent/agent-access.ts`); the prompts dbu6 hands a person's
 agent name that command and the CLI rather than installation steps, and
 `dbu6 check` reports the bin, the project's link to it, and whether
-`.env.agent` holds a token. The Sapporta skill is the agent's own and lives on the
+`.env.agent` holds a token the app accepts. The Sapporta skill is the agent's own and lives on the
 machine, not in the project: the agent installs it when it is missing, as
 `template/AGENTS.md` tells it to. `dbu6 check` does not look for it.
 

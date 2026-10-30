@@ -30,6 +30,7 @@ import {
   ensureAgentToken,
   mintAgentToken,
   SampleAccountError,
+  workingAgentToken,
   writeAgentToken,
   type AgentTokenOwner,
 } from "./agent-access.js";
@@ -308,5 +309,39 @@ describe("ensureAgentToken", () => {
 
     expect(readProjectApiToken(root)).toBeUndefined();
     expect(liveTokens(conn, owner)).toEqual([]);
+  });
+});
+
+describe("workingAgentToken", () => {
+  it("is the file's token when this database accepts it", () => {
+    const { conn, owner } = books();
+    const root = tempRoot();
+    const written = writeAgentToken(conn, owner, root, "dbu6 agent env");
+
+    expect(workingAgentToken(conn, root)).toBe(written.apiToken);
+  });
+
+  it("is undefined for no file, a blank token, a revoked one or one from other books", () => {
+    const { conn, owner } = books();
+
+    expect(workingAgentToken(conn, tempRoot())).toBeUndefined();
+
+    const blank = tempRoot();
+    writeFile(blank, "SAPPORTA_API_TOKEN=\n");
+    expect(workingAgentToken(conn, blank)).toBeUndefined();
+
+    const revoked = tempRoot();
+    const old = writeAgentToken(conn, owner, revoked, "dbu6 agent env");
+    revokeAuthToken(
+      conn,
+      owner.user.id,
+      old.tokenId,
+      owner.membership.workspace.id,
+    );
+    expect(workingAgentToken(conn, revoked)).toBeUndefined();
+
+    const other = tempRoot();
+    writeFile(other, `SAPPORTA_API_TOKEN=${SAMPLE_TOKEN}\n`);
+    expect(workingAgentToken(conn, other)).toBeUndefined();
   });
 });

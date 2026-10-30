@@ -352,10 +352,10 @@ signed-in owner, once an agent and a model can run, when `.env.agent` holds no
 token the app accepts: a missing one, or one revoked, expired or from other
 books. A token that works is left alone, whoever it is for, and nothing is
 minted for a request that may not manage tokens (`requestMayManageTokens`).
-Both write through
-`modules/coding-agent/agent-access.ts`, which chmods the file as well as
-writing it: `mode` on a write applies only to a file it creates, and the file is
-a credential however it got there. Its `mintAgentToken` refuses the sample
+Both write through `modules/coding-agent/agent-access.ts`, which writes the
+file with Sapporta's `writeProjectApiToken`, owner-only however it got there,
+and `dbu6 agent env --print` exports the same working token
+(`workingAgentToken`). Its `mintAgentToken` refuses the sample
 account [the seed](#sample-data) makes (`isSampleAccount`,
 `project-auth/demo-account.ts`), because seeding replaces that account's books;
 the handoff skips it rather than fail. Which account `agent env` uses is
@@ -368,8 +368,9 @@ nothing.
 `dbu6 check`'s Tools section runs the shipped wrapper's `--version`, resolves the
 project's own `node_modules/.bin/sapporta` — the entry `npx sapporta …` runs —
 to that wrapper rather than `@sapporta/server`'s bin, and reports whether
-`.env.agent` holds a token, so a broken, missing or impersonated CLI cannot
-reach a person's agent unnoticed.
+`.env.agent` holds a token the app accepts (`workingAgentToken`), so a broken,
+missing or impersonated CLI, or a revoked token, cannot reach a person's agent
+unnoticed.
 
 ## Project layout
 
@@ -610,7 +611,7 @@ sits above the rest of the Node side: it alone may import both `src/server` and
 | `setup` | the env file, an auth secret, `user-config/` |
 | `parser test [name]`, `parser run <name> <input>` | a parser's tests, or a parser on a file, with `shared` on `PYTHONPATH` |
 | `docs [name]` | print a packaged guide (`GUIDES` in `src/shared/guides.ts`); lists them with no name |
-| `agent env [--print] [--user <email>]` | mint the project's coding agent a Sapporta token: `.env.agent` (mode `0600`, gitignored), revoking the coding-agent tokens dbu6 wrote for that account before, a prompt handoff's included; `--print` exports the token the file already holds instead |
+| `agent env [--print] [--user <email>]` | mint the project's coding agent a Sapporta token: `.env.agent` (mode `0600`, gitignored), revoking the coding-agent tokens dbu6 wrote for that account before, a prompt handoff's included; `--print` exports the working token the file already holds instead, or a fresh unstored one |
 | `init <directory> [--dbu6 <spec>]` | a new project: `template/` rendered (the name from the directory, dbu6 pinned to this package's exact version, `gitignore` written as `.gitignore`), `npm install`, then the installed package's `setup` and `migrate`, and a first commit when git is installed. Refuses a directory with anything in it. `--dbu6` installs another spec, such as a tarball, for an unpublished build |
 
 A scratch project, say to try a report, is made like

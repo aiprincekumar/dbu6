@@ -24,22 +24,19 @@
  * `--print`. Once the new one is safely on disk, the coding-agent tokens dbu6
  * wrote earlier for that account and workspace are revoked, a prompt
  * handoff's included, so a project does not collect one live token per run; a
- * token made in the app is left alone. `--print` prefers the file the project
- * already has, so it mints nothing in the case it is normally used.
+ * token made in the app is left alone. `--print` prefers the working token the
+ * project already has, so it mints nothing in the case it is normally used.
  */
 import { existsSync } from "node:fs";
 import { parseArgs } from "node:util";
-import {
-  PROJECT_API_TOKEN_FILE,
-  readProjectApiToken,
-  userPrincipal,
-} from "@sapporta/server";
+import { PROJECT_API_TOKEN_FILE, userPrincipal } from "@sapporta/server";
 import {
   findFirstMembership,
   membershipFromRow,
 } from "../server/project-auth/index.js";
 import {
   mintAgentToken,
+  workingAgentToken,
   writeAgentToken,
 } from "../server/modules/coding-agent/index.js";
 import { openDbu6Runtime } from "../server/runtime.js";
@@ -62,10 +59,10 @@ const USAGE = `Usage: dbu6 agent env [--print] [--user <email>]
 
   --print          Write the same token as an \`export\` line to stdout
                    instead, for \`eval "$(dbu6 agent env --print)"\`. A
-                   project that already has .env.agent gets the token it
-                   holds, and nothing is minted; one that does not gets a
-                   fresh token, which nothing stores, so a later run of this
-                   command revokes it.
+                   project whose .env.agent holds a working token gets that
+                   one, and nothing is minted; any other gets a fresh token,
+                   which nothing stores, so a later run of this command
+                   revokes it.
   --user <email>   The account the token is for, or its user id when one email
                    is in more than one workspace. Only needed when the project
                    has more than one account.`;
@@ -132,10 +129,11 @@ export async function agentCommand(
     const accounts = agentAccounts(runtime.conn);
     const account = chooseAgentAccount(accounts, { user });
     if (print) {
-      // The token to export is the one the project already uses: printing it
-      // mints nothing, so `eval "$(dbu6 agent env --print)"` cannot leave a
-      // trail of live tokens behind.
-      const apiToken = readProjectApiToken(root);
+      // The token to export is the one the project already uses, when the app
+      // accepts it: printing it mints nothing, so
+      // `eval "$(dbu6 agent env --print)"` cannot leave a trail of live
+      // tokens behind.
+      const apiToken = workingAgentToken(runtime.conn, root);
       if (apiToken !== undefined) {
         process.stdout.write(agentEnvExports({ apiToken }));
         return 0;
@@ -163,7 +161,7 @@ export async function agentCommand(
       // revokes it, like any other coding-agent token dbu6 wrote.
       const minted = mintAgentToken(runtime.conn, owner, "dbu6 agent env");
       process.stderr.write(
-        `No ${PROJECT_API_TOKEN_FILE} in this project, so this token is not stored: run \`dbu6 agent env\` to keep one there.\n`,
+        `${PROJECT_API_TOKEN_FILE} holds no token the app accepts, so this token is not stored: run \`dbu6 agent env\` to keep one there.\n`,
       );
       process.stdout.write(agentEnvExports(minted));
       return 0;

@@ -40,6 +40,7 @@ import {
   relative,
   resolve,
 } from "node:path";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import {
   pendingMigrations,
   PROJECT_API_TOKEN_FILE,
@@ -51,7 +52,10 @@ import {
   readTransactionMappings,
   TRANSACTION_MAPPINGS_FILENAME,
 } from "../server/modules/categorization/index.js";
-import { chosenCodingAgent } from "../server/modules/coding-agent/index.js";
+import {
+  chosenCodingAgent,
+  workingAgentToken,
+} from "../server/modules/coding-agent/index.js";
 import { readEveryImportPreset } from "../server/modules/import-presets/index.js";
 import { parserDirectory } from "../server/modules/statement-sources/index.js";
 import {
@@ -183,19 +187,44 @@ async function checkSapportaCli(root?: string): Promise<CheckLine[]> {
   }
   if (root !== undefined) {
     lines.push(checkSapportaOnPath(root, wrapper));
-    lines.push(
-      readProjectApiToken(root) !== undefined
-        ? ok(
-            "Agent token",
-            `${PROJECT_API_TOKEN_FILE} holds one; \`npx sapporta\` reads it by itself`,
-          )
-        : info(
-            "Agent token",
-            `no token in ${PROJECT_API_TOKEN_FILE}; run \`dbu6 agent env\` to give this project's coding agents one`,
-          ),
-    );
+    lines.push(await checkAgentToken(root));
   }
   return lines;
+}
+
+/**
+ * Whether the project's agents have a token the app accepts: the one in
+ * `.env.agent`, checked against the books (`workingAgentToken`), so a revoked,
+ * expired or other books' token is not reported as ready. With no database
+ * yet there is nothing to check it against, and a token is only reported as
+ * there.
+ */
+async function checkAgentToken(root: string): Promise<CheckLine> {
+  const missing = info(
+    "Agent token",
+    `no token in ${PROJECT_API_TOKEN_FILE} the app accepts; run \`dbu6 agent env\` to give this project's coding agents one`,
+  );
+  if (readProjectApiToken(root) === undefined) return missing;
+  const file = databaseFile(root);
+  if (!existsSync(file)) {
+    return info(
+      "Agent token",
+      `${PROJECT_API_TOKEN_FILE} holds one, not yet checked: there is no database to check it against`,
+    );
+  }
+  const { default: Database } = await import("better-sqlite3");
+  const sqlite = new Database(file, { readonly: true });
+  try {
+    return workingAgentToken({ sqlite, db: drizzle(sqlite) }, root) !==
+      undefined
+      ? ok(
+          "Agent token",
+          `${PROJECT_API_TOKEN_FILE} holds one the app accepts; \`npx sapporta\` reads it by itself`,
+        )
+      : missing;
+  } finally {
+    sqlite.close();
+  }
 }
 
 /** The names a bin takes, whichever platform linked it. */

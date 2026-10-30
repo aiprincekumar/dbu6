@@ -10,7 +10,13 @@ import {
   migrateUpTo,
   tempDir,
 } from "../server/migrations.test.support.js";
+import { userPrincipal } from "@sapporta/server";
 import { packageDir } from "../server/paths.js";
+import {
+  createAuthToken,
+  findMembership,
+  membershipFromRow,
+} from "../server/project-auth/index.js";
 import {
   checkConfig,
   checkMigrations,
@@ -237,8 +243,38 @@ describe("checkTools", () => {
     expect(line!.detail).toContain("dbu6 agent env");
   }, 30_000);
 
-  it("takes a project that has one as ready for an agent", async () => {
-    write(".env.agent", "SAPPORTA_API_TOKEN=spat_05050500_050505\n");
+  /** The project's books, holding one owner and a token for them. */
+  function booksWithToken(): string {
+    mkdirSync(join(root, "data"), { recursive: true });
+    const sqlite = new Database(join(root, "data", "sqlite.db"));
+    const conn = { sqlite, db: drizzle(sqlite) };
+    migrate(conn.db, { migrationsFolder: packageDir("migrations") });
+    sqlite.exec(`
+      INSERT INTO user (id, name, email, emailVerified)
+        VALUES ('05050500-owner', 'NOPII OWNER', 'sample@example.com', 1);
+      INSERT INTO organization (id, name, slug, createdAt)
+        VALUES ('05050500-org', 'NOPII Workspace', 'nopii', 0);
+      INSERT INTO member (id, organizationId, userId, role, createdAt)
+        VALUES ('05050500-member', '05050500-org', '05050500-owner', 'owner', 0);
+    `);
+    const owner = userPrincipal({
+      user: {
+        id: "05050500-owner",
+        email: "sample@example.com",
+        name: "NOPII OWNER",
+        emailVerified: true,
+      },
+      membership: membershipFromRow(
+        findMembership(conn, "05050500-owner", "05050500-org")!,
+      ),
+    });
+    const { rawToken } = createAuthToken(conn, owner, { name: "sample" });
+    sqlite.close();
+    return rawToken;
+  }
+
+  it("takes a project whose token the app accepts as ready for an agent", async () => {
+    write(".env.agent", `SAPPORTA_API_TOKEN=${booksWithToken()}\n`);
 
     const [line] = (await checkTools(root)).filter(
       (entry) => entry.name === "Agent token",
@@ -246,6 +282,29 @@ describe("checkTools", () => {
 
     expect(line).toMatchObject({ status: "ok" });
     expect(line!.detail).toContain(".env.agent");
+  }, 30_000);
+
+  it("does not take a token the app refuses as ready", async () => {
+    booksWithToken();
+    write(".env.agent", "SAPPORTA_API_TOKEN=spat_05050500_050505\n");
+
+    const [line] = (await checkTools(root)).filter(
+      (entry) => entry.name === "Agent token",
+    );
+
+    expect(line).toMatchObject({ status: "info" });
+    expect(line!.detail).toContain("dbu6 agent env");
+  }, 30_000);
+
+  it("says a token is unchecked when there is no database yet", async () => {
+    write(".env.agent", "SAPPORTA_API_TOKEN=spat_05050500_050505\n");
+
+    const [line] = (await checkTools(root)).filter(
+      (entry) => entry.name === "Agent token",
+    );
+
+    expect(line).toMatchObject({ status: "info" });
+    expect(line!.detail).toContain("not yet checked");
   }, 30_000);
 });
 

@@ -123,11 +123,23 @@ export function writeAgentToken(
 }
 
 /**
- * Gives the project a token when its `.env.agent` holds none this database
- * accepts. A token that still works is left alone, whoever it is for: it may
- * be one the person chose, or one another account's agent uses. One that was
- * revoked, has expired or belongs to other books is replaced, since the agent
- * would otherwise start with a credential the app refuses.
+ * The token the project's agents use: the one its `.env.agent` holds, when
+ * this database accepts it. Whoever it is for, since it may be one the person
+ * chose or one another account's agent uses. Undefined when the file holds
+ * none, or one that was revoked, has expired or belongs to other books, which
+ * the app would refuse.
+ */
+export function workingAgentToken(
+  conn: ProjectDbConnection,
+  root: string,
+): string | undefined {
+  const stored = readProjectApiToken(root);
+  return stored !== undefined && tokenIsLive(conn, stored) ? stored : undefined;
+}
+
+/**
+ * Gives the project a token for `owner` when it has no working one, so the
+ * agent does not start with a credential the app refuses.
  *
  * Nothing for the sample account: the handoff goes ahead, and its agent asks
  * for access as it would without this.
@@ -137,8 +149,7 @@ export function ensureAgentToken(
   owner: AgentTokenOwner,
   root: string,
 ): void {
-  const stored = readProjectApiToken(root);
-  if (stored !== undefined && tokenIsLive(conn, stored)) return;
+  if (workingAgentToken(conn, root) !== undefined) return;
   try {
     writeAgentToken(conn, owner, root, "Prompt handoff");
   } catch (err) {

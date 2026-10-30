@@ -18,6 +18,7 @@ export {
 } from "./handoff.js";
 export {
   mintAgentToken,
+  workingAgentToken,
   writeAgentToken,
   type AgentTokenMinter,
   type AgentTokenOwner,
