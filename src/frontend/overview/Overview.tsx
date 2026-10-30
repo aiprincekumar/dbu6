@@ -112,8 +112,10 @@ export function Overview() {
               that month's. */}
           <MonthPicker overview={overview} onPick={setMonth} />
           <MonthFigures overview={overview} />
-          {/* Where the month's money went on the left, where it stands on the right. */}
-          <div className="grid items-start gap-x-10 lg:grid-cols-2">
+          {/* Where the month's money went on the left, where it stands on the
+              right. Two columns only once both tables fit, and neither narrower
+              than its table, so neither runs into the gap. */}
+          <div className="grid items-start gap-x-10 xl:grid-cols-[repeat(2,minmax(min-content,1fr))]">
             <div className="min-w-0">
               <Categories overview={overview} />
             </div>
