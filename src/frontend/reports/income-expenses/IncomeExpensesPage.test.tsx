@@ -250,7 +250,8 @@ describe("Income and Expenses", () => {
     expect(text()).toContain("1 October 2025 – 16 September 2026");
     expect(text()).toContain("50,000");
     expect(text()).not.toContain("+50,000");
-    expect(text()).toContain("53%");
+    expect(text()).toContain("53% of income");
+    expect(text()).not.toContain("Saved %");
     expect(text()).toContain("books until 12 Sep 2026");
 
     await act(async () => button("Period: Last 12 months").click());

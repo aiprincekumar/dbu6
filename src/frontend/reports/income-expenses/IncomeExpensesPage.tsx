@@ -457,7 +457,8 @@ function detailFigures({
 
 /**
  * The period's figures, or the selected bar's, in one tinted strip:
- * income, spending, what they left, and that as a share of income.
+ * income, spending, and what they left, with its share of income beside it
+ * in smaller type.
  */
 function FigureStrip({
   totals,
@@ -474,6 +475,8 @@ function FigureStrip({
     figure: string | undefined;
     ink?: boolean;
     name?: boolean;
+    /** A smaller aside after the figure. */
+    note?: string | null;
   }[] = [
     ...(scope ? [{ label: "Showing", figure: scope.name, name: true }] : []),
     {
@@ -491,17 +494,14 @@ function FigureStrip({
     {
       label: overspent ? "Overspent" : "Saved",
       figure: shown?.remaining.figure,
-    },
-    {
-      label: "Saved %",
-      figure: shown ? (shown.remaining.share ?? "—") : undefined,
+      note: shown?.remaining.share && `${shown.remaining.share} of income`,
     },
   ];
   return (
     <dl
       className={cn(
         "grid grid-cols-2 gap-y-2.5 rounded-lg bg-secondary py-2.5",
-        scope ? "sm:grid-cols-5" : "sm:grid-cols-4",
+        scope ? "sm:grid-cols-4" : "sm:grid-cols-3",
       )}
     >
       {cells.map((cell, index) => (
@@ -529,6 +529,11 @@ function FigureStrip({
                 )}
               >
                 {cell.figure}
+              </span>
+            )}
+            {cell.note && (
+              <span className="ml-2 whitespace-nowrap text-meta font-medium text-money-in">
+                {cell.note}
               </span>
             )}
           </dd>
