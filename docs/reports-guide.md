@@ -124,13 +124,22 @@ Helpers from `"@dbu6/app/server"`:
   account's ledger; `openRecordLink(table, "<column>", label)` opens a record.
 - Income and spending: `loadAccountAmounts(ledger, { types, fromDate, toDate })`
   gives each account's own amount in a period, and `loadMonthlyAmounts` the
-  monthly totals.
+  monthly totals. `loadAccountMonthlyAmounts` gives each account's own
+  amount month by month. Both take any account types and sign each by its
+  normal side, so an asset's movement is debit − credit and a liability's
+  credit − debit.
 - Balances: `loadAccountBalances(ledger, { types, asOf })` gives each asset,
   liability or equity account's own balance up to a date, what it holds or
   owes positive.
 - The account tree: `accountTree(accounts)` totals every node from
-  `parent_id`; `accountTreeLevel` and `accountTreeNodes` turn it into one tree
-  level of a grid, the way Expense Breakdown shows it.
+  `parent_id`, leaving out subtrees without an amount unless
+  `{ keep: (account) => … }` says to keep one; `subtree(accounts, id)` is one
+  account and everything under it; `branchingLevel(nodes)` steps past a lone
+  top account with nothing of its own; `accountTreeLevel` and
+  `accountTreeNodes` turn a tree into one tree level of a grid, the way
+  Expense Breakdown shows it.
+- Today: `workspaceTimeZone(c.get("auth"))` is the workspace's time zone, for
+  a report that stops at today or marks the current month.
 
 A response that is not a grid is fine: declare your own zod schema in the
 contract and draw it yourself in the screen.
@@ -177,7 +186,11 @@ all from `"@dbu6/app/frontend"`:
   `accountLedgerHref` and `accountLedgerRow` for links into the account
   ledger, `incomeStatementHref` for one into the income statement, and
   `Screen`, `EmptyState`, `LoadError`, `Button`, `Select`, `ToggleGroup`,
-  `Checkbox` for a screen that is not a grid.
+  `Checkbox` for a screen that is not a grid. `SheetHead`, `Th`, `Td`,
+  `ROW_PAD` and `CELL_LINK` lay a table out as Overview's sheet is: a heading
+  row with the title and column labels over one rule, tight rows, and cells
+  that are links filling the cell. `accountsByMonthHref` links into Accounts
+  by Month.
 
 Style with Tailwind classes; dbu6's theme tokens work (`text-row`,
 `text-ink-meta`, `border-sap-border`, `bg-card`). Size a control with

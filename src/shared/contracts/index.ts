@@ -12,6 +12,12 @@ export {
   type IncomeExpensesAccount,
   type IncomeExpensesEntry,
   type IncomeExpensesEntries,
+  ACCOUNT_MONTHS_GROUPS,
+  accountMonthsSchema,
+  type AccountMonths,
+  type AccountMonthsColumn,
+  type AccountMonthsGroup,
+  type AccountMonthsRow,
 } from "./reports.js";
 export {
   asOfDateQuery,

@@ -1,4 +1,5 @@
 import { TsRestApi, type SapportaEnv } from "@sapporta/server";
+import accountMonthsApi from "./reports/account-months.js";
 import accountLedgerApi from "./reports/account-ledger.js";
 import assetInflowsApi from "./reports/asset-inflows.js";
 import balanceAssertionsApi from "./reports/balance-assertions.js";
@@ -26,6 +27,7 @@ mountReport(trialBalanceApi);
 mountReport(balanceSheetApi);
 mountReport(incomeStatementApi);
 mountReport(incomeExpensesApi);
+mountReport(accountMonthsApi);
 mountReport(assetInflowsApi);
 mountReport(expenseBreakdownApi);
 mountReport(accountLedgerApi);

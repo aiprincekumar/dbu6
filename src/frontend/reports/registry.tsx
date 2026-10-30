@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import { assertNoneTaken } from "../extension";
 import { AccountLedgerReport } from "./AccountLedgerReport";
+import { AccountsByMonthPage } from "./accounts-by-month/AccountsByMonthPage";
 import { AssetInflowsReport } from "./AssetInflowsReport";
 import { BalanceAssertionsReport } from "./BalanceAssertionsReport";
 import { BalanceSheetReport } from "./BalanceSheetReport";
@@ -78,6 +79,14 @@ export const builtInReportDefinitions = [
     Component: IncomeExpensesPage,
     subgroup: "income-and-spending",
     layout: "tile",
+  },
+  {
+    id: "accounts-by-month",
+    label: "Accounts by Month",
+    description: "Any group of accounts, month by month",
+    Component: AccountsByMonthPage,
+    subgroup: "income-and-spending",
+    layout: "row",
   },
   {
     id: "expense-breakdown",

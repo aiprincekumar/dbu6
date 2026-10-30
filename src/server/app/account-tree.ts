@@ -47,11 +47,15 @@ export type AccountNode<T extends AmountAccount> = {
  * The accounts as a tree: the top nodes are the accounts whose parent isn't
  * among `accounts`, and each node holds its children. At every level nodes
  * are ranked by total, largest first, then by name. A subtree in which no
- * account has an amount is left out.
+ * account is kept is left out: by default an account is kept when it has
+ * an amount, and `keep` says otherwise, for a report whose account can
+ * matter with an amount of 0 (entries that cancel out).
  */
 export function accountTree<T extends AmountAccount>(
   accounts: readonly T[],
+  options: { keep?: (account: T) => boolean } = {},
 ): AccountNode<T>[] {
+  const keep = options.keep ?? ((account: T) => account.amount !== 0);
   const { tops, childrenOf } = forest(accounts);
 
   const node = (account: T): AccountNode<T> | null => {
@@ -61,7 +65,7 @@ export function accountTree<T extends AmountAccount>(
         return built ? [built] : [];
       }),
     );
-    if (account.amount === 0 && children.length === 0) return null;
+    if (!keep(account) && children.length === 0) return null;
     return {
       account,
       own: account.amount,

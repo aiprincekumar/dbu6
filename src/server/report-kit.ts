@@ -12,7 +12,11 @@
 
 // The contract: also all that `@dbu6/app/server` is in a browser.
 export * from "../shared/report-contract.js";
-export { TsRestApi, type SapportaEnv } from "@sapporta/server";
+export {
+  TsRestApi,
+  workspaceTimeZone,
+  type SapportaEnv,
+} from "@sapporta/server";
 // The signed-in user's books, read-only, and the ability check behind it.
 export {
   readOnlyLedger,
@@ -55,6 +59,7 @@ export {
 } from "./app/reports/account-amounts.js";
 export {
   accountTree,
+  branchingLevel,
   subtree,
   type AccountNode,
   type AmountAccount,

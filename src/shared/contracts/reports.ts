@@ -3,6 +3,7 @@ import { initContract } from "@sapporta/rest-core";
 import { errorBodySchema } from "@sapporta/shared/contracts";
 import { gridDatasetSchema } from "@sapporta/shared/grid-dataset";
 import { dateSpanSchema } from "./date-span.js";
+import { ledgerAccountTypeSchema } from "./setup.js";
 import {
   asOfDateQuery,
   reportDateRange,
@@ -103,6 +104,118 @@ export const incomeExpensesEntriesSchema = z.object({
 });
 export type IncomeExpensesEntries = z.infer<typeof incomeExpensesEntriesSchema>;
 
+// --- Accounts by Month ---
+
+/** The account types Accounts by Month groups by, as the URL names them. */
+export const ACCOUNT_MONTHS_GROUPS = [
+  "expense",
+  "revenue",
+  "asset",
+  "liability",
+] as const;
+export type AccountMonthsGroup = (typeof ACCOUNT_MONTHS_GROUPS)[number];
+
+// The group is a type or one account with everything under it; an account
+// wins when both are given, and Expense is the default.
+const accountMonthsEntriesQuery = requiredReportDateRange.extend({
+  group: z.enum(ACCOUNT_MONTHS_GROUPS).optional(),
+  account_id: z.coerce.number().int().positive().optional(),
+});
+
+const accountMonthsQuery = accountMonthsEntriesQuery.extend({
+  // Asset and liability groups only: balance at each month's end (the
+  // default), or each month's change.
+  show: z.enum(["balance", "change"]).optional(),
+});
+
+// Exported because the frontend's declarations name it (dist/frontend/*.d.ts).
+export type AccountMonthsRowShape = {
+  account_id: number;
+  name: string;
+  opening: number;
+  values: (number | null)[];
+  own: (number | null)[] | null;
+  total: number;
+  average: number | null;
+  outliers: boolean[];
+  children: AccountMonthsRowShape[];
+};
+
+/**
+ * An account as Accounts by Month lists it, with everything under it. Every
+ * figure covers its subtree and is signed by the type's normal side, so
+ * spending, income, holdings and debts are all positive.
+ */
+export const accountMonthsRowSchema: z.ZodType<AccountMonthsRowShape> =
+  z.object({
+    account_id: z.number(),
+    name: z.string(),
+    // The balance the day before the period starts; 0 unless measuring
+    // balances.
+    opening: z.number(),
+    // Aligned with the report's columns; null for a column the books don't
+    // cover.
+    values: z.array(z.number().nullable()),
+    // A parent's own entries, when it has any in the period, so its
+    // children add up to it; null otherwise.
+    own: z.array(z.number().nullable()).nullable(),
+    // Flow and change: the period's sum. Balance: closing less opening.
+    total: z.number(),
+    // Per month, over the months the books cover before the current one;
+    // null when there are none.
+    average: z.number().nullable(),
+    // Aligned with the columns: a month at least 1.5× the average.
+    outliers: z.array(z.boolean()),
+    // Ranked largest first; rows without activity or balance left out.
+    get children() {
+      return z.array(accountMonthsRowSchema);
+    },
+  });
+export type AccountMonthsRow = z.infer<typeof accountMonthsRowSchema>;
+
+export const accountMonthsColumnSchema = z.object({
+  // "2026-04" for a month, "fy-2025" for a financial year.
+  key: z.string(),
+  // The header: "Apr", or "FY 2025–26".
+  label: z.string(),
+  // Under it: the year on a month that starts one ("2026"), or a part
+  // year's months ("Oct–Mar"); null otherwise.
+  detail: z.string().nullable(),
+  // Within the period, and never past today.
+  dates: dateSpanSchema,
+  in_books: z.boolean(),
+  // The month holding today.
+  so_far: z.boolean(),
+});
+export type AccountMonthsColumn = z.infer<typeof accountMonthsColumnSchema>;
+
+export const accountMonthsSchema = z.object({
+  type: ledgerAccountTypeSchema,
+  measure: z.enum(["flow", "balance", "change"]),
+  // The account the group is, when it is one.
+  root: z.object({ account_id: z.number(), name: z.string() }).nullable(),
+  layout: z.enum(["months", "years"]),
+  columns: z.array(accountMonthsColumnSchema),
+  accounts: z.array(accountMonthsRowSchema),
+  total: z.object({
+    opening: z.number(),
+    values: z.array(z.number().nullable()),
+    total: z.number(),
+    average: z.number().nullable(),
+  }),
+  // Every account with sub-accounts, for the group picker: by type, then
+  // as the tree runs, with its depth in it.
+  parents: z.array(
+    z.object({
+      account_id: z.number(),
+      name: z.string(),
+      account_type: ledgerAccountTypeSchema,
+      depth: z.number(),
+    }),
+  ),
+});
+export type AccountMonths = z.infer<typeof accountMonthsSchema>;
+
 // The draft reports narrow to one base account for Review's tabs; without
 // it they list every account.
 const draftAccountQuery = z.object({
@@ -192,6 +305,32 @@ export const reportsContract = c.router({
       200: incomeExpensesEntriesSchema,
       400: errorBodySchema,
       403: errorBodySchema,
+    },
+  }),
+  accountMonths: c.query({
+    method: "GET",
+    path: "/reports/account-months",
+    summary: "Accounts by Month",
+    metadata: { tags: ["reports"] },
+    query: accountMonthsQuery,
+    responses: {
+      200: accountMonthsSchema,
+      400: errorBodySchema,
+      403: errorBodySchema,
+      404: errorBodySchema,
+    },
+  }),
+  accountMonthsEntries: c.query({
+    method: "GET",
+    path: "/reports/account-months/entries",
+    summary: "Accounts by Month entries",
+    metadata: { tags: ["reports"] },
+    query: accountMonthsEntriesQuery,
+    responses: {
+      200: incomeExpensesEntriesSchema,
+      400: errorBodySchema,
+      403: errorBodySchema,
+      404: errorBodySchema,
     },
   }),
   expenseBreakdown: c.query({

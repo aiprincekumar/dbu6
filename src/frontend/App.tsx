@@ -9,6 +9,7 @@ import {
 import { navigationItems, type Navigation } from "./shell/navigation";
 import {
   BarChart3,
+  CalendarRange,
   FileText,
   Home,
   Inbox,
@@ -92,6 +93,13 @@ const ownNavigation: Navigation = {
           shortLabel: "Income",
           icon: BarChart3,
           to: "/reports/income-expenses",
+        },
+        {
+          label: "By month",
+          icon: CalendarRange,
+          to: "/reports/accounts-by-month",
+          // Five fit on the phone's bar; it is a tap away from All reports.
+          sidebarOnly: true,
         },
         {
           label: "Balance sheet",

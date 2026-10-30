@@ -103,6 +103,16 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   account's sub-accounts and is positive. It also returns monthly totals. Only
   income and expense accounts count, so transfers between the user's own
   accounts and card payments are not spending.
+- **"How did X go month by month?", or "What did the card owe each month?"**
+  `npx sapporta api get /api/reports/account-months --query '{"from_date":"…","to_date":"…","group":"expense"}'`
+  (`group` is `expense`, `revenue`, `asset` or `liability`, or pass
+  `account_id` for one account and everything under it) returns the accounts
+  as a tree with one value per column in `values`, aligned with `columns`:
+  each month's flow for income and spending, each month's closing balance
+  for assets and liabilities (`"show":"change"` for the change instead).
+  Past 24 months the columns are financial years. A `null` value is a
+  column the books don't cover. `/api/reports/account-months/entries` with
+  the same group and a column's `dates` lists the lines behind a value.
 - **"Why did I spend more?", or "Why is my net worth down?"**
   Compare `income-expenses` for two periods account by account, or
   `balance-sheet` at two dates. Tell real spending apart from transfers and
@@ -772,6 +782,8 @@ The owner allows reading SQLite directly for diagnosis:
   them:
   - The Balance Sheet and Trial Balance show liabilities as positive.
   - In `income-expenses`, income and spending are both positive.
+  - In `account-months`, every figure is signed by the account's normal side:
+    spending, income, holdings and debts are positive.
 - Grid reports return rows in `nodes[].columns`, nested rows in
   `nodes[].children`, and totals in `footerRows`.
 - In tree reports (Expense Breakdown, Balance Sheet, Trial Balance, Income

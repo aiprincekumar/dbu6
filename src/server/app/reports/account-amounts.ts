@@ -1,13 +1,15 @@
 import type { ReportLedger } from "../../modules/ledger-sql/index.js";
+import type { AccountType } from "../../schema/accounts.js";
 
 /*
  * Income and spending, per account and per month: the one source the
- * income statement, Expense breakdown, Monthly summary and Income and
- * Expenses read, so the page and the grids can't disagree. Balances at a
- * date, for the balance sheet and Overview, are below them. Amounts are
- * signed so that income and spending are both positive: Revenue is
- * credit − debit, Expense is debit − credit. A refund larger than the
- * spending makes an amount negative.
+ * income statement, Expense breakdown, Monthly summary, Income and Expenses
+ * and Accounts by Month read, so the page and the grids can't disagree.
+ * Balances at a date, for the balance sheet and Overview, are below them.
+ * Amounts are signed by the account's normal side, so that income,
+ * spending, holdings and debts are all positive: Revenue, Liability and
+ * Equity are credit − debit, Expense and Asset debit − credit. A refund
+ * larger than the spending makes an amount negative.
  */
 
 export type IncomeSpendingType = "Revenue" | "Expense";
@@ -19,9 +21,16 @@ export type AccountAmount = {
   account_id: number;
   name: string;
   parent_id: number | null;
-  account_type: IncomeSpendingType;
+  account_type: AccountType;
   amount: number;
 };
+
+/** credit − debit for the types whose normal side is the credit. */
+const SIGNED_AMOUNT = (debit: string, credit: string) => `
+        CASE WHEN a.account_type IN ('Revenue', 'Liability', 'Equity')
+             THEN ${credit} - ${debit}
+             ELSE ${debit} - ${credit}
+        END`;
 
 /**
  * Every account of the given types, ordered by name, with the amount of its
@@ -30,7 +39,7 @@ export type AccountAmount = {
  */
 export function loadAccountAmounts(
   ledger: ReportLedger,
-  query: Period & { types: readonly IncomeSpendingType[] },
+  query: Period & { types: readonly AccountType[] },
 ): AccountAmount[] {
   return ledger.all<AccountAmount>(
     `
@@ -38,11 +47,7 @@ export function loadAccountAmounts(
         a.id AS account_id,
         a.name,
         a.parent_id,
-        a.account_type,
-        CASE WHEN a.account_type = 'Revenue'
-             THEN COALESCE(SUM(je.credit), 0) - COALESCE(SUM(je.debit), 0)
-             ELSE COALESCE(SUM(je.debit), 0) - COALESCE(SUM(je.credit), 0)
-        END AS amount
+        a.account_type,${SIGNED_AMOUNT("COALESCE(SUM(je.debit), 0)", "COALESCE(SUM(je.credit), 0)")} AS amount
       FROM scoped_accounts a
       LEFT JOIN (
         SELECT je.account_id, je.debit, je.credit
@@ -156,21 +161,18 @@ export type AccountMonthAmount = {
 /**
  * Each account's own amount in each month of the period, for accounts of
  * the given types, signed as `loadAccountAmounts` signs them. Months without
- * an entry on the account are left out.
+ * an entry on the account are left out; a month whose entries cancel out is
+ * listed with 0.
  */
 export function loadAccountMonthlyAmounts(
   ledger: ReportLedger,
-  query: Period & { types: readonly IncomeSpendingType[] },
+  query: Period & { types: readonly AccountType[] },
 ): AccountMonthAmount[] {
   return ledger.all<AccountMonthAmount>(
     `
       SELECT
         a.id AS account_id,
-        strftime('%Y-%m', j.date) AS month,
-        CASE WHEN a.account_type = 'Revenue'
-             THEN SUM(je.credit) - SUM(je.debit)
-             ELSE SUM(je.debit) - SUM(je.credit)
-        END AS amount
+        strftime('%Y-%m', j.date) AS month,${SIGNED_AMOUNT("SUM(je.debit)", "SUM(je.credit)")} AS amount
       FROM scoped_journal_entries je
       JOIN scoped_journals j ON j.id = je.journal_id
       JOIN scoped_accounts a ON a.id = je.account_id

@@ -65,6 +65,23 @@ export function incomeExpensesHref(
   });
 }
 
+/**
+ * Accounts by Month over the days from `fromDate` to `toDate`, for a type's
+ * accounts (`group`) or one account with everything under it.
+ */
+export function accountsByMonthHref(
+  fromDate: string,
+  toDate: string,
+  group: { group?: string; accountId?: number } = {},
+): string {
+  return createSnapshotUrl("/reports/accounts-by-month", {
+    from_date: fromDate,
+    to_date: toDate,
+    group: group.group,
+    account: group.accountId?.toString(),
+  });
+}
+
 /** The balance sheet as of a day. */
 export function balanceSheetHref(asOfDate: string): string {
   return createSnapshotUrl("/reports/balance-sheet", {

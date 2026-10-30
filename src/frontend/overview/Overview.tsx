@@ -18,10 +18,12 @@ import { formatDate, formatMonth, formatWholeMoney, plural } from "../format";
 import { typingIn } from "../keys";
 import { formatWholeAmount } from "../report-kit";
 import { FRESH_QUERY, homeSummaryQuery } from "../queries";
+import { CELL_LINK, ROW_PAD, SheetHead, Td, Th } from "../sheet";
 import { figures, signedAmount } from "../reports/income-expenses/figures";
 import { shadeColor, shades } from "../reports/income-expenses/shade";
 import {
   accountLedgerHref,
+  accountsByMonthHref,
   balanceSheetHref,
   incomeExpensesHref,
 } from "../reports/links";
@@ -308,43 +310,6 @@ function savedFigure(shown: ReturnType<typeof figures>): string {
     : `${shown.remaining.figure} over`;
 }
 
-/**
- * A section of the page: a table whose heading row holds its title, a small
- * link to the full report, and its column labels, over one rule.
- */
-function SheetHead({
-  title,
-  open,
-  children,
-}: {
-  title: string;
-  // The report the section opens, with its name for the link's title.
-  open?: { to: string; name: string };
-  children?: ReactNode;
-}) {
-  return (
-    <thead>
-      <tr>
-        <th className="w-full whitespace-nowrap border-b border-sap-border pb-2 text-left align-bottom text-subheading text-foreground">
-          {title}
-          {open && (
-            <Link
-              to={open.to}
-              title={open.name}
-              className="ml-2.5 text-meta font-semibold text-primary no-underline hover:underline hover:underline-offset-4"
-            >
-              Open
-            </Link>
-          )}
-        </th>
-        {children}
-      </tr>
-      {/* Room between the rule and the first row. */}
-      <tr aria-hidden="true" className="h-1.5" />
-    </thead>
-  );
-}
-
 const SHEET = "mt-10 w-full border-collapse text-row";
 
 /**
@@ -375,10 +340,19 @@ function Categories({ overview }: { overview: PostedOverview }) {
     <table className={SHEET}>
       <SheetHead
         title="Spending by category"
-        open={{
-          to: incomeExpensesHref(dates.first_date, dates.last_date),
-          name: "Income & expenses",
-        }}
+        open={[
+          {
+            to: incomeExpensesHref(dates.first_date, dates.last_date),
+            name: "Income & expenses",
+          },
+          {
+            to: accountsByMonthHref(trend.first_date, trend.last_date, {
+              group: "expense",
+            }),
+            name: "Accounts by Month",
+            label: "By month",
+          },
+        ]}
       >
         <Th>{formatMonth(overview.month)}</Th>
         {average && (
@@ -818,54 +792,4 @@ function Accounts({ overview }: { overview: PostedOverview }) {
 
 function booksUntil(date: string | null): string {
   return date === null ? "—" : formatDate(date);
-}
-
-/** A row's padding: tight, with no dividers between rows. */
-const ROW_PAD = "py-1.5";
-
-/**
- * A link that fills its table cell, so the whole cell is the target and its
- * fill shows at once under the pointer or keyboard focus. The cell drops its
- * padding and the link carries it.
- */
-const CELL_LINK =
-  "block text-inherit no-underline outline-none hover:bg-sap-drill-down-link-soft focus-visible:bg-sap-drill-down-link-soft";
-
-/** A column label in a section's heading row. */
-function Th({
-  children,
-  className,
-}: {
-  children?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <th
-      className={cn(
-        "whitespace-nowrap border-b border-sap-border pb-2 pl-5 text-right align-bottom text-meta font-normal text-ink-meta",
-        className,
-      )}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <td
-      className={cn(
-        "tnum whitespace-nowrap py-1.5 pl-5 text-right font-mono",
-        className,
-      )}
-    >
-      {children}
-    </td>
-  );
 }

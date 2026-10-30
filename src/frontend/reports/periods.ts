@@ -4,6 +4,19 @@ import {
   requiredReportDateRange,
 } from "../../shared/index";
 import { Temporal } from "@sapporta/shared/temporal";
+import {
+  financialYearLabel,
+  financialYearOf,
+  financialYearSpan,
+  financialYearStart,
+} from "../../shared/index";
+
+export {
+  financialYearLabel,
+  financialYearOf,
+  financialYearSpan,
+  financialYearStart,
+};
 
 /*
  * The periods the reports offer by name, resolved against today each time a
@@ -37,9 +50,6 @@ export function parsePreset(value: string | null): PeriodPreset | null {
   return PERIOD_PRESETS.find(({ id }) => id === value)?.id ?? null;
 }
 
-// A financial year runs from 1 April to 31 March.
-const FINANCIAL_YEAR_START_MONTH = 4;
-
 /**
  * The dates a preset covers on `today`. A period never ends after today, and
  * "last N months" counts this month as one of them.
@@ -67,27 +77,6 @@ export function presetSpan(preset: PeriodPreset, today: string): DateSpan {
       return span(start.subtract({ years: 1 }), start.subtract({ days: 1 }));
     }
   }
-}
-
-/** The year a month's financial year starts in: March 2026 is in 2025's. */
-export function financialYearOf(month: string): number {
-  const { year, month: number } = Temporal.PlainYearMonth.from(month);
-  return financialYearStartYear(year, number);
-}
-
-/** A financial year's dates: 1 April to 31 March. */
-export function financialYearSpan(startYear: number): DateSpan {
-  const first = Temporal.PlainDate.from({
-    year: startYear,
-    month: FINANCIAL_YEAR_START_MONTH,
-    day: 1,
-  });
-  return span(first, first.add({ years: 1 }).subtract({ days: 1 }));
-}
-
-/** "FY 2024–25" for the year starting April 2024. */
-export function financialYearLabel(startYear: number): string {
-  return `FY ${startYear}–${String((startYear + 1) % 100).padStart(2, "0")}`;
 }
 
 /**
@@ -123,20 +112,6 @@ export function upToToday(dates: DateSpan, today: string): DateSpan {
   return dates.last_date > today && dates.first_date <= today
     ? { ...dates, last_date: today }
     : dates;
-}
-
-function financialYearStartYear(year: number, month: number): number {
-  return month >= FINANCIAL_YEAR_START_MONTH ? year : year - 1;
-}
-
-export function financialYearStart(
-  date: Temporal.PlainDate,
-): Temporal.PlainDate {
-  return Temporal.PlainDate.from({
-    year: financialYearStartYear(date.year, date.month),
-    month: FINANCIAL_YEAR_START_MONTH,
-    day: 1,
-  });
 }
 
 /** Whether a report would take `value` as a date. */

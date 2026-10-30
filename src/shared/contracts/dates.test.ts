@@ -76,6 +76,8 @@ describe("every report's dates", () => {
     expect(routes.map(({ name }) => name).sort()).toEqual([
       "accountLedger",
       "accountLedgerHledger",
+      "accountMonths",
+      "accountMonthsEntries",
       "assetInflows",
       "balanceSheet",
       "dayBook",

@@ -11,3 +11,4 @@ export * from "./contracts/index.js";
 export * from "./days.js";
 export * from "./guides.js";
 export * from "./upi.js";
+export * from "./financial-year.js";
