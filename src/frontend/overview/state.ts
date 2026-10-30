@@ -93,7 +93,7 @@ export function categoryRows(overview: PostedOverview): CategoryRow[] {
       name: "Total",
       amount: figures.spending,
       average: figures.average?.spending ?? null,
-      monthly: figures.spending_monthly,
+      monthly: overview.months.map((m) => m.amounts?.spending ?? null),
     },
   ];
 }
@@ -165,21 +165,21 @@ export function figureSeries(overview: PostedOverview): {
   spent: FigureSeries;
   saved: FigureSeries;
 } {
-  const { months, first_month: first, figures } = overview;
+  const { months, figures } = overview;
   const average = figures.average;
-  const kept = <T>(month: string, value: T): T | null =>
-    first !== null && month >= first ? value : null;
   return {
     income: {
-      monthly: months.map((m) => kept(m.month, m.income)),
+      monthly: months.map((m) => m.amounts?.income ?? null),
       average: average?.income ?? null,
     },
     spent: {
-      monthly: months.map((m) => kept(m.month, m.spending)),
+      monthly: months.map((m) => m.amounts?.spending ?? null),
       average: average?.spending ?? null,
     },
     saved: {
-      monthly: months.map((m) => kept(m.month, m.income - m.spending)),
+      monthly: months.map(
+        (m) => m.amounts && m.amounts.income - m.amounts.spending,
+      ),
       average: average ? average.income - average.spending : null,
     },
   };

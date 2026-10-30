@@ -160,7 +160,6 @@ export function overviewReport(
         income: average(report.months.map((row) => row.income)),
         spending: average(spendingMonths),
       },
-      spending_monthly: monthly(spendingMonths),
     },
     categories: [
       ...listed.map((node): OverviewCategory => ({
@@ -182,7 +181,12 @@ export function overviewReport(
           ]
         : []),
     ],
-    months: report.months,
+    months: report.months.map((row) => ({
+      month: row.month,
+      amounts: inBooks(row)
+        ? { income: row.income, spending: row.spending }
+        : null,
+    })),
     net_worth: {
       assets: balances.assets,
       liabilities: balances.liabilities,

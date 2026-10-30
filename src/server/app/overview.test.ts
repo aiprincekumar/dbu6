@@ -131,16 +131,17 @@ describe("overviewReport", () => {
       income: 5000,
       spending: 4000,
       average: { months: 2, income: 5000, spending: 3500 },
-      // The months before the books started are not zeros either.
-      spending_monthly: [...Array(10).fill(null), 3000, 4000, 4000],
     });
     // The charts draw every month the average covers, then the month.
     expect(overview.months).toHaveLength(13);
     expect(overview.months[0].month).toBe("2025-04");
+    // The months before the books started are not zeros either.
+    expect(overview.months.map((row) => row.amounts?.spending ?? null)).toEqual(
+      [...Array(10).fill(null), 3000, 4000, 4000],
+    );
     expect(overview.months[12]).toEqual({
       month: "2026-04",
-      income: 5000,
-      spending: 4000,
+      amounts: { income: 5000, spending: 4000 },
     });
     expect(overview.net_worth).toEqual({
       assets: 19000,
@@ -242,13 +243,13 @@ describe("overviewReport", () => {
       monthly: [...Array(10).fill(null), 500, -500, 0],
     });
     // The categories add up to the spending in every month shown.
-    overview.figures.spending_monthly.forEach((spending, index) => {
+    overview.months.forEach((row, index) => {
       expect(
         overview.categories.reduce(
           (sum, category) => sum + (category.monthly[index] ?? 0),
           0,
         ),
-      ).toBe(spending ?? 0);
+      ).toBe(row.amounts?.spending ?? 0);
     });
   });
 

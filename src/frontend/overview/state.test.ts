@@ -99,12 +99,11 @@ describe("figureSeries", () => {
       income: 1000,
       spending: 750,
       average: { months: 1, income: 2000, spending: 1000 },
-      spending_monthly: [null, 1000, 750],
     },
     months: [
-      { month: "2026-07", income: 0, spending: 0 },
-      { month: "2026-08", income: 2000, spending: 1000 },
-      { month: "2026-09", income: 0, spending: 750 },
+      { month: "2026-07", amounts: null },
+      { month: "2026-08", amounts: { income: 2000, spending: 1000 } },
+      { month: "2026-09", amounts: { income: 0, spending: 750 } },
     ],
   } as PostedOverview;
 
@@ -151,8 +150,12 @@ describe("categoryRows", () => {
         income: 0,
         spending: 4000,
         average: { months: 2, income: 0, spending: 3500 },
-        spending_monthly: [null, 3000, 4000],
       },
+      months: [
+        { month: "2026-02", amounts: null },
+        { month: "2026-03", amounts: { income: 0, spending: 3000 } },
+        { month: "2026-04", amounts: { income: 0, spending: 4000 } },
+      ],
     }) as PostedOverview;
 
   it("takes Other from the overview and adds Total from its figures", () => {

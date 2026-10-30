@@ -384,9 +384,7 @@ function Categories({ overview }: { overview: PostedOverview }) {
           <Th className="hidden text-left sm:table-cell">
             Last{" "}
             {plural(
-              overview.figures.spending_monthly.filter(
-                (amount) => amount !== null,
-              ).length,
+              overview.months.filter((m) => m.amounts !== null).length,
               "month",
             )}
           </Th>

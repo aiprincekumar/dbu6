@@ -74,17 +74,21 @@ const postedOverviewSchema = z.object({
     average: z
       .object({ months: z.number(), income: z.number(), spending: z.number() })
       .nullable(),
-    // The spending in each month `months` lists; null for a month before
-    // `first_month`.
-    spending_monthly: z.array(z.number().nullable()),
   }),
   // The first level of the spending tree that branches, largest first, up to
   // a limit, then Other when the rest holds anything, so they add up to the
   // spending in every month. Amounts are positive; a refund makes one smaller.
   categories: z.array(overviewCategorySchema),
-  // `month` and the `OVERVIEW_AVERAGE_MONTHS` months before it, zero-filled.
+  // `month` and the `OVERVIEW_AVERAGE_MONTHS` months before it, oldest
+  // first. `amounts` is null for a month before `first_month`: no month at
+  // all, not a zero.
   months: z.array(
-    z.object({ month: yearMonth, income: z.number(), spending: z.number() }),
+    z.object({
+      month: yearMonth,
+      amounts: z
+        .object({ income: z.number(), spending: z.number() })
+        .nullable(),
+    }),
   ),
   // At the month's end, and `previous_net` at the month before's.
   net_worth: z.object({
