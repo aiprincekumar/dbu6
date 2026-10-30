@@ -1,8 +1,5 @@
-import {
-  OVERVIEW_AVERAGE_MONTHS,
-  type PostedOverview,
-} from "../../shared/index";
-import { agree, formatMonth, plural } from "../format";
+import type { HomeSummary, PostedOverview } from "../../shared/index";
+import { agree, plural } from "../format";
 import { Temporal } from "../report-kit";
 
 /*
@@ -50,12 +47,6 @@ export function monthForKey(
   if (key === "[") return steps.previous;
   if (key === "]") return steps.next;
   return null;
-}
-
-/** The averages' label: "12-month average", or what it covers so far. */
-export function averageLabel(months: number): string {
-  if (months === OVERVIEW_AVERAGE_MONTHS) return `${months}-month average`;
-  return `Average of ${plural(months, "month")}`;
 }
 
 /**
@@ -126,6 +117,12 @@ export function categoryBars(rows: readonly CategoryRow[]): (number | null)[] {
   );
 }
 
+/** A sparkline's points and average line, as fractions of its height. */
+export type SparkLine = {
+  points: { x: number; y: number }[];
+  average: number;
+};
+
 /**
  * A row's sparkline: each month's amount and the average as fractions of
  * the row's own scale, from zero to the highest of them, so a steady
@@ -134,10 +131,7 @@ export function categoryBars(rows: readonly CategoryRow[]): (number | null)[] {
  * start are left out rather than drawn as zeros. None before there is an
  * average to set the month against; refunds sit at zero.
  */
-export function sparkline(row: CategoryRow): {
-  points: { x: number; y: number }[];
-  average: number;
-} | null {
+export function sparkline(row: CategoryRow): SparkLine | null {
   const months = row.monthly.flatMap((amount, index) =>
     amount === null ? [] : [{ index, amount }],
   );
@@ -153,9 +147,92 @@ export function sparkline(row: CategoryRow): {
   };
 }
 
+/** One of the month's figures over the months the overview lists. */
+export type FigureSeries = {
+  // Each month's figure, oldest first, the month shown last; null before
+  // the books start.
+  monthly: (number | null)[];
+  // Over the months the figures' average covers; null when there are none.
+  average: number | null;
+};
+
+/**
+ * Income, Spent and Saved in each month the overview lists, for their
+ * sparklines. Saved % has none: its line would draw Saved's again.
+ */
+export function figureSeries(overview: PostedOverview): {
+  income: FigureSeries;
+  spent: FigureSeries;
+  saved: FigureSeries;
+} {
+  const { months, first_month: first, figures } = overview;
+  const average = figures.average;
+  const kept = <T>(month: string, value: T): T | null =>
+    first !== null && month >= first ? value : null;
+  return {
+    income: {
+      monthly: months.map((m) => kept(m.month, m.income)),
+      average: average?.income ?? null,
+    },
+    spent: {
+      monthly: months.map((m) => kept(m.month, m.spending)),
+      average: average?.spending ?? null,
+    },
+    saved: {
+      monthly: months.map((m) => kept(m.month, m.income - m.spending)),
+      average: average ? average.income - average.spending : null,
+    },
+  };
+}
+
+/**
+ * A figure's sparkline. Unlike a category's it does not start at zero: a
+ * figure such as income barely moves against its size, so the scale runs
+ * from a little under the lowest month to the highest, and a month off its
+ * usual shows. None before there is an average to set the month against.
+ */
+export function figureSparkline(series: FigureSeries): SparkLine | null {
+  const months = series.monthly.flatMap((value, index) =>
+    value === null ? [] : [{ index, value }],
+  );
+  if (series.average === null || months.length < 2) return null;
+  const values = [series.average, ...months.map((month) => month.value)];
+  const high = Math.max(...values);
+  const least = Math.min(...values);
+  const low = least - Math.abs(least) * 0.1;
+  const at = (value: number) =>
+    high > low ? (value - low) / (high - low) : 0.5;
+  return {
+    points: months.map((month) => ({
+      x: month.index / (series.monthly.length - 1),
+      y: at(month.value),
+    })),
+    average: at(series.average),
+  };
+}
+
 function cents(amount: number): number {
   const rounded = Math.round(amount * 100) / 100;
   return rounded === 0 ? 0 : rounded;
+}
+
+/**
+ * The line above the figures: the drafts waiting for review, else how many
+ * accounts Update shows something waiting on; nothing when neither.
+ */
+export function statusLine(
+  summary: HomeSummary,
+  waiting: number,
+): { text: string; action: string } | null {
+  const { drafts } = summary.totals;
+  if (drafts > 0) {
+    return {
+      text: `${plural(drafts, "draft")} ${agree(drafts, "is", "are")} waiting for review.`,
+      action: "Review drafts",
+    };
+  }
+  const label = waitingLabel(waiting);
+  return label === null ? null : { text: `${label}.`, action: "Open Update" };
 }
 
 /** "2 accounts need attention", or nothing when none does. */

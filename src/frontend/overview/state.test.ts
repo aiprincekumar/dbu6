@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { PostedOverview } from "../../shared/index";
+import type { HomeSummary, PostedOverview } from "../../shared/index";
 import {
-  averageLabel,
   categoryBars,
   categoryRows,
   type CategoryRow,
+  figureSeries,
+  figureSparkline,
   monthDates,
   monthForKey,
   monthSteps,
   otherWorthChange,
   sparkline,
+  statusLine,
   waitingLabel,
 } from "./state";
 
@@ -42,14 +44,6 @@ describe("monthForKey", () => {
   });
 });
 
-describe("averageLabel", () => {
-  it("says how many months it is until there are twelve", () => {
-    expect(averageLabel(12)).toBe("12-month average");
-    expect(averageLabel(1)).toBe("Average of 1 month");
-    expect(averageLabel(5)).toBe("Average of 5 months");
-  });
-});
-
 describe("otherWorthChange", () => {
   const overview = (net: number, previous: number) =>
     ({
@@ -73,6 +67,79 @@ describe("waitingLabel", () => {
     expect(waitingLabel(2)).toBe("2 accounts need attention");
     expect(waitingLabel(1)).toBe("1 account needs attention");
     expect(waitingLabel(0)).toBeNull();
+  });
+});
+
+describe("statusLine", () => {
+  const summary = (drafts: number) => ({ totals: { drafts } }) as HomeSummary;
+
+  it("counts the drafts waiting for review first", () => {
+    expect(statusLine(summary(14), 2)).toEqual({
+      text: "14 drafts are waiting for review.",
+      action: "Review drafts",
+    });
+    expect(statusLine(summary(1), 1)?.text).toBe(
+      "1 draft is waiting for review.",
+    );
+  });
+
+  it("else says how many accounts need attention, or nothing", () => {
+    expect(statusLine(summary(0), 2)).toEqual({
+      text: "2 accounts need attention.",
+      action: "Open Update",
+    });
+    expect(statusLine(summary(0), 0)).toBeNull();
+  });
+});
+
+describe("figureSeries", () => {
+  const overview = {
+    first_month: "2026-08",
+    figures: {
+      income: 1000,
+      spending: 750,
+      average: { months: 1, income: 2000, spending: 1000 },
+      spending_monthly: [null, 1000, 750],
+    },
+    months: [
+      { month: "2026-07", income: 0, spending: 0 },
+      { month: "2026-08", income: 2000, spending: 1000 },
+      { month: "2026-09", income: 0, spending: 750 },
+    ],
+  } as PostedOverview;
+
+  it("leaves out the months before the books start", () => {
+    const series = figureSeries(overview);
+    expect(series.income).toEqual({
+      monthly: [null, 2000, 0],
+      average: 2000,
+    });
+    expect(series.spent.monthly).toEqual([null, 1000, 750]);
+    expect(series.saved).toEqual({
+      monthly: [null, 1000, -750],
+      average: 1000,
+    });
+  });
+});
+
+describe("figureSparkline", () => {
+  it("scales from a little under the lowest month to the highest", () => {
+    const line = figureSparkline({ monthly: [null, 100, 200], average: 150 });
+    // From 90 to 200.
+    expect(line?.points.map((point) => point.x)).toEqual([0.5, 1]);
+    expect(line?.points[1].y).toBe(1);
+    expect(line?.points[0].y).toBeCloseTo(10 / 110);
+    expect(line?.average).toBeCloseTo(60 / 110);
+  });
+
+  it("keeps a negative month on the scale", () => {
+    const line = figureSparkline({ monthly: [-100, 100], average: 0 });
+    expect(line?.points[0].y).toBeCloseTo(10 / 210);
+  });
+
+  it("draws nothing without an average or a second month", () => {
+    expect(figureSparkline({ monthly: [100, 200], average: null })).toBeNull();
+    expect(figureSparkline({ monthly: [null, 200], average: 200 })).toBeNull();
   });
 });
 

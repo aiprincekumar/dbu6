@@ -13,13 +13,12 @@ import type {
 import { apiErrorMessage, overviewApi } from "../api";
 import { LoadError } from "../components/load-error";
 import { Screen } from "../components/screen";
-import { formatDate, formatMoney, formatMonth, plural } from "../format";
+import { buttonVariants } from "../components/ui/button";
+import { formatDate, formatMonth, formatWholeMoney, plural } from "../format";
 import { typingIn } from "../keys";
-import { formatAmount } from "../report-kit";
+import { formatWholeAmount } from "../report-kit";
 import { FRESH_QUERY, homeSummaryQuery } from "../queries";
-import { chartBars } from "../reports/income-expenses/chart";
 import { figures, signedAmount } from "../reports/income-expenses/figures";
-import { MonthChart } from "../reports/income-expenses/MonthChart";
 import { shadeColor, shades } from "../reports/income-expenses/shade";
 import {
   accountLedgerHref,
@@ -35,16 +34,19 @@ import {
   waitingInUpdate,
 } from "../update/state";
 import {
-  averageLabel,
   categoryBars,
   categoryRows,
   type CategoryRow,
+  figureSeries,
+  type FigureSeries,
+  figureSparkline,
   monthDates,
   monthForKey,
   monthSteps,
   otherWorthChange,
+  type SparkLine,
   sparkline,
-  waitingLabel,
+  statusLine,
 } from "./state";
 
 /**
@@ -87,14 +89,7 @@ export function Overview() {
     <Screen
       width="wide"
       header={
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="text-title text-foreground sm:text-display">
-            Overview
-          </h1>
-          {overview?.posted && (
-            <MonthPicker overview={overview} onPick={setMonth} />
-          )}
-        </div>
+        <h1 className="text-title text-foreground sm:text-display">Overview</h1>
       }
     >
       {failed ? (
@@ -109,45 +104,26 @@ export function Overview() {
           />
         </div>
       ) : summary && overview?.posted ? (
-        <div className="mt-5 space-y-4">
+        <div className="mt-5">
           <StatusLine summary={summary} />
+          {/* The month sits on the strip it sums up, so its figures read as
+              that month's. */}
+          <MonthPicker overview={overview} onPick={setMonth} />
           <MonthFigures overview={overview} />
           {/* Where the month's money went on the left, where it stands on the right. */}
-          <div className="grid items-start gap-4 lg:grid-cols-2">
-            <div className="min-w-0 space-y-4">
+          <div className="grid items-start gap-x-10 lg:grid-cols-2">
+            <div className="min-w-0">
               <Categories overview={overview} />
             </div>
-            <div className="min-w-0 space-y-4">
+            <div className="min-w-0">
               <NetWorth overview={overview} />
               <Accounts overview={overview} />
             </div>
           </div>
-          <MonthChart
-            bars={chartBars(
-              overview.months,
-              {
-                first_date: monthDates(overview.months[0].month).first_date,
-                last_date: monthDates(overview.month).last_date,
-              },
-              today(),
-            )}
-            selected={overview.month}
-            onSelect={(month) => month && setMonth(month)}
-            series={null}
-            onClearSeries={() => {}}
-            alwaysSelected
-            spendingAverage={
-              overview.figures.average && {
-                label: averageLabel(overview.figures.average.months),
-                value: overview.figures.average.spending,
-              }
-            }
-          />
         </div>
       ) : (
-        <div aria-hidden="true" className="mt-5 space-y-4">
-          <div className="h-[132px] rounded-card border border-sap-border bg-card" />
-          <div className="h-[260px] rounded-card border border-sap-border bg-card" />
+        <div aria-hidden="true" className="mt-5">
+          <div className="h-[64px] rounded-lg bg-secondary" />
         </div>
       )}
     </Screen>
@@ -232,7 +208,7 @@ function MonthPicker({
     </button>
   );
   return (
-    <div className="flex items-center gap-1">
+    <div className="-ml-2 mb-2 flex items-center gap-1">
       {step(
         steps.previous,
         "Previous month ([)",
@@ -250,87 +226,78 @@ function MonthPicker({
   );
 }
 
-/** Whether a key goes to a field, a menu or a dialog rather than the page. */
-/** What waits in Update. Hidden when nothing does. */
+/** What waits in Update, in a tinted line. Hidden when nothing does. */
 function StatusLine({ summary }: { summary: HomeSummary }) {
-  const waiting = waitingLabel(waitingInUpdate(summary));
-  if (waiting === null) return null;
+  const line = statusLine(summary, waitingInUpdate(summary));
+  if (line === null) return null;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-card border border-sap-border bg-card px-4 py-3">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-control bg-attention-bg py-1.5 pl-3 pr-1.5 text-row font-semibold text-attention-ink">
+      <span>{line.text}</span>
       <Link
         to={UPDATE_ROUTE}
-        className="inline-flex items-center gap-1 text-row font-semibold text-attention-ink no-underline hover:underline hover:underline-offset-4"
+        className={cn(buttonVariants({ size: "sm" }), "no-underline")}
       >
-        {waiting}
-        <ChevronRight className="size-4" aria-hidden="true" />
+        {line.action}
       </Link>
     </div>
   );
 }
 
 /**
- * The month's income, spending and savings across one row, the usual ones in
- * the row below, so each figure reads beside the one it makes up. It runs the
- * page's width, and scrolls sideways where even that is too narrow.
+ * The month's income, spending and savings in one tinted strip, each beside
+ * its last twelve months, so a month off its usual shows at a glance. Saved %
+ * has no line: it would draw Saved's again.
  */
 function MonthFigures({ overview }: { overview: PostedOverview }) {
-  const { average } = overview.figures;
-  const dates = monthDates(overview.month);
   const current = figures(overview.figures);
-  const usual = average && figures(average);
+  const series = figureSeries(overview);
+  const income = current.income.direction === "in";
+  const cells: {
+    label: string;
+    figure: string;
+    series?: FigureSeries;
+    ink?: string;
+  }[] = [
+    {
+      label: "Income",
+      figure: current.income.figure,
+      series: series.income,
+      ink: income ? "var(--money-in)" : undefined,
+    },
+    { label: "Spent", figure: current.spending.figure, series: series.spent },
+    { label: "Saved", figure: savedFigure(current), series: series.saved },
+    { label: "Saved %", figure: current.remaining.share ?? "—" },
+  ];
   return (
-    <Card>
-      <div className="overflow-x-auto">
-        <table className="w-full text-row">
-          <thead>
-            <tr className="text-meta text-ink-meta">
-              <th className="w-full pb-2 text-left font-normal" />
-              <Th>Income</Th>
-              <Th>Spent</Th>
-              <Th>Saved</Th>
-              <Th>Saved %</Th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-line-inner">
-              <td className="whitespace-nowrap py-2 pr-3">
-                <Link
-                  to={incomeExpensesHref(dates.first_date, dates.last_date)}
-                  className="font-semibold text-foreground no-underline hover:underline hover:underline-offset-4"
-                >
-                  {formatMonth(overview.month, "long")}
-                </Link>
-              </td>
-              <Td
-                className={
-                  current.income.direction === "in"
-                    ? "text-money-in"
-                    : "text-foreground"
-                }
-              >
-                {current.income.figure}
-              </Td>
-              <Td className="text-foreground">{current.spending.figure}</Td>
-              <Td className="text-foreground">{savedFigure(current)}</Td>
-              <Td className="text-foreground">
-                {current.remaining.share ?? "—"}
-              </Td>
-            </tr>
-            {average && usual && (
-              <tr className="border-t border-line-inner text-ink-soft">
-                <td className="whitespace-nowrap py-2 pr-3">
-                  {averageLabel(average.months)}
-                </td>
-                <Td>{usual.income.figure}</Td>
-                <Td>{usual.spending.figure}</Td>
-                <Td>{savedFigure(usual)}</Td>
-                <Td>{usual.remaining.share ?? "—"}</Td>
-              </tr>
+    <div className="grid grid-cols-2 gap-y-2.5 rounded-lg bg-secondary py-2.5 sm:grid-cols-4">
+      {cells.map((cell, index) => (
+        <div
+          key={cell.label}
+          className={cn(
+            "min-w-0 px-4",
+            index > 0 && "border-l border-sap-border",
+            index === 2 && "max-sm:border-l-0",
+          )}
+        >
+          <div className="text-meta text-ink-meta">{cell.label}</div>
+          <div className="mt-0.5 flex items-center justify-between gap-2.5">
+            <span
+              className="tnum whitespace-nowrap font-mono text-[19px] font-medium text-foreground"
+              style={cell.ink ? { color: cell.ink } : undefined}
+            >
+              {cell.figure}
+            </span>
+            {cell.series && (
+              <Sparkline
+                line={figureSparkline(cell.series)}
+                size={FIGURE_SPARK}
+                dot={cell.ink ?? "var(--foreground)"}
+              />
             )}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -342,8 +309,47 @@ function savedFigure(shown: ReturnType<typeof figures>): string {
 }
 
 /**
- * The month's largest spending categories beside their usual amounts, then
- * the rest and the total, so the table adds up to Spent.
+ * A section of the page: a table whose heading row holds its title, a small
+ * link to the full report, and its column labels, over one rule.
+ */
+function SheetHead({
+  title,
+  open,
+  children,
+}: {
+  title: string;
+  // The report the section opens, with its name for the link's title.
+  open?: { to: string; name: string };
+  children?: ReactNode;
+}) {
+  return (
+    <thead>
+      <tr>
+        <th className="w-full whitespace-nowrap border-b border-sap-border pb-2 text-left align-bottom text-subheading text-foreground">
+          {title}
+          {open && (
+            <Link
+              to={open.to}
+              title={open.name}
+              className="ml-2.5 text-meta font-semibold text-primary no-underline hover:underline hover:underline-offset-4"
+            >
+              Open
+            </Link>
+          )}
+        </th>
+        {children}
+      </tr>
+      {/* Room between the rule and the first row. */}
+      <tr aria-hidden="true" className="h-1.5" />
+    </thead>
+  );
+}
+
+const SHEET = "mt-10 w-full border-collapse text-row";
+
+/**
+ * The month's largest spending categories beside their last twelve months,
+ * then the rest and the total, so the table adds up to Spent.
  */
 function Categories({ overview }: { overview: PostedOverview }) {
   const dates = monthDates(overview.month);
@@ -365,126 +371,116 @@ function Categories({ overview }: { overview: PostedOverview }) {
     rows.map((row) => (row.kind === "category" ? row.amount : 0)),
   );
   return (
-    <Card
-      title="Spending by category"
-      action={
-        <Link
-          to={incomeExpensesHref(dates.first_date, dates.last_date)}
-          className="text-meta font-semibold text-primary no-underline hover:underline hover:underline-offset-4"
-        >
-          Income &amp; expenses
-        </Link>
-      }
-    >
-      {overview.categories.length === 0 ? (
-        <p className="text-row text-ink-meta">
-          No spending in {formatMonth(overview.month, "long")}.
-        </p>
-      ) : (
-        <table className="w-full text-row">
-          <thead>
-            <tr className="text-meta text-ink-meta">
-              <th className="w-full pb-2 text-left font-normal">Category</th>
-              <Th>{formatMonth(overview.month)}</Th>
+    <table className={SHEET}>
+      <SheetHead
+        title="Spending by category"
+        open={{
+          to: incomeExpensesHref(dates.first_date, dates.last_date),
+          name: "Income & expenses",
+        }}
+      >
+        <Th>{formatMonth(overview.month)}</Th>
+        {average && (
+          <Th className="hidden text-left sm:table-cell">
+            Last{" "}
+            {plural(
+              overview.figures.spending_monthly.filter(
+                (amount) => amount !== null,
+              ).length,
+              "month",
+            )}
+          </Th>
+        )}
+      </SheetHead>
+      <tbody>
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={3} className="pt-2 text-ink-meta">
+              No spending in {formatMonth(overview.month, "long")}.
+            </td>
+          </tr>
+        )}
+        {rows.map((row, index) => {
+          const total = row.kind === "total";
+          const bar = bars[index];
+          const ledger =
+            row.account_id === null
+              ? null
+              : accountLedgerHref(row.account_id, {
+                  from_date: dates.first_date,
+                  to_date: dates.last_date,
+                });
+          const name = (
+            <CategoryName
+              name={row.name}
+              bar={bar}
+              room={room}
+              tone={tones[index] ?? 0}
+            />
+          );
+          return (
+            <tr
+              key={row.account_id ?? row.kind}
+              className={cn(
+                total
+                  ? "border-t border-sap-border font-semibold"
+                  : "hover:bg-sap-row-hover",
+              )}
+            >
+              <td
+                className={cn(
+                  "max-w-0",
+                  row.account_id === null && cn(ROW_PAD, "pr-3"),
+                  row.kind === "other" ? "text-ink-soft" : "text-foreground",
+                )}
+              >
+                {row.account_id === null ? (
+                  name
+                ) : (
+                  <Link
+                    to={incomeExpensesHref(trend.first_date, trend.last_date, {
+                      accountId: row.account_id,
+                      month: overview.month,
+                    })}
+                    className={cn(CELL_LINK, ROW_PAD, "-ml-2 pl-2 pr-3")}
+                  >
+                    {name}
+                  </Link>
+                )}
+              </td>
+              <Td className={cn("text-foreground", ledger !== null && "p-0")}>
+                {ledger === null ? (
+                  spent(row.amount)
+                ) : (
+                  <Link
+                    to={ledger}
+                    className={cn(CELL_LINK, ROW_PAD, "-mr-2 pl-5 pr-2")}
+                  >
+                    {spent(row.amount)}
+                  </Link>
+                )}
+              </Td>
               {average && (
-                <Th className="text-left">
-                  Last{" "}
-                  {plural(
-                    overview.figures.spending_monthly.filter(
-                      (amount) => amount !== null,
-                    ).length,
-                    "month",
+                <td className={cn(ROW_PAD, "hidden pl-5 sm:table-cell")}>
+                  {!total && row.average !== null && (
+                    <>
+                      <span className="sr-only">
+                        Average {spent(row.average)}
+                      </span>
+                      <Sparkline
+                        line={sparkline(row)}
+                        size={CATEGORY_SPARK}
+                        dot="var(--spend-most)"
+                      />
+                    </>
                   )}
-                </Th>
+                </td>
               )}
             </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => {
-              const total = row.kind === "total";
-              const bar = bars[index];
-              const ledger =
-                row.account_id === null
-                  ? null
-                  : accountLedgerHref(row.account_id, {
-                      from_date: dates.first_date,
-                      to_date: dates.last_date,
-                    });
-              return (
-                <tr
-                  key={row.account_id ?? row.kind}
-                  className={cn(
-                    "border-t",
-                    total ? "border-sap-border-strong" : "border-line-inner",
-                  )}
-                >
-                  <td
-                    className={cn(
-                      "max-w-0",
-                      row.account_id === null && "py-2 pr-3",
-                      total
-                        ? "font-semibold text-foreground"
-                        : row.kind === "other"
-                          ? "text-ink-soft"
-                          : "text-foreground",
-                    )}
-                  >
-                    {row.account_id === null ? (
-                      <CategoryName
-                        name={row.name}
-                        bar={bar}
-                        room={room}
-                        tone={tones[index] ?? 0}
-                      />
-                    ) : (
-                      <Link
-                        to={incomeExpensesHref(
-                          trend.first_date,
-                          trend.last_date,
-                          { accountId: row.account_id, month: overview.month },
-                        )}
-                        className={cn(CELL_LINK, "-ml-2 py-2 pl-2 pr-3")}
-                      >
-                        <CategoryName
-                          name={row.name}
-                          bar={bar}
-                          room={room}
-                          tone={tones[index] ?? 0}
-                        />
-                      </Link>
-                    )}
-                  </td>
-                  <Td
-                    className={cn(
-                      total
-                        ? "font-semibold text-foreground"
-                        : "text-foreground",
-                      ledger !== null && "p-0",
-                    )}
-                  >
-                    {ledger === null ? (
-                      spent(row.amount)
-                    ) : (
-                      <Link
-                        to={ledger}
-                        className={cn(CELL_LINK, "-mr-2 py-2 pl-6 pr-2")}
-                      >
-                        {spent(row.amount)}
-                      </Link>
-                    )}
-                  </Td>
-                  {average && (
-                    <td className="py-2 pl-6 align-middle">
-                      <Sparkline row={row} />
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-    </Card>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -534,63 +530,62 @@ function CategoryName({
   );
 }
 
-/** A sparkline's size in pixels, and room at its edges for the dot. */
-const SPARK = { width: 112, height: 20, inset: 3 };
+/** Sparklines' sizes in pixels, and room at their edges for the dot. */
+const CATEGORY_SPARK = { width: 112, height: 20, inset: 3 };
+const FIGURE_SPARK = { width: 72, height: 18, inset: 3 };
 
 /**
- * A row's months as a line, oldest at the left, with a dashed line at the
- * average and a dot on the month shown, so a month off its usual stands
- * out.
+ * Months as a line, oldest at the left, with a dashed line at the average
+ * and a dot on the month shown, so a month off its usual stands out.
  */
-function Sparkline({ row }: { row: CategoryRow }) {
-  const line = sparkline(row);
-  if (line === null || row.average === null) return null;
-  const { width, height, inset } = SPARK;
+function Sparkline({
+  line,
+  size,
+  dot,
+}: {
+  line: SparkLine | null;
+  size: typeof CATEGORY_SPARK;
+  dot: string;
+}) {
+  if (line === null) return null;
+  const { width, height, inset } = size;
   const x = (fraction: number) => inset + fraction * (width - 2 * inset);
   const y = (fraction: number) =>
     height - inset - fraction * (height - 2 * inset);
   const last = line.points[line.points.length - 1];
   return (
-    <>
-      <span className="sr-only">Average {spent(row.average)}</span>
-      <svg
-        aria-hidden="true"
-        width={width}
-        height={height}
-        className="block overflow-visible"
-      >
-        <line
-          x1={x(0)}
-          x2={x(1)}
-          y1={y(line.average)}
-          y2={y(line.average)}
-          stroke="var(--ink-meta)"
-          strokeWidth={1}
-          strokeDasharray="2 2"
-        />
-        <polyline
-          points={line.points
-            .map((point) => `${x(point.x)},${y(point.y)}`)
-            .join(" ")}
-          fill="none"
-          stroke="var(--ink-soft)"
-          strokeWidth={1.25}
-          strokeLinejoin="round"
-        />
-        <circle
-          cx={x(last.x)}
-          cy={y(last.y)}
-          r={2.5}
-          fill="var(--spend-most)"
-        />
-      </svg>
-    </>
+    <svg
+      aria-hidden="true"
+      width={width}
+      height={height}
+      className="block shrink-0 overflow-visible"
+    >
+      <line
+        x1={x(0)}
+        x2={x(1)}
+        y1={y(line.average)}
+        y2={y(line.average)}
+        stroke="var(--ink-meta)"
+        strokeWidth={1}
+        strokeDasharray="2 2"
+      />
+      <polyline
+        points={line.points
+          .map((point) => `${x(point.x)},${y(point.y)}`)
+          .join(" ")}
+        fill="none"
+        stroke="var(--ink-soft)"
+        strokeWidth={1.25}
+        strokeLinejoin="round"
+      />
+      <circle cx={x(last.x)} cy={y(last.y)} r={2.5} fill={dot} />
+    </svg>
   );
 }
 
-/** A spending amount, signed; nothing spent reads "0.00", not "−0.00". */
+/** A spending amount, signed, in whole units. */
 function spent(amount: number): string {
-  return amount === 0 ? formatMoney(0) : signedAmount("spending", amount);
+  return signedAmount("spending", amount);
 }
 
 /**
@@ -607,60 +602,54 @@ function NetWorth({ overview }: { overview: PostedOverview }) {
       ? null
       : accountLedgerHref(group.account_id, { to_date: asOf });
   return (
-    <Card
-      title="Net worth"
-      action={
-        <Link
-          to={balanceSheetHref(asOf)}
-          className="text-meta font-semibold text-primary no-underline hover:underline hover:underline-offset-4"
-        >
-          Balance sheet
-        </Link>
-      }
-    >
-      <table className="w-full text-row">
-        <tbody>
-          <WorthRow label="Assets" value={formatMoney(worth.assets)} />
-          {worth.asset_groups.map((group) => (
-            <WorthRow
-              key={group.account_id ?? "other"}
-              label={group.name}
-              value={formatMoney(group.amount)}
-              href={ledger(group)}
-              group
-            />
-          ))}
-          <WorthRow label="Less liabilities" value={owed(worth.liabilities)} />
-          {worth.liability_groups.map((group) => (
-            <WorthRow
-              key={group.account_id ?? "other"}
-              label={group.name}
-              value={owed(group.amount)}
-              href={ledger(group)}
-              group
-            />
-          ))}
+    <table className={SHEET}>
+      <SheetHead
+        title="Net worth"
+        open={{ to: balanceSheetHref(asOf), name: "Balance sheet" }}
+      >
+        <Th>{formatDate(asOf)}</Th>
+      </SheetHead>
+      <tbody>
+        <WorthRow label="Assets" value={formatWholeMoney(worth.assets)} />
+        {worth.asset_groups.map((group) => (
           <WorthRow
-            label={`On ${formatDate(asOf)}`}
-            value={formatMoney(worth.net)}
-            strong
+            key={group.account_id ?? "other"}
+            label={group.name}
+            value={formatWholeMoney(group.amount)}
+            href={ledger(group)}
+            group
           />
-          {other !== 0 && (
-            <WorthRow
-              label={`Opening balances and equity in ${formatMonth(overview.month)}`}
-              value={signedAmount("income", other)}
-            />
-          )}
-        </tbody>
-      </table>
-    </Card>
+        ))}
+        <WorthRow label="Less liabilities" value={owed(worth.liabilities)} />
+        {worth.liability_groups.map((group) => (
+          <WorthRow
+            key={group.account_id ?? "other"}
+            label={group.name}
+            value={owed(group.amount)}
+            href={ledger(group)}
+            group
+          />
+        ))}
+        <WorthRow
+          label="Net worth"
+          value={formatWholeMoney(worth.net)}
+          strong
+        />
+        {other !== 0 && (
+          <WorthRow
+            label={`Opening balances and equity in ${formatMonth(overview.month)}`}
+            value={signedAmount("income", other)}
+            soft
+          />
+        )}
+      </tbody>
+    </table>
   );
 }
 
-/** An amount owed, taken away: "−2,19,305.00". */
+/** An amount owed, taken away: "−2,19,305". */
 function owed(amount: number): string {
-  if (amount === 0) return formatMoney(0);
-  return formatAmount(amount, amount > 0 ? "out" : "in");
+  return formatWholeAmount(amount, amount > 0 ? "out" : "in");
 }
 
 function WorthRow({
@@ -669,6 +658,7 @@ function WorthRow({
   href = null,
   group = false,
   strong = false,
+  soft = false,
 }: {
   label: string;
   value: string;
@@ -676,15 +666,14 @@ function WorthRow({
   href?: string | null;
   // A group under Assets or Liabilities: indented, and lighter.
   group?: boolean;
+  // The total: bold, under a rule.
   strong?: boolean;
+  // A note under the total: its figure as light as its label.
+  soft?: boolean;
 }) {
-  const ink = strong
-    ? "font-semibold text-foreground"
-    : group
-      ? "text-ink-soft"
-      : "text-foreground";
-  const labelPad = cn("pr-3", group ? "py-1 pl-4" : "py-2");
-  const valuePad = cn("pl-6", group && "py-1");
+  const pad = group ? "py-0.5" : ROW_PAD;
+  const labelPad = cn(pad, "pr-3", group && "pl-4");
+  const valuePad = cn(pad, "pl-5");
   // A row with somewhere to go is one target: both cells lead to the ledger
   // and light up together. The figure's link is for the pointer only, so the
   // keyboard stops on the row once.
@@ -692,8 +681,8 @@ function WorthRow({
   return (
     <tr
       className={cn(
-        "first:border-t-0",
-        group ? "" : "border-t border-line-inner",
+        strong && "border-t border-sap-border font-semibold",
+        group ? "text-ink-soft hover:bg-sap-row-hover" : "text-foreground",
         href && "group/row",
       )}
     >
@@ -701,8 +690,8 @@ function WorthRow({
         className={cn(
           "w-full max-w-0 truncate",
           !href && labelPad,
-          // A total's label is softer than its figure; a group's is not.
-          strong || group ? ink : "text-ink-soft",
+          // A heading's label is softer than its figure; a total's is not.
+          !strong && !group && "text-ink-soft",
         )}
       >
         {href ? (
@@ -713,7 +702,7 @@ function WorthRow({
           label
         )}
       </td>
-      <Td className={cn(ink, href ? "p-0" : valuePad)}>
+      <Td className={cn(soft && "text-ink-soft", href ? "p-0" : valuePad)}>
         {href ? (
           <Link
             to={href}
@@ -734,103 +723,97 @@ function WorthRow({
 /** Each bank and card: its balance at the month's end and how far it goes. */
 function Accounts({ overview }: { overview: PostedOverview }) {
   if (overview.accounts.length === 0) return null;
-  const asOf = monthDates(overview.month).last_date;
   return (
-    <Card title={`Accounts on ${formatDate(asOf)}`}>
-      <table className="w-full text-row">
-        <thead>
-          <tr className="text-meta text-ink-meta">
-            <th className="w-full pb-2 text-left font-normal">Account</th>
-            <Th>Balance</Th>
-            <Th className="hidden sm:table-cell">Books until</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {overview.accounts.map((account) => {
-            const Icon = account.kind === "card" ? CreditCard : Landmark;
-            const ledger = accountLedgerHref(account.account_id);
-            const balance =
-              account.kind === "card"
-                ? `${formatMoney(account.balance)} owed`
-                : formatMoney(account.balance);
-            const name = (
-              <span className="flex min-w-0 items-center gap-2">
-                <Icon
-                  className="size-4 shrink-0 text-ink-meta"
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                />
-                <span className="min-w-0">
-                  <span className="block truncate font-semibold text-foreground">
-                    {account.name}
-                  </span>
-                  {/* On a phone the date goes under the name. */}
-                  <span className="block text-meta text-ink-meta sm:hidden">
-                    Books until {booksUntil(account.books_until)}
-                  </span>
+    <table className={SHEET}>
+      <SheetHead title="Accounts">
+        <Th>Balance</Th>
+        <Th className="hidden sm:table-cell">Books until</Th>
+      </SheetHead>
+      <tbody>
+        {overview.accounts.map((account) => {
+          const Icon = account.kind === "card" ? CreditCard : Landmark;
+          const ledger = accountLedgerHref(account.account_id);
+          const balance =
+            account.kind === "card"
+              ? `${formatWholeMoney(account.balance)} owed`
+              : formatWholeMoney(account.balance);
+          const name = (
+            <span className="flex min-w-0 items-center gap-2">
+              <Icon
+                className="size-4 shrink-0 text-ink-meta"
+                strokeWidth={1.75}
+                aria-hidden="true"
+              />
+              <span className="min-w-0">
+                <span className="block truncate font-semibold text-foreground">
+                  {account.name}
+                </span>
+                {/* On a phone the date goes under the name. */}
+                <span className="block text-meta text-ink-meta sm:hidden">
+                  Books until {booksUntil(account.books_until)}
                 </span>
               </span>
-            );
-            // The whole row leads to the ledger: every cell is a link. The
-            // figures' links are for the pointer only, so the keyboard stops
-            // on the row once.
-            const rowLink = "block text-inherit no-underline outline-none";
-            return (
-              <tr
-                key={account.account_id}
+            </span>
+          );
+          // The whole row leads to the ledger: every cell is a link. The
+          // figures' links are for the pointer only, so the keyboard stops
+          // on the row once.
+          const rowLink = "block text-inherit no-underline outline-none";
+          return (
+            <tr
+              key={account.account_id}
+              className={cn(
+                "hover:bg-sap-row-hover",
+                ledger && "group/row has-[a:focus-visible]:bg-sap-row-hover",
+              )}
+            >
+              <td className={cn("max-w-0", !ledger && cn(ROW_PAD, "pr-3"))}>
+                {ledger ? (
+                  <Link to={ledger} className={cn(rowLink, ROW_PAD, "pr-3")}>
+                    {name}
+                  </Link>
+                ) : (
+                  name
+                )}
+              </td>
+              <Td className={cn("text-foreground", ledger && "p-0")}>
+                {ledger ? (
+                  <Link
+                    to={ledger}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className={cn(rowLink, ROW_PAD, "pl-5")}
+                  >
+                    {balance}
+                  </Link>
+                ) : (
+                  balance
+                )}
+              </Td>
+              <Td
                 className={cn(
-                  "border-t border-line-inner hover:bg-sap-row-hover",
-                  ledger && "group/row has-[a:focus-visible]:bg-sap-row-hover",
+                  "hidden text-ink-soft sm:table-cell",
+                  ledger && "p-0",
                 )}
               >
-                <td className={cn("max-w-0", !ledger && "py-2 pr-3")}>
-                  {ledger ? (
-                    <Link to={ledger} className={cn(rowLink, "py-2 pr-3")}>
-                      {name}
-                    </Link>
-                  ) : (
-                    name
-                  )}
-                </td>
-                <Td className={cn("text-foreground", ledger && "p-0")}>
-                  {ledger ? (
-                    <Link
-                      to={ledger}
-                      tabIndex={-1}
-                      aria-hidden="true"
-                      className={cn(rowLink, "py-2 pl-6")}
-                    >
-                      {balance}
-                    </Link>
-                  ) : (
-                    balance
-                  )}
-                </Td>
-                <Td
-                  className={cn(
-                    "hidden text-ink-soft sm:table-cell",
-                    ledger && "p-0",
-                  )}
-                >
-                  {ledger ? (
-                    <Link
-                      to={ledger}
-                      tabIndex={-1}
-                      aria-hidden="true"
-                      className={cn(rowLink, "py-2 pl-6")}
-                    >
-                      {booksUntil(account.books_until)}
-                    </Link>
-                  ) : (
-                    booksUntil(account.books_until)
-                  )}
-                </Td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
+                {ledger ? (
+                  <Link
+                    to={ledger}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    className={cn(rowLink, ROW_PAD, "pl-5")}
+                  >
+                    {booksUntil(account.books_until)}
+                  </Link>
+                ) : (
+                  booksUntil(account.books_until)
+                )}
+              </Td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -838,27 +821,8 @@ function booksUntil(date: string | null): string {
   return date === null ? "—" : formatDate(date);
 }
 
-function Card({
-  title,
-  action,
-  children,
-}: {
-  title?: string;
-  action?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-card border border-sap-border bg-card px-4 py-4 shadow-card">
-      {title && (
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-heading text-foreground">{title}</h2>
-          {action}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
+/** A row's padding: tight, with no dividers between rows. */
+const ROW_PAD = "py-1.5";
 
 /**
  * A link that fills its table cell, so the whole cell is the target and its
@@ -868,6 +832,7 @@ function Card({
 const CELL_LINK =
   "block text-inherit no-underline outline-none hover:bg-sap-drill-down-link-soft focus-visible:bg-sap-drill-down-link-soft";
 
+/** A column label in a section's heading row. */
 function Th({
   children,
   className,
@@ -878,7 +843,7 @@ function Th({
   return (
     <th
       className={cn(
-        "whitespace-nowrap pb-2 pl-6 text-right font-normal",
+        "whitespace-nowrap border-b border-sap-border pb-2 pl-5 text-right align-bottom text-meta font-normal text-ink-meta",
         className,
       )}
     >
@@ -897,7 +862,7 @@ function Td({
   return (
     <td
       className={cn(
-        "tnum whitespace-nowrap py-2 pl-6 text-right font-mono",
+        "tnum whitespace-nowrap py-1.5 pl-5 text-right font-mono",
         className,
       )}
     >
