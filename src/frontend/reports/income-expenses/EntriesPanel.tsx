@@ -217,7 +217,7 @@ export function EntriesPanel({
             </>
           }
         >
-          <Th>
+          <Th className="pr-4">
             <span role="group" aria-label="Order" className="flex gap-3">
               <OrderButton order="largest" current={order} onPick={setOrder}>
                 Largest
@@ -321,7 +321,7 @@ function EntryRow({
       <Link
         to={journalHref(entry.journal_id)}
         title="Open journal"
-        className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-baseline gap-x-3 py-1.5 text-foreground no-underline outline-none hover:bg-sap-row-hover focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/40"
+        className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-baseline gap-x-4 py-1.5 pr-4 text-foreground no-underline outline-none hover:bg-sap-row-hover focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/40"
       >
         <span className="tnum font-mono text-meta text-ink-meta">
           {formatShortDate(entry.date)}

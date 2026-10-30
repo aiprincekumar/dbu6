@@ -25,6 +25,8 @@ import {
   useSearchParams,
   useState,
 } from "../../report-kit";
+import { FileSpreadsheet, ScrollText } from "lucide-react";
+import { buttonVariants } from "../../components/ui/button";
 import { reportsApi } from "../client";
 import type { DateSpan, IncomeExpenses } from "../../../shared/index";
 import { AccountTable } from "./AccountTable";
@@ -68,9 +70,12 @@ import {
 
 const TITLE = "Income and Expenses";
 
-/** The small links beside the title. */
-const HEAD_LINK =
-  "text-meta font-semibold text-primary no-underline hover:underline hover:underline-offset-4 disabled:text-ink-meta disabled:no-underline";
+/** The actions beside the title: small outline buttons, so they read as
+ * things to do rather than as the title's subtitle. */
+const HEAD_ACTION = cn(
+  buttonVariants({ variant: "outline", size: "sm" }),
+  "no-underline disabled:opacity-50",
+);
 
 /**
  * Income and Expenses for a period. A new period keeps showing the last
@@ -132,14 +137,15 @@ export function IncomeExpensesPage() {
     <Screen
       width="full"
       header={
-        <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
           <h1 className="text-title text-foreground">{TITLE}</h1>
-          <div className="flex items-baseline gap-5">
+          <div className="flex items-center gap-2">
             {dates !== null && (
               <Link
                 to={incomeStatementHref(dates.first_date, dates.last_date)}
-                className={HEAD_LINK}
+                className={HEAD_ACTION}
               >
+                <ScrollText aria-hidden="true" />
                 Income statement
               </Link>
             )}
@@ -156,8 +162,9 @@ export function IncomeExpensesPage() {
                   incomeExpensesSheets(report),
                 )
               }
-              className={HEAD_LINK}
+              className={HEAD_ACTION}
             >
+              <FileSpreadsheet aria-hidden="true" />
               Export to Excel
             </button>
           </div>
@@ -165,7 +172,7 @@ export function IncomeExpensesPage() {
       }
     >
       {/* The period sits on the strip it sums up. */}
-      <div className="mt-5 mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="mt-5 mb-4 flex flex-wrap items-center gap-x-4 gap-y-1">
         <ReportPeriodField
           period={period}
           onChange={showPeriod}
