@@ -1,4 +1,5 @@
 import { cn } from "@sapporta/ui/cn";
+import { formatWholeMoney, wholeUnits } from "../format";
 
 export type Direction = "in" | "out";
 
@@ -17,6 +18,16 @@ export const MINUS = "−";
 export function formatAmount(value: number, direction: Direction): string {
   const sign = direction === "in" ? "+" : MINUS;
   return `${sign}${money.format(Math.abs(value))}`;
+}
+
+/**
+ * A report's figure in whole units with its direction: "+4,50,000". One that
+ * rounds to nothing reads "0", without a sign.
+ */
+export function formatWholeAmount(value: number, direction: Direction): string {
+  const whole = wholeUnits(Math.abs(value));
+  if (whole === 0) return formatWholeMoney(0);
+  return `${direction === "in" ? "+" : MINUS}${formatWholeMoney(whole)}`;
 }
 
 const SIZES = {

@@ -44,16 +44,16 @@ function report(
 describe("figures", () => {
   it("sign income and spending and say what was saved", () => {
     expect(figures({ income: 100000, spending: 79000 })).toEqual({
-      income: { figure: "+1,00,000.00", direction: "in" },
-      spending: { figure: `${MINUS}79,000.00`, direction: "out" },
-      remaining: { tone: "saved", figure: "21,000.00", share: "21%" },
+      income: { figure: "+1,00,000", direction: "in" },
+      spending: { figure: `${MINUS}79,000`, direction: "out" },
+      remaining: { tone: "saved", figure: "21,000", share: "21%" },
     });
   });
 
   it("say how much more was spent, in ink, when spending is higher", () => {
     expect(figures({ income: 50000, spending: 62500 }).remaining).toEqual({
       tone: "overspent",
-      figure: "12,500.00",
+      figure: "12,500",
       share: null,
     });
   });
@@ -61,7 +61,7 @@ describe("figures", () => {
   it("leave the share out when there is no income", () => {
     expect(figures({ income: 0, spending: 0 }).remaining).toEqual({
       tone: "saved",
-      figure: "0.00",
+      figure: "0",
       share: null,
     });
     expect(figures({ income: 0, spending: 100 }).remaining.tone).toBe(
@@ -71,7 +71,7 @@ describe("figures", () => {
 
   it("sign a section running the other way the other way", () => {
     expect(figures({ income: 0, spending: -500 }).spending).toEqual({
-      figure: "+500.00",
+      figure: "+500",
       direction: "in",
     });
   });
@@ -88,8 +88,16 @@ describe("directions and shares", () => {
     expect(amountDirection("spending", 100)).toBe("out");
     expect(amountDirection("spending", -100)).toBe("in");
     expect(amountDirection("income", -100)).toBe("out");
-    expect(signedAmount("spending", 84500)).toBe(`${MINUS}84,500.00`);
-    expect(signedAmount("spending", -500)).toBe("+500.00");
+    expect(signedAmount("spending", 84500)).toBe(`${MINUS}84,500`);
+    expect(signedAmount("spending", -500)).toBe("+500");
+  });
+
+  it("round each amount to whole units from its exact value", () => {
+    expect(signedAmount("spending", 84500.5)).toBe(`${MINUS}84,501`);
+    expect(signedAmount("income", 1200.49)).toBe("+1,200");
+    // Nothing reads as a signed zero.
+    expect(signedAmount("spending", 0.4)).toBe("0");
+    expect(signedAmount("spending", -0.4)).toBe("0");
   });
 
   it("share of the section, with none for amounts running the other way", () => {

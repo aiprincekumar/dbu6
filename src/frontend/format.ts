@@ -18,6 +18,22 @@ const wholeMoney = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
+/**
+ * A report's amount in whole units, rounded from its exact value: "1,20,000".
+ * Each figure is rounded on its own, so a total can differ by 1 from the sum
+ * of its rounded rows. Entry forms, drafts and statements keep their paise
+ * with `formatMoney`.
+ */
+export function formatWholeMoney(value: number): string {
+  return wholeMoney.format(wholeUnits(value));
+}
+
+/** An amount rounded to whole units, never −0. */
+export function wholeUnits(value: number): number {
+  const rounded = Math.round(value);
+  return rounded === 0 ? 0 : rounded;
+}
+
 // An amount without paise when it has none: "500", "450.50".
 function rangeEnd(value: number): string {
   return Number.isInteger(value)

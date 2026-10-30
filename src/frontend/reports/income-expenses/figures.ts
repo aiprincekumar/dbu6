@@ -1,4 +1,8 @@
-import { type Direction, formatAmount, formatMoney } from "../../report-kit";
+import {
+  type Direction,
+  formatWholeAmount,
+  formatWholeMoney,
+} from "../../report-kit";
 import type {
   IncomeExpenses,
   IncomeExpensesAccount,
@@ -22,9 +26,12 @@ export function amountDirection(section: Section, value: number): Direction {
   return value < 0 ? (inward ? "out" : "in") : inward ? "in" : "out";
 }
 
-/** An amount with its sign: "+1,20,000.00". */
+/**
+ * An amount with its sign, in whole units as reports show it: "+1,20,000".
+ * One that rounds to nothing reads "0".
+ */
 export function signedAmount(section: Section, value: number): string {
-  return formatAmount(value, amountDirection(section, value));
+  return formatWholeAmount(value, amountDirection(section, value));
 }
 
 /** What the income and spending left: saved, or overspent by. */
@@ -60,10 +67,14 @@ export function figures(totals: { income: number; spending: number }): Figures {
     remaining:
       remaining < 0
         ? // Overspending isn't an error: ink, never red.
-          { tone: "overspent", figure: formatMoney(-remaining), share: null }
+          {
+            tone: "overspent",
+            figure: formatWholeMoney(-remaining),
+            share: null,
+          }
         : {
             tone: "saved",
-            figure: formatMoney(remaining),
+            figure: formatWholeMoney(remaining),
             share:
               income > 0 ? `${Math.round((remaining / income) * 100)}%` : null,
           },

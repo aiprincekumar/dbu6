@@ -129,12 +129,18 @@ export {
   formatDaySpan,
   formatMoney,
   formatMonth,
+  formatWholeMoney,
   formatMonthSpan,
   formatShortDate,
   monthName,
   plural,
 } from "./format";
-export { Amount, formatAmount, type Direction } from "./components/amount";
+export {
+  Amount,
+  formatAmount,
+  formatWholeAmount,
+  type Direction,
+} from "./components/amount";
 
 // --- Blocks for a screen that is not a grid ---
 export { Screen, ScreenTitle } from "./components/screen";

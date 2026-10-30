@@ -24,7 +24,11 @@ export function MonthlySummaryReport() {
       >
         <ReportPeriodField period={period} onChange={setPeriod} />
       </ReportToolbar>
-      <ReportResultBody error={report.error} result={report.result} />
+      <ReportResultBody
+        error={report.error}
+        result={report.result}
+        wholeAmounts
+      />
     </ReportScreenFrame>
   );
 }

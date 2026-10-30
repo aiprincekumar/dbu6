@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { appTimeZone } from "@sapporta/frontend";
 import {
@@ -11,6 +12,7 @@ import { Input } from "@sapporta/ui";
 import { todayIn } from "../../shared/index";
 import { apiErrorMessage } from "../api";
 import { FRESH_QUERY } from "../queries";
+import { wholeAmounts as roundAmounts } from "./whole-amounts";
 
 /**
  * Today's date (`YYYY-MM-DD`) in the workspace's time zone, the zone the
@@ -57,6 +59,7 @@ export function ReportResultBody<TInput = unknown>({
   links,
   renderCell,
   result,
+  wholeAmounts = false,
 }: {
   error: string | null;
   linkContext?: { input: TInput };
@@ -64,14 +67,23 @@ export function ReportResultBody<TInput = unknown>({
   /** Cells drawn by the report, by level and column; a stable reference. */
   renderCell?: ReportCellRenderers;
   result: GridDataset | null;
+  /**
+   * Amounts in whole units, for a report that sums up the books; a ledger
+   * or a check, read against statements, keeps its paise.
+   */
+  wholeAmounts?: boolean;
 }) {
+  const shown = useMemo(
+    () => (result && wholeAmounts ? roundAmounts(result) : result),
+    [result, wholeAmounts],
+  );
   return (
     <>
       {error ? <ReportError error={error} /> : null}
       <div className="report-result-body flex-1 overflow-auto bg-sap-surface">
-        {result ? (
+        {shown ? (
           <ReportGridDataset
-            dataset={result}
+            dataset={shown}
             links={links}
             linkContext={linkContext}
             renderCell={renderCell}

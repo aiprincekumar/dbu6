@@ -35,6 +35,7 @@ export function TrialBalanceReport() {
       <ReportResultBody<LedgerLinkInput>
         error={report.error}
         result={report.result}
+        wholeAmounts
         links={links}
         linkContext={{ input: { to_date: asOfDate } }}
       />

@@ -246,7 +246,7 @@ describe("Income and Expenses", () => {
 
     expect(asked(0)).toBe("2025-10-01 – 2026-09-16");
     expect(text()).toContain("1 October 2025 – 16 September 2026");
-    expect(text()).toContain("+50,000.00");
+    expect(text()).toContain("+50,000");
     expect(text()).toContain("53%");
 
     await act(async () => button("Period: Last 12 months").click());
@@ -299,7 +299,7 @@ describe("Income and Expenses", () => {
     expect(text()).toContain("so far");
 
     await act(async () =>
-      button("August 2026 · Income +25,000.00 · Spending −11,500.00").click(),
+      button("August 2026 · Income +25,000 · Spending −11,500").click(),
     );
     await settle();
 
@@ -308,8 +308,8 @@ describe("Income and Expenses", () => {
     );
     expect(requests).toHaveLength(1);
     // The figures, the rows and the entries are August's.
-    expect(text()).toContain("−11,500.00");
-    expect(rows()).toContain("Rent −10,000.00 87%");
+    expect(text()).toContain("−11,500");
+    expect(rows()).toContain("Rent −10,000 87%");
     expect(panelEntries()).toEqual(["Rent August", "SAMPLE GROCER"]);
 
     await act(async () => press("Escape"));
@@ -323,16 +323,16 @@ describe("Income and Expenses", () => {
     await renderAt("/reports/income-expenses");
 
     expect(rows().slice(0, 3)).toEqual([
-      "Spending −23,500.00",
-      "Rent −20,000.00 85%",
-      "Food −3,500.00 15%",
+      "Spending −23,500",
+      "Rent −20,000 85%",
+      "Food −3,500 15%",
     ]);
     expect(rows().join()).not.toContain("Groceries");
 
     await act(async () => button("Open Food").click());
     expect(rows().slice(3, 5)).toEqual([
-      "Groceries −3,000.00 13%",
-      "Food, not in a sub-account −500.00 2%",
+      "Groceries −3,000 13%",
+      "Food, not in a sub-account −500 2%",
     ]);
     // Opening a row doesn't focus it.
     expect(location()).toBe("/reports/income-expenses");
@@ -427,6 +427,6 @@ describe("Income and Expenses", () => {
     await renderAt("/reports/income-expenses");
 
     expect(text()).toContain("Overspent");
-    expect(text()).toContain("23,500.00");
+    expect(text()).toContain("23,500");
   });
 });

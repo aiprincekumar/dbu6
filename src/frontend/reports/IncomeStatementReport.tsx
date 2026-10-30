@@ -34,6 +34,7 @@ export function IncomeStatementReport() {
       <ReportResultBody<LedgerLinkInput>
         error={report.error}
         result={report.result}
+        wholeAmounts
         links={links}
         linkContext={{ input: dates }}
       />
