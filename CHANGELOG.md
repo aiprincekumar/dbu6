@@ -1,5 +1,89 @@
 # @dbu6/app
 
+## 0.5.0
+
+### Minor Changes
+
+- 0971393: Settings › Opening balances says "From account statement" only while a
+  recorded opening is the balance its first balance check implies, and
+  "Manually recorded" otherwise. That now holds for any asset or liability
+  with balance checks, not only a bank or card from an import preset, and a
+  bank or card whose statements print no balance reads "Manually recorded".
+
+  `GET /opening-balances` replaces `suggested_amount` with `implied_opening`:
+  the opening the first balance check implies, counting what is posted and
+  what is in drafts before it. It no longer turns null once something is
+  posted, so the Settings dialog and /add/other prefill it for an account with
+  posted entries and no opening, and drafts dated before a posted check count
+  in it. Each recorded `opening` carries `source`: `"statement"` or
+  `"manual"`.
+
+- f597dfd: Spending by category on Overview shows each category's months as a
+  sparkline in place of its Average column, under a "Last N months" header.
+  The bar beside each name now sits before it and measures the category's share
+  of the month's spending.
+
+  `GET /api/overview` gives each category its `monthly` amounts, with `null`
+  for a month before the books start. Each of `months` holds that month's
+  income and spending under `amounts`, `null` for such a month, in place of
+  `income` and `spending` filled with zeros. It lists `Other` as the last
+  category, with a null `account_id`, for what the listed ones leave of the
+  spending; its amounts are no longer rounded to cents, like the listed ones'.
+  Other now also shows when its amount and average are both zero but a month of
+  it is not, as when a spend and its refund cancel out, and the table shows when
+  Other is the only category.
+
+### Patch Changes
+
+- 16821c0: `dbu6 check` reports a `.env.agent` that holds no token as missing rather than
+  ready.
+- 5e5a767: `dbu6 agent env --print` exports the token in `.env.agent` only when the app
+  accepts it. A revoked, expired or other books' token there used to be printed
+  as it was; now a fresh token is minted and printed instead, with the note that
+  nothing stores it. `dbu6 check` likewise reports such a token as missing
+  rather than ready, and one it has no database to check against as unchecked.
+- f697bd0: Handing a prompt to the coding agent now gives the project an agent token when
+  `.env.agent` holds none the app accepts, minted for the signed-in owner, so the
+  agent can reach the app without asking you to run `npx dbu6 agent env`. A
+  `.env.agent` whose token still works is left as it is, whoever it is for; one
+  whose token was revoked, has expired or belongs to other books gets a new one,
+  and, as with `npx dbu6 agent env`, minting it revokes the tokens dbu6 minted
+  for you before. Nothing is minted for the sample account the sample-data seed
+  makes, for a request an agent makes with its own token, or when the handoff is
+  refused because no coding agent or model works.
+
+  `npx dbu6 agent env --print --user <the sample account>` in a project whose
+  `.env.agent` holds a token now prints that token, as `--print` does for any
+  account, instead of refusing.
+
+- 44ed400: dbu6 now recognises the agent tokens it writes to `.env.agent` by a purpose
+  stored with the token rather than by its name, so a token you make in the app
+  is never revoked, whatever you call it. Tokens are named after what made them:
+  `dbu6 agent env`, or `Prompt handoff` when handing a prompt to the coding
+  agent made one. A migration marks the tokens dbu6 wrote before, so the app
+  needs a restart to apply it.
+- 41bdef6: The `sapporta` command reads the coding agent's token from `.env.agent` itself,
+  as Sapporta now does for any project, and dbu6 writes the file through
+  Sapporta: dbu6's own reader of the file is gone, and its `sapporta` bin only
+  forwards to the CLI. The CLI finds the project by its `sapporta.json`, which
+  every dbu6 project has; a folder without one no longer has its `.env.agent`
+  picked up. In the dbu6 checkout itself, `dbu6 check` says `npx sapporta`
+  works there too, since it is the same CLI.
+- f76f4bc: Copying a prompt for the coding agent works where the browser refuses the
+  Clipboard API, as the in-app browser of the Claude desktop app does: the copy
+  falls back to a selected textarea instead of silently doing nothing. A copy
+  now says "Copied to clipboard" with a green check, and with no coding agent
+  set up, a dialog says to open the agent in the project folder and paste the
+  prompt there, and that Settings can have dbu6 open it instead. On /add, Set
+  up this format is the card's primary button and Check again has an icon.
+- d39bfcf: Overview's month chart and spending sparklines now draw the month and the
+  twelve months its averages cover, so every month in an average is on the
+  chart; before, they drew the month and the eleven before it. `GET
+/api/overview` lists thirteen `months`, and each category's `monthly` follows
+  it. The averages themselves are unchanged.
+- 5ac9db2: `dbu6 seed` is gone. The sample books were a tool for developing dbu6 and are
+  no longer shipped in the package.
+
 ## 0.4.0
 
 ### Minor Changes
