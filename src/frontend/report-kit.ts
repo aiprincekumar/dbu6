@@ -152,7 +152,7 @@ export {
   HledgerDialog,
   type RenderedHledger,
 } from "./components/hledger-dialog";
-export { Button } from "./components/ui/button";
+export { Button, buttonVariants } from "./components/ui/button";
 export {
   Select,
   SelectContent,
@@ -174,7 +174,13 @@ export { Checkbox } from "@sapporta/ui/checkbox";
 export { cn } from "@sapporta/ui/cn";
 export { Popover, PopoverContent, PopoverTrigger } from "@sapporta/ui/popover";
 export { Tooltip, TooltipContent, TooltipTrigger } from "@sapporta/ui/tooltip";
-export { ChevronDown, ChevronRight, FileSpreadsheet, X } from "lucide-react";
+export {
+  ChevronDown,
+  ChevronRight,
+  FileSpreadsheet,
+  ScrollText,
+  X,
+} from "lucide-react";
 export { downloadXlsx, type XlsxCell, type XlsxSheet } from "./xlsx";
 
 // --- What report.ts and frontend.tsx default-export ---

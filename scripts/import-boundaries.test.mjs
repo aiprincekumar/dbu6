@@ -133,12 +133,15 @@ const REPORT_SIDES = [
     index: "frontend/index.ts",
     kit: "frontend/report-kit.ts",
     dir: "frontend/reports",
-    // The Reports page and its list: the app's, not a report's.
+    // The Reports page and its list: the app's, not a report's. And the
+    // rounding behind ReportResultBody's `wholeAmounts`, which the kit's
+    // reports/shared.tsx imports: part of the kit, not a report.
     infrastructure: [
       "registry.tsx",
       "ReportsIndex.tsx",
       "createReportPrompt.ts",
       "CreateReport.tsx",
+      "whole-amounts.ts",
     ],
     exceptions: {},
   },

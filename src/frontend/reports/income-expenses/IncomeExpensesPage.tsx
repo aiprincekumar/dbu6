@@ -1,9 +1,11 @@
 import {
   apiErrorMessage,
   booksSpanQuery,
+  buttonVariants,
   cn,
   downloadXlsx,
   EmptyState,
+  FileSpreadsheet,
   formatDate,
   FRESH_QUERY,
   incomeStatementHref,
@@ -16,6 +18,7 @@ import {
   ReportPeriodField,
   type ReportPeriod,
   Screen,
+  ScrollText,
   spanLabel,
   today,
   usePageTitle,
@@ -25,8 +28,6 @@ import {
   useSearchParams,
   useState,
 } from "../../report-kit";
-import { FileSpreadsheet, ScrollText } from "lucide-react";
-import { buttonVariants } from "../../components/ui/button";
 import { reportsApi } from "../client";
 import type { DateSpan, IncomeExpenses } from "../../../shared/index";
 import { AccountTable } from "./AccountTable";

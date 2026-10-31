@@ -9,9 +9,9 @@ import {
   type ReportLedger,
   reportLedger,
   type SapportaEnv,
+  Temporal,
   TsRestApi,
 } from "../../report-kit.js";
-import { Temporal } from "@sapporta/shared/temporal";
 import {
   reportsContract,
   type IncomeExpenses,
