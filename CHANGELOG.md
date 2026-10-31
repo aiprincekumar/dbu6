@@ -1,5 +1,11 @@
 # @dbu6/app
 
+## 0.5.1
+
+### Patch Changes
+
+- Import Income and Expenses' Temporal, button and icon through the report kits
+
 ## 0.5.0
 
 ### Minor Changes
