@@ -315,6 +315,13 @@ function button(label: string): HTMLElement {
   return found;
 }
 
+/** The agent's button, which says what it does beside its terminal icon. */
+function agentButton(): HTMLElement | undefined {
+  return [...document.querySelectorAll<HTMLElement>("button")].find((one) =>
+    one.textContent?.startsWith("Fill in what you own and owe"),
+  );
+}
+
 async function click(label: string) {
   await act(async () => button(label).click());
   await settle();
@@ -446,7 +453,9 @@ describe("OpeningBalances", () => {
     expect(
       document.querySelector('[aria-label^="Add a balance for"]'),
     ).toBeNull();
-    expect(button("Record a balance").getAttribute("href")).toBe("/add/other");
+    expect(button("Record a balance by hand").getAttribute("href")).toBe(
+      "/add/other",
+    );
 
     // A row opens its form; a locked one shows why and opens its journal.
     expect(rowOf("EPF").querySelector("td button")?.textContent).toBe("EPF");
@@ -730,12 +739,28 @@ describe("OpeningBalances", () => {
     expect(document.querySelector("form")).toBeNull();
   });
 
-  it("points to C1 when no balance is recorded", async () => {
+  it("points to the agent and to C1 when no balance is recorded", async () => {
     await renderPage([cash, loan, gold]);
 
     expect(text()).toContain("No opening balances yet");
-    expect(button("Record a balance").getAttribute("href")).toBe("/add/other");
+    expect(agentButton()).toBeDefined();
+    expect(button("Record a balance by hand").getAttribute("href")).toBe(
+      "/add/other",
+    );
     expect(document.querySelector("table")).toBeNull();
+  });
+
+  it("hands the accounts with no statements to the agent, with C1 beside it", async () => {
+    await renderPage(ALL);
+
+    // The agent's button first, then the quiet by-hand link, in one row.
+    const agent = agentButton();
+    const byHand = button("Record a balance by hand");
+    expect(agent).toBeDefined();
+    expect(
+      agent!.compareDocumentPosition(byHand) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(byHand.className).not.toContain("bg-primary");
   });
 
   it("says when it can't load", async () => {

@@ -14,9 +14,11 @@ import {
   type SchemaTableColumns,
   type SchemaTableGridViewSource,
   type SchemaTableRowsByLevel,
+  type TableGridActionsProps,
   type TGridCellRenderContext,
   type TGridSession,
 } from "@sapporta/frontend";
+import { AgentButton } from "../../components/agent-prompt";
 import { parseRowId } from "../../row-id";
 import {
   ACCOUNTS_ROUTE,
@@ -24,6 +26,7 @@ import {
   editAccountHref,
   type AccountsOutletContext,
 } from "./routes";
+import { REORGANIZE_CHART_PROMPT } from "./reorganizeChartPrompt";
 
 /*
  * The Accounts page: the chart as one tree, read-only, with an Edit button on
@@ -34,6 +37,10 @@ import {
  *
  * The generated table API is untouched: `npx sapporta rows update accounts …`
  * still writes one cell at a time, which is what an agent wants.
+ *
+ * Changing the chart is the agent's first: Reorganize my chart leads the
+ * grid's toolbar, and hands the whole job, entries and all, to the coding
+ * agent. The page itself is the by-hand way, one account at a time.
  *
  * Which form is open is the URL's, not this page's: `/accounts/new` and
  * `/accounts/:accountId/edit` are its child routes, rendered in the Outlet
@@ -154,6 +161,7 @@ export function AccountsPage() {
           registerAs={ACCOUNTS_TABLE}
           sessionRef={sessionRef}
           columns={ACCOUNT_COLUMNS}
+          actions={ReorganizeChartAction}
           onNewRecord={() => void navigate(NEW_ACCOUNT_ROUTE)}
           viewRelatedRows
           gridClassName="accounts-grid"
@@ -166,6 +174,22 @@ export function AccountsPage() {
       {/* The open form, as `/accounts/new` or `/accounts/:accountId/edit`. */}
       <Outlet context={outlet} />
     </div>
+  );
+}
+
+/**
+ * Reorganize my chart, on the grid's toolbar, or across the action sheet
+ * where a narrow window moves the toolbar's actions.
+ */
+function ReorganizeChartAction(
+  props: TableGridActionsProps<SchemaTableRowsByLevel>,
+) {
+  return (
+    <AgentButton
+      label="Reorganize my chart"
+      prompt={REORGANIZE_CHART_PROMPT}
+      wide={props.surface === "action-sheet"}
+    />
   );
 }
 

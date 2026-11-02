@@ -265,6 +265,21 @@ async function clickIn(scope: HTMLElement, label: string) {
   await settle();
 }
 
+describe("the chart's agent action", () => {
+  it("offers Reorganize my chart among the chart's actions", async () => {
+    await render();
+
+    // A window this narrow keeps the toolbar's actions in its sheet.
+    await click("Open table actions");
+    const agent = [...document.querySelectorAll<HTMLElement>("button")].find(
+      (one) => one.textContent?.startsWith("Reorganize my chart"),
+    );
+    expect(agent).toBeDefined();
+    // The chart is still there behind it.
+    expect(rowOf("Sample Savings")).toBeDefined();
+  });
+});
+
 describe("the chart with a form open", () => {
   it("edits a row at a URL a link can point at", async () => {
     await render();

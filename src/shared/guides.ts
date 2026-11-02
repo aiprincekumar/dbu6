@@ -95,6 +95,8 @@ export const PLAYBOOKS = [
   "duplicates",
   "balance-checks",
   "cross-account-transfers",
+  "posted-balance-check",
+  "chart-change",
 ] as const;
 
 export type PlaybookName = (typeof PLAYBOOKS)[number];

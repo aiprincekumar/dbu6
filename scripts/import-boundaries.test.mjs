@@ -142,8 +142,18 @@ const REPORT_SIDES = [
       "createReportPrompt.ts",
       "CreateReport.tsx",
       "whole-amounts.ts",
+      "postedBalanceCheckPrompt.ts",
     ],
-    exceptions: {},
+    // Balance Assertions hands its failing rows to the coding agent, as
+    // Review's checks do, through the app's agent button and the prompt
+    // beside it. A project's report has no playbook of the app's to name;
+    // this is not a precedent for the others.
+    exceptions: {
+      "BalanceAssertionsReport.tsx": [
+        "frontend/components/agent-prompt",
+        "frontend/reports/postedBalanceCheckPrompt",
+      ],
+    },
   },
 ];
 

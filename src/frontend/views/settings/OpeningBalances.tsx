@@ -21,6 +21,7 @@ import { usePageTitle } from "@sapporta/frontend/shell";
 import type { OpeningBalanceAccount } from "../../../shared/index";
 import { ADD_OTHER_ROUTE } from "../../add-account/state";
 import { apiErrorMessage } from "../../api";
+import { AgentButton } from "../../components/agent-prompt";
 import { EmptyState } from "../../components/empty-state";
 import { LoadError } from "../../components/load-error";
 import { Screen, ScreenTitle } from "../../components/screen";
@@ -43,6 +44,7 @@ import {
 } from "./OpeningBalanceDialog";
 import { BALANCES_SETTINGS_ROUTE, balanceFormHref } from "./routes";
 import { useOpeningBalances } from "./opening-balances-data";
+import { ownAndOwePrompt } from "./ownAndOwePrompt";
 
 /*
  * Settings' Opening balances: what each account held or owed when the
@@ -50,9 +52,12 @@ import { useOpeningBalances } from "./opening-balances-data";
  * Source column for the banks and cards whose first statements set theirs.
  * Clicking a row opens its form, where a balance can be changed or removed
  * until another transaction on its account follows it, or while its journal
- * entry opens other accounts too; after that the row opens its journal. Recording one is C1's
- * (/add/other), except the balance a link names that an account lacks: a
- * bank or card whose statements print none, which C1 doesn't list.
+ * entry opens other accounts too; after that the row opens its journal.
+ * Filling in the accounts with no statements, cash, deposits, investments
+ * and loans, is the coding agent's (ownAndOwePrompt); recording one balance
+ * by hand is C1's (/add/other), except the balance a link names that an
+ * account lacks: a bank or card whose statements print none, which C1
+ * doesn't list.
  *
  * One account's form is the URL `/settings/balances/:accountId/edit`, whose
  * route is a child of this one. Recording or removing is not a page of its
@@ -105,10 +110,22 @@ export function OpeningBalances() {
     setRemoving(account);
     void navigate({ pathname: BALANCES_SETTINGS_ROUTE, search });
   };
-  const addButton = (
-    <Button render={<Link to={ADD_OTHER_ROUTE} />} nativeButton={false}>
-      Record a balance
-    </Button>
+  // The agent first, for everything with no statements at once; one
+  // balance by hand is the quiet link beside it.
+  const addActions = data && (
+    <div className="flex flex-wrap items-start gap-x-5 gap-y-2">
+      <AgentButton
+        label="Fill in what you own and owe"
+        prompt={ownAndOwePrompt(data)}
+        afterwards="Answer its questions in the terminal. The balances it records show here."
+      />
+      <Link
+        to={ADD_OTHER_ROUTE}
+        className="flex min-h-[calc(var(--height-sap-ctl)+2px)] items-center text-row text-ink-meta underline decoration-sap-border-strong underline-offset-4 hover:text-foreground hover:decoration-current"
+      >
+        Record a balance by hand
+      </Link>
+    </div>
   );
 
   return (
@@ -137,12 +154,12 @@ export function OpeningBalances() {
               <EmptyState
                 title="No opening balances yet"
                 body="Banks and cards get theirs from their first statement."
-                action={addButton}
+                action={addActions}
               />
             ) : (
               <>
                 <BalanceTable groups={groups} focus={focus} onOpen={openForm} />
-                <div className="mt-5">{addButton}</div>
+                <div className="mt-5">{addActions}</div>
               </>
             )}
             <RemoveDialog
