@@ -86,6 +86,10 @@ export function loadHomeSummary(
         kind: standing.kind,
         has_parser,
         checkpoint: standing.checkpoint,
+        statements_until: latest(
+          standing.checkpoint?.date,
+          standing.drafts?.closing?.date,
+        ),
         statement_differences: standing.statement_differences,
         ...postingInputs(standing.drafts, names),
       };
@@ -125,6 +129,13 @@ function assertionRank(account: HomeAccount): number {
 
 function assertionDate(account: HomeAccount): string {
   return (account.in_ledger && account.checkpoint?.date) || "";
+}
+
+// The later of two dates, either of which may be missing; null without both.
+function latest(a: string | undefined, b: string | undefined): string | null {
+  if (a === undefined) return b ?? null;
+  if (b === undefined) return a;
+  return a > b ? a : b;
 }
 
 function addCounts(a: DraftCounts, b: DraftCounts): DraftCounts {

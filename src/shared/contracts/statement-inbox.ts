@@ -29,6 +29,16 @@ export const statementInboxBatchSchema = z.object({
 });
 export type StatementInboxBatch = z.infer<typeof statementInboxBatchSchema>;
 
+/**
+ * A drop, saved: the batch of the files new to the inbox (none when every
+ * file was already there), and the names of those skipped because a file
+ * with the same contents waits already, or came earlier in the same drop.
+ */
+export const statementInboxDropSchema = statementInboxBatchSchema.extend({
+  already_uploaded: z.array(z.string()),
+});
+export type StatementInboxDrop = z.infer<typeof statementInboxDropSchema>;
+
 export const statementInboxContract = c.router({
   listStatementInbox: c.query({
     method: "GET",
@@ -44,11 +54,11 @@ export const statementInboxContract = c.router({
     method: "POST",
     path: "/statement-inbox",
     summary:
-      "Save dropped statements (`files`, repeated) as one batch under tmp/statement-inbox/<batch>/ for a run. Nothing is read, parsed or written to the books",
+      "Save dropped statements (`files`, repeated) as one batch under tmp/statement-inbox/<batch>/ for a run. A file whose contents are already in the inbox is skipped and named in `already_uploaded`. Nothing is read, parsed or written to the books",
     contentType: "multipart/form-data",
     body: z.any(),
     responses: {
-      200: statementInboxBatchSchema,
+      200: statementInboxDropSchema,
       400: errorSchema,
       403: errorSchema,
     },

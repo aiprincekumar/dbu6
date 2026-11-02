@@ -1,7 +1,8 @@
 import { getApiBase } from "@sapporta/frontend/platform";
 import {
-  statementInboxBatchSchema,
+  statementInboxDropSchema,
   type StatementInboxBatch,
+  type StatementInboxDrop,
 } from "../../shared/index";
 import { runPrompt, type AgentPrompt } from "../agent-prompt-rules";
 import { plural } from "../format";
@@ -13,10 +14,13 @@ import { plural } from "../format";
  * statementInboxApi.
  */
 
-/** Saves the dropped files as one batch. Throws with the server's words. */
+/**
+ * Saves the dropped files new to the inbox as one batch; the server skips
+ * any already there. Throws with the server's words.
+ */
 export async function saveToInbox(
   files: readonly File[],
-): Promise<StatementInboxBatch> {
+): Promise<StatementInboxDrop> {
   const body = new FormData();
   for (const file of files) body.append("files", file);
   let response: Response;
@@ -32,7 +36,7 @@ export async function saveToInbox(
   }
   const reply: unknown = await response.json().catch(() => null);
   if (response.ok) {
-    const batch = statementInboxBatchSchema.safeParse(reply);
+    const batch = statementInboxDropSchema.safeParse(reply);
     if (batch.success) return batch.data;
     throw new Error("The server's answer about the files couldn't be read.");
   }
@@ -43,6 +47,13 @@ export async function saveToInbox(
       ? error
       : `The statements couldn't be saved (HTTP ${response.status}).`,
   );
+}
+
+/**
+ * The run's button: what pressing it gets done, over the files uploaded.
+ */
+export function runLabel(files: number): string {
+  return `Add ${plural(files, "file")} to my books`;
 }
 
 /** The run's prompt for the batches waiting in the inbox. */

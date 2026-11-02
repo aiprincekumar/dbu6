@@ -113,6 +113,8 @@ describe("Home summary", () => {
         kind: "bank",
         has_parser: true,
         checkpoint: { date: "2026-02-10", balance: 1500 },
+        // Its drafts carry a statement balance on 1 Mar, past the checkpoint.
+        statements_until: "2026-03-01",
         statement_differences: 0,
         drafts: 3,
         uncategorised: 1,
@@ -130,6 +132,7 @@ describe("Home summary", () => {
         kind: "card",
         has_parser: true,
         checkpoint: { date: "2026-02-20", balance: 300 },
+        statements_until: "2026-02-20",
         statement_differences: 1,
         drafts: 0,
         uncategorised: 0,

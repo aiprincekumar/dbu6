@@ -187,8 +187,10 @@ export {
 export {
   statementInboxContract,
   statementInboxBatchSchema,
+  statementInboxDropSchema,
   statementInboxFileSchema,
   type StatementInboxBatch,
+  type StatementInboxDrop,
   type StatementInboxFile,
 } from "./statement-inbox.js";
 export { journalsContract } from "./journals.js";

@@ -101,6 +101,7 @@ function homeSummary(waiting: number) {
       path: `Sample Bank ${index + 1}`,
       parent_path: null,
       checkpoint: null,
+      statements_until: null,
       statement_differences: 0,
       drafts: 1,
       uncategorised: 0,

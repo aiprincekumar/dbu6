@@ -12,7 +12,7 @@ import { LinkCard, type LinkCardProps } from "./components/link-card";
 
 const importTools: readonly LinkCardProps[] = [
   {
-    label: "Import statements",
+    label: "Import statements, guided",
     description:
       "Import PDF, CSV, or XLS statements, each matched to its account by a saved parser and import preset.",
     to: "/import",

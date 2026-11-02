@@ -64,6 +64,7 @@ Sample savings       4    2025-04-01  2025-09-30  new        -
 Sample card          6    2025-04-05  2025-10-04  new        opening balance (you)
 Sample current       2    2025-07-01  2025-08-31  in books   2025-06 missing (download)
 (unknown)            1    -           -           no parser  parser
+Sample wallet        1    2025-08-02  2025-08-29  text       account, opening and closing (you)
 ```
 
 Note under it: files read by several parsers, files of two accounts, a
@@ -81,7 +82,10 @@ Your first reply is the plan, and you wait for go:
 3. The questions you already know you have, numbered: a bank's name when a
    file doesn't say, a card's opening balance when the read says
    `needs_opening`, a parent account when `default_parents` of
-   `npx sapporta api get /api/setup/statement-accounts` is `null`.
+   `npx sapporta api get /api/setup/statement-accounts` is `null`, and for
+   each text file to import freeform ([Text files](#text-files)) what it
+   doesn't say: which account, whether it is a card, and the opening and
+   closing balances.
 4. One line: "Go ahead?"
 
 ### 3. Chart
@@ -93,9 +97,11 @@ the user approved.
 
 For each file no parser reads, or several do: the `unrecognized-statement`
 or `ambiguous-parsers` playbook, then `npx dbu6 check`, then read the files
-again. A parser serves every account of that format, so do this once per
-format, before any import. A bank or card the run adds gets no preset
-account from you: `add-account/add` sets it up.
+again. A text file no parser reads is the exception: it is imported
+freeform, as [Text files](#text-files) says, with no parser. A parser
+serves every account of that format, so do this once per format, before
+any import. A bank or card the run adds gets no preset account from you:
+`add-account/add` sets it up.
 
 ### 5. Accounts and imports
 
@@ -125,6 +131,29 @@ A refusal sends you to its playbook:
 A missing period goes on the "download" list, and the account is imported
 up to the gap, if its earlier files import on their own. Then move on to the
 next account rather than stopping.
+
+### Text files
+
+A `.txt` file, or any file of rows copied out of a PDF, a web page or an
+app, goes through the survey like any statement: a saved parser that reads
+it imports it as above. When none does (`unrecognized`), don't write a
+parser for it; import it freeform, as `npx dbu6 docs freeform-guide` says:
+
+- Read its transactions in the survey, and give it a row in the table, with
+  its count and dates and `text` as its state.
+- What the file doesn't say goes in the plan's questions, so the user
+  answers it with the go-ahead: the account it belongs to (one in the books,
+  or a new one with its name, type and parent), whether it is a card, and
+  the opening and closing balances. A balance the file shows is offered as
+  a suggestion to confirm, never used on its own.
+- After go, create a new account with
+  `npx sapporta rows create accounts`, then `POST /api/import-draft/abacus`
+  in the account's turn among the imports, oldest first. That import doesn't
+  take `inbox_files`, so once it puts the rows in the drafts, take the file
+  out of the inbox:
+  `npx sapporta api post /api/statement-inbox/remove --body '{"saved_path":"<saved_path>"}'`.
+- A balance mismatch goes back to the user in the question round; never
+  change rows or balances to make them agree.
 
 ### 6. Categorize, across all accounts
 
@@ -220,12 +249,17 @@ Accounts I'll create
 
 ## The report
 
-Links use `SAPPORTA_PUBLIC_APP_URL` from `.env.development`.
+It opens with one link, to Review, where every account below waits to be
+added: `SAPPORTA_PUBLIC_APP_URL` from `.env.development`, then `/review`,
+written out in full so the terminal makes it clickable. Name no other
+Review link; Review lists the accounts.
 
 ```
-Ready to add                     Drafts  Rules   AI  You  Dups removed  Checks
-Sample savings  /review/12          412    280   98   34             2   31/31
-Sample card     /review/14          188    120   51   17             0     6/6
+Review your books: http://localhost:<port>/review
+
+Ready to add        Drafts  Rules   AI  You  Dups removed  Checks
+Sample savings         412    280   98   34             2   31/31
+Sample card            188    120   51   17             0     6/6
 
 Add in this order: Sample savings, then Sample card (card payments tie them).
 

@@ -54,11 +54,41 @@ describe("the statement inbox", () => {
     expect(await readFile(join(root, saved.files[1].saved_path), "utf8")).toBe(
       "second!",
     );
+    expect(saved.already_uploaded).toEqual([]);
+  });
+
+  it("doesn't save a file twice, whatever its name, and makes no empty batch", async () => {
+    const first = await saveToInbox([new File(["same"], "sample.pdf")]);
+
+    const again = await saveToInbox([
+      new File(["same"], "sample.pdf"),
+      new File(["same"], "sample-renamed.pdf"),
+      new File(["new"], "sample-new.pdf"),
+      new File(["new"], "sample-new-copy.pdf"),
+    ]);
+    expect(again.files.map((file) => file.file_name)).toEqual([
+      "sample-new.pdf",
+    ]);
+    expect(again.already_uploaded).toEqual([
+      "sample.pdf",
+      "sample-renamed.pdf",
+      "sample-new-copy.pdf",
+    ]);
+
+    const none = await saveToInbox([new File(["same"], "sample.pdf")]);
+    expect(none.files).toEqual([]);
+    expect(await exists(join(root, "tmp/statement-inbox", none.batch))).toBe(
+      false,
+    );
+    // Batches made in the same second sort by their random digits.
+    expect((await listInbox()).map((batch) => batch.batch).sort()).toEqual(
+      [first.batch, again.batch].sort(),
+    );
   });
 
   it("lists what waits as it was saved, and nothing for an empty inbox", async () => {
     expect(await listInbox()).toEqual([]);
-    const saved = await saveToInbox([
+    const { already_uploaded: _none, ...saved } = await saveToInbox([
       new File(["a"], "b.pdf"),
       new File(["bb"], "a.pdf"),
     ]);

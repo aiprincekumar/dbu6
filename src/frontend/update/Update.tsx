@@ -1,12 +1,15 @@
 import { Link } from "react-router-dom";
-import { ChevronRight, CreditCard, Landmark, Plus } from "lucide-react";
+import { CreditCard, Landmark, Plus } from "lucide-react";
 import { cn } from "@sapporta/ui/cn";
 import { useQuery } from "@tanstack/react-query";
-import { dayLabel, type HomeAccount } from "../../shared/index";
+import {
+  dayLabel,
+  type HomeAccount,
+  type HomeSummary,
+} from "../../shared/index";
 import { useAuthStore } from "@sapporta/frontend/auth";
 import { usePageTitle } from "@sapporta/frontend/shell";
 import { apiErrorMessage } from "../api";
-import { AccountParentPath } from "../components/account-name";
 import { Button } from "../components/ui/button";
 import { LoadError } from "../components/load-error";
 import { Screen } from "../components/screen";
@@ -16,21 +19,25 @@ import { homeSummaryQuery } from "../queries";
 import { accountLedgerHref } from "../reports/links";
 import { today } from "../reports/shared";
 import { BANKS_SETTINGS_ROUTE } from "../views/settings/routes";
-import { formatDate } from "../format";
+import { formatDate, formatMonth } from "../format";
 import { DoMyBooks } from "../run/DoMyBooks";
 import {
   accountStatus,
   ADD_BANK_OR_CARD,
+  GUIDED_IMPORT,
   statementsHref,
+  statementsNeededFrom,
   updateState,
   type UpdateCard,
   type UpdateView,
 } from "./state";
 
 /**
- * Update: where the books stand and one thing to do to bring them up to
- * date (PLAN.md §11 P1, where it is Home). One request; the greeting and the card
- * follow from the summary's state.
+ * Update: bringing the books up to date (PLAN.md §11 P1, where it is Home).
+ * Everything on it helps the user find and drop the statements it needs:
+ * the drop and its run, and beside it which statements to download, from
+ * which month. One request; the greeting and the card follow from the
+ * summary's state.
  */
 export function Update() {
   usePageTitle("Update");
@@ -46,7 +53,7 @@ export function Update() {
 
   return (
     <Screen
-      width="narrow"
+      width="wide"
       header={
         <>
           <p className="text-label uppercase text-ink-meta">
@@ -77,71 +84,55 @@ export function Update() {
           />
         </div>
       ) : view ? (
-        <NextStep card={view.card} />
+        <>
+          {!("kind" in view.card) && (
+            <div className="mt-5">
+              <StepCard card={view.card} />
+            </div>
+          )}
+          <div
+            className={cn(
+              "grid gap-x-8 gap-y-8",
+              "kind" in view.card ? "mt-5" : "mt-10",
+              view.listsAccounts && "lg:grid-cols-[minmax(0,1fr)_352px]",
+            )}
+          >
+            {view.listsAccounts && summary && (
+              <StatementsNeeded summary={summary} />
+            )}
+            <div className="min-w-0 lg:row-start-1">
+              {"kind" in view.card ? (
+                <DoMyBooks body={view.card.body} byHand={view.card.byHand} />
+              ) : (
+                <DoMyBooks byHand={GUIDED_IMPORT} />
+              )}
+            </div>
+          </div>
+        </>
       ) : (
         <div
           aria-hidden="true"
           className="mt-5 h-[104px] rounded-card bg-sap-nested"
         />
       )}
-
-      {(view === null || view.listsAccounts) && (
-        <section className="mt-10">
-          <div className="flex items-center justify-between gap-3 pb-3">
-            <h2 className="text-heading text-foreground">Banks &amp; cards</h2>
-            {summary && (
-              <Button
-                render={<Link to={ADD_BANK_OR_CARD.to} />}
-                nativeButton={false}
-                variant="outline"
-                size="sm"
-              >
-                <Plus />
-                {ADD_BANK_OR_CARD.label}
-              </Button>
-            )}
-          </div>
-          {summary ? (
-            <AccountTable
-              accounts={summary.accounts}
-              statementsTo={statementsHref(summary)}
-            />
-          ) : error ? null : (
-            <ul aria-hidden="true" className="border-t border-line-inner">
-              {[0, 1, 2].map((i) => (
-                <li
-                  key={i}
-                  className="my-2 h-[52px] rounded-control bg-sap-nested"
-                />
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
     </Screen>
   );
 }
 
 /**
- * The one thing to do; Overview shows it too until anything is posted. The
- * first run's is "Do my books"; any other card has the drop below it, for
- * more statements.
+ * The one thing to do, as Overview shows it until anything is posted: "Do my
+ * books", or drafts waiting with the drop below for more statements. Update
+ * lays the same out around its statements box.
  */
 export function NextStep({ card }: { card: UpdateView["card"] }) {
   if ("kind" in card) {
-    return (
-      <div className="mt-5">
-        <DoMyBooks body={card.body} byHand={card.byHand} />
-      </div>
-    );
+    return <DoMyBooks body={card.body} byHand={card.byHand} />;
   }
   return (
     <>
-      <div className="mt-5">
-        <StepCard card={card} />
-      </div>
+      <StepCard card={card} />
       <div className="mt-10">
-        <DoMyBooks />
+        <DoMyBooks byHand={GUIDED_IMPORT} />
       </div>
     </>
   );
@@ -162,28 +153,36 @@ function StepCard({ card }: { card: UpdateCard }) {
   );
 }
 
-function AccountTable({
-  accounts,
-  statementsTo,
-}: {
-  accounts: readonly HomeAccount[];
-  /** Where an account with no statements yet gets them. */
-  statementsTo: string;
-}) {
+/**
+ * Which statements to download: each bank and card, the month its next
+ * statements start, and the last day its posted statements reached. A side
+ * box beside the drop, there to be read before downloading. The month's
+ * label is its title; the date stays quieter, there for whoever looks for
+ * it. Each name has the box's width to itself, with the two values in
+ * columns under it; the account's status, when something waits on it, sits
+ * under them.
+ */
+function StatementsNeeded({ summary }: { summary: HomeSummary }) {
+  const statementsTo = statementsHref(summary);
   return (
-    <div>
+    <aside
+      aria-label="Statements needed"
+      className="self-start rounded-card border border-line-inner bg-card px-4 py-3 lg:col-start-2 lg:row-start-1"
+    >
       <div
         aria-hidden="true"
-        className="flex items-center gap-3 border-b border-line-inner px-2 pb-2 text-meta text-ink-meta"
+        className={cn(
+          ROW_GRID,
+          "items-baseline border-b border-line-inner pb-2",
+        )}
       >
-        <span className="w-5 shrink-0" />
-        <span className={NAME_COLUMN}>Account</span>
-        <span className={DATE_COLUMN}>Imported until</span>
-        <span className="flex-1" />
-        <span className="w-4 shrink-0" />
+        <span className="col-start-2 text-subheading text-foreground">
+          Statement needed from
+        </span>
+        <span className="text-meta text-ink-meta">Imported until</span>
       </div>
-      <ul className="divide-y divide-line-inner border-b border-line-inner">
-        {accounts.map((account) => (
+      <ul className="divide-y divide-line-inner">
+        {summary.accounts.map((account) => (
           <AccountRow
             key={account.account_id}
             account={account}
@@ -191,21 +190,29 @@ function AccountTable({
           />
         ))}
       </ul>
-    </div>
+      <div className="border-t border-line-inner pt-2">
+        <Link
+          to={ADD_BANK_OR_CARD.to}
+          className="inline-flex items-center gap-1 text-meta text-ink-meta no-underline hover:text-foreground hover:underline hover:underline-offset-4"
+        >
+          <Plus className="size-3.5" />
+          {ADD_BANK_OR_CARD.label}
+        </Link>
+      </div>
+    </aside>
   );
 }
 
-/*
- * The columns keep the same widths in the header and each row. The name's is
- * fixed rather than stretching, so each date sits close to its account; the
- * status takes the rest of the row, or a line of its own on a phone.
- */
-const NAME_COLUMN = "w-36 min-w-0 shrink-0 sm:w-56";
-const DATE_COLUMN = "w-24 shrink-0 text-right sm:w-28";
+// The icon's gutter, the month's column, and the date's, just wide enough
+// for its label, so the month's label fits on one line at phone width; the
+// same in the header and each row, so the months and dates line up under
+// their labels.
+const ROW_GRID = "grid grid-cols-[16px_minmax(0,1fr)_5.5rem] gap-x-2";
 
 /**
- * One account. The whole row opens its ledger: the name's link stretches over
- * the row, and the status link sits above it, going where the status points.
+ * One account: its name, opening its ledger; under it the month its
+ * statements are needed from and the day its posted statements reached; and
+ * its status when something waits on it.
  */
 function AccountRow({
   account,
@@ -214,74 +221,63 @@ function AccountRow({
   account: HomeAccount;
   statementsTo: string;
 }) {
+  const status = accountStatus(account, statementsTo);
   const ledger = account.in_ledger
     ? accountLedgerHref(account.account_id)
     : null;
-  const status = accountStatus(account, statementsTo);
   const Icon = account.kind === "card" ? CreditCard : Landmark;
   return (
-    <li
-      className={cn(
-        "relative flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-3 sm:flex-nowrap",
-        ledger && "hover:bg-sap-row-hover",
-      )}
-    >
+    <li className={cn(ROW_GRID, "py-2")}>
       <Icon
         aria-hidden="true"
-        className="size-5 shrink-0 text-ink-meta"
+        className="mt-0.5 size-4 text-ink-meta"
         strokeWidth={1.75}
       />
-      <div className={NAME_COLUMN}>
+      <span className="col-span-2 min-w-0 break-words text-row font-semibold">
         {account.in_ledger && ledger ? (
           <Link
             to={ledger}
             title={account.path}
-            className="block truncate font-semibold text-foreground no-underline outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-[3px] focus-visible:after:ring-ring/40"
+            className="text-foreground no-underline hover:underline hover:underline-offset-4"
           >
             {account.name}
           </Link>
         ) : (
-          <span className="block truncate font-semibold text-foreground">
-            {account.name}
-          </span>
+          <span className="text-foreground">{account.name}</span>
         )}
-        {account.in_ledger && account.parent_path && (
-          <AccountParentPath path={account.parent_path} className="mt-0.5" />
-        )}
-        {!account.in_ledger && (
-          <div className="mt-0.5 text-meta text-ink-meta">
-            Deleted from your books. Remove it in{" "}
-            <Link
-              to={BANKS_SETTINGS_ROUTE}
-              className="font-semibold text-primary underline-offset-4 hover:underline"
-            >
-              Banks &amp; cards
-            </Link>
-          </div>
-        )}
-      </div>
-      <span className={DATE_COLUMN}>
+      </span>
+      <span className="col-start-2 mt-0.5 self-baseline text-row">
+        <NeededFrom account={account} />
+      </span>
+      <span className="mt-0.5 self-baseline text-meta text-ink-meta">
         <ImportedUntil account={account} />
       </span>
-      {status && (
-        <div className="order-last flex min-w-0 basis-full pl-8 sm:order-none sm:flex-1 sm:basis-auto sm:justify-end sm:pl-0">
-          {status.to ? (
-            <Link
-              to={status.to}
-              className="relative z-10 -my-2 inline-flex min-h-sap-ctl shrink-0 items-center rounded-control no-underline outline-none hover:[&>span]:underline hover:[&>span]:underline-offset-4 focus-visible:ring-[3px] focus-visible:ring-ring/40"
-            >
+      {!account.in_ledger ? (
+        <p className="col-span-2 col-start-2 mt-0.5 text-meta text-ink-meta">
+          Deleted from your books. Remove it in{" "}
+          <Link
+            to={BANKS_SETTINGS_ROUTE}
+            className="font-semibold text-primary underline-offset-4 hover:underline"
+          >
+            Banks &amp; cards
+          </Link>
+        </p>
+      ) : (
+        status && (
+          <div className="col-span-2 col-start-2 mt-1">
+            {status.to ? (
+              <Link
+                to={status.to}
+                className="inline-flex rounded-control no-underline outline-none hover:[&>span]:underline hover:[&>span]:underline-offset-4 focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              >
+                <StatusChip tone={status.tone}>{status.label}</StatusChip>
+              </Link>
+            ) : (
               <StatusChip tone={status.tone}>{status.label}</StatusChip>
-            </Link>
-          ) : (
-            <StatusChip tone={status.tone} className="shrink-0">
-              {status.label}
-            </StatusChip>
-          )}
-        </div>
+            )}
+          </div>
+        )
       )}
-      <span aria-hidden="true" className="ml-auto w-4 shrink-0">
-        {ledger && <ChevronRight className="size-4 text-ink-meta" />}
-      </span>
     </li>
   );
 }
@@ -292,4 +288,16 @@ function ImportedUntil({ account }: { account: HomeAccount }) {
     return <span className="text-ink-meta">—</span>;
   }
   return <span className="tnum">{formatDate(account.checkpoint.date)}</span>;
+}
+
+/**
+ * "Oct 2026": the month the account's next statements start; every statement
+ * it has before its first.
+ */
+function NeededFrom({ account }: { account: HomeAccount }) {
+  if (!account.in_ledger) return <span className="text-ink-meta">—</span>;
+  const month = statementsNeededFrom(account);
+  if (month === null)
+    return <span className="text-ink-meta">All you have</span>;
+  return <span className="tnum text-foreground">{formatMonth(month)}</span>;
 }

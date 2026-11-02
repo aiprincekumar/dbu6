@@ -8,6 +8,9 @@ reply names the parsers that were tried and turned it down
 (`candidate_parser_paths`; none means no parser takes that file type), and
 keeps the file inside the project, at its `saved_path`.
 
+In a run, a text file no parser reads is imported freeform instead, with
+no parser: "Text files" in `npx dbu6 docs run`.
+
 ## Read
 
 - The file, at its `saved_path`.

@@ -9,6 +9,7 @@ import {
   ADD_BANK_OR_CARD,
   updateState,
   statementsHref,
+  statementsNeededFrom,
   waitingInUpdate,
   type UpdateCard,
   type UpdateView,
@@ -26,6 +27,7 @@ function account(
     kind: "bank",
     has_parser: true,
     checkpoint: { date: "2026-08-31", balance: 250000 },
+    statements_until: "2026-08-31",
     statement_differences: 0,
     drafts: 0,
     uncategorised: 0,
@@ -104,13 +106,14 @@ describe("updateState", () => {
     // Set up by an agent, or an add left unfinished: /add finishes them.
     const view = updateState(
       summary([
-        account({ checkpoint: null }),
+        account({ checkpoint: null, statements_until: null }),
         account({
           account_id: 1,
           path: "Sample Card",
           name: "Sample Card",
           kind: "card",
           checkpoint: null,
+          statements_until: null,
         }),
         deleted,
       ]),
@@ -175,14 +178,15 @@ describe("updateState", () => {
     expect(stepCard(view).action.to).toBe("/review/2");
   });
 
-  it("asks for new statements, without claiming up to date, when nothing is pending", () => {
+  it("offers Do my books for new statements, importing by hand as a link, when nothing is pending", () => {
     const view = updateState(summary([account()]));
     expect(view.state).toBe("import-new");
     expect(view.greeting).toBe("Update your books");
-    expect(stepCard(view)).toEqual({
-      title: "Import new statements",
-      action: { label: "Import statements", to: "/import" },
+    expect(view.card).toEqual({
+      kind: "do-my-books",
+      byHand: { label: "Import statements, guided", to: "/import" },
     });
+    expect(view.listsAccounts).toBe(true);
   });
 
   it("sends a bank or card's first statements to the first run until one is imported", () => {
@@ -192,6 +196,31 @@ describe("updateState", () => {
 
   it("adds a bank or card through /add", () => {
     expect(ADD_BANK_OR_CARD).toEqual({ label: "Add bank or card", to: "/add" });
+  });
+});
+
+describe("statementsNeededFrom", () => {
+  it("asks from the month the statements stop in, whole", () => {
+    expect(
+      statementsNeededFrom(account({ statements_until: "2026-10-13" })),
+    ).toBe("2026-10");
+  });
+
+  it("asks from the next month when the statements end with theirs", () => {
+    expect(
+      statementsNeededFrom(account({ statements_until: "2026-09-30" })),
+    ).toBe("2026-10");
+    expect(
+      statementsNeededFrom(account({ statements_until: "2025-12-31" })),
+    ).toBe("2026-01");
+  });
+
+  it("asks for every statement before the first", () => {
+    expect(
+      statementsNeededFrom(
+        account({ checkpoint: null, statements_until: null }),
+      ),
+    ).toBeNull();
   });
 });
 

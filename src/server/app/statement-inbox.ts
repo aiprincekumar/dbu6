@@ -1,9 +1,19 @@
-import { mkdir, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  rmdir,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { TsRestApi, type SapportaEnv } from "@sapporta/server";
 import {
   statementInboxContract,
   type StatementInboxBatch,
+  type StatementInboxDrop,
 } from "../../shared/index.js";
 import { projectRoot, statementInboxDir } from "../paths.js";
 import {
@@ -22,7 +32,8 @@ import { requireOwner } from "./workflow-auth.js";
  * or touches the books. The agent's run sends inbox files to the imports by
  * their `saved_path` (`inbox_files`); an import that adds a file to the
  * drafts removes it, and a batch with none left goes with it, so no copy of
- * the statements lingers. The owner's only, like every upload.
+ * the statements lingers. A file dropped again, the same bytes under any
+ * name, is not saved twice. The owner's only, like every upload.
  */
 
 const api = new TsRestApi<SapportaEnv>();
@@ -72,17 +83,34 @@ api.register(
 
 export default api;
 
-/** Saves the files as one new batch, in the order they came. */
+/**
+ * Saves the files new to the inbox as one batch, in the order they came. A
+ * file whose bytes already wait there, or came earlier in this drop, is
+ * skipped and named; with none new, no batch folder is made.
+ */
 export async function saveToInbox(
   files: readonly File[],
-): Promise<StatementInboxBatch> {
+): Promise<StatementInboxDrop> {
+  const seen = await inboxDigests();
+  const fresh: { file: File; bytes: Buffer }[] = [];
+  const already_uploaded: string[] = [];
+  for (const file of files) {
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const digest = digestOf(bytes);
+    if (seen.has(digest)) {
+      already_uploaded.push(file.name);
+      continue;
+    }
+    seen.add(digest);
+    fresh.push({ file, bytes });
+  }
   const batch = batchName();
+  if (fresh.length === 0) return { batch, files: [], already_uploaded };
   const dir = join(statementInboxDir(), batch);
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const saved = await Promise.all(
-    files.map(async (file, index) => {
+    fresh.map(async ({ file, bytes }, index) => {
       const path = join(dir, batchFileName(file, index));
-      const bytes = Buffer.from(await file.arrayBuffer());
       await writeFile(path, bytes, { mode: 0o600 });
       return {
         file_name: file.name,
@@ -91,7 +119,25 @@ export async function saveToInbox(
       };
     }),
   );
-  return { batch, files: saved };
+  return { batch, files: saved, already_uploaded };
+}
+
+// The digests of every file waiting in the inbox. The inbox holds one
+// person's statements for one run, so reading them all is cheap.
+async function inboxDigests(): Promise<Set<string>> {
+  const batches = await listInbox();
+  const digests = await Promise.all(
+    batches.flatMap((batch) =>
+      batch.files.map(async (file) =>
+        digestOf(await readFile(resolve(projectRoot(), file.saved_path))),
+      ),
+    ),
+  );
+  return new Set(digests);
+}
+
+function digestOf(bytes: Buffer): string {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
 /** Every batch waiting, oldest first; an empty inbox has none. */

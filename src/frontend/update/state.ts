@@ -1,3 +1,4 @@
+import { Temporal } from "@sapporta/shared/temporal";
 import {
   isProblem,
   postingBlocks,
@@ -17,9 +18,10 @@ import { joinNames, plural } from "../format";
  * Overview shows its card too until anything is posted. In
  * precedence order: no chart, then drafts waiting, then nothing imported
  * (no bank or card yet, or only ones set up with no transactions), then new
- * statements to import. No chart and nothing imported are the first run,
- * whose one card is "Do my books": drop every statement for a coding agent's
- * run, or set up by hand, at /setup's chart or /add's cards. Update only says that drafts are waiting; what they
+ * statements to import. Each but drafts waiting is "Do my books": drop every
+ * statement for a coding agent's run, with a small link to doing it by hand:
+ * /setup's chart or /add's cards in the first run, /import after it. Drafts
+ * waiting has its card, and the drop under it. Update only says that drafts are waiting; what they
  * still need is Review's to say. An empty Review doesn't mean the books are
  * up to date: a statement may not have been imported yet, so Update never
  * says so.
@@ -34,7 +36,7 @@ export function statementsHref(summary: Pick<HomeSummary, "any_imported">) {
   return summary.any_imported ? ADD_ROUTE : addHref({ setup: true });
 }
 
-/** "+ Add bank or card", beside "Banks & cards": /add's cards. */
+/** "+ Add bank or card", under "Statements needed": /add's cards. */
 export const ADD_BANK_OR_CARD: UpdateLink = {
   label: "Add bank or card",
   to: ADD_ROUTE,
@@ -57,8 +59,17 @@ export interface UpdateCard {
 }
 
 /**
- * The first run's card: drop every statement for a coding agent's run
- * (`DoMyBooks`), or set up by hand.
+ * Importing by hand once the first run is over: /import, beside the drop,
+ * as a small link.
+ */
+export const GUIDED_IMPORT: UpdateLink = {
+  label: "Import statements, guided",
+  to: "/import",
+};
+
+/**
+ * Drop every statement for a coding agent's run (`DoMyBooks`), or do it by
+ * hand.
  */
 export interface RunCard {
   kind: "do-my-books";
@@ -131,12 +142,25 @@ export function updateState(summary: HomeSummary): UpdateView {
   return {
     state: "import-new",
     greeting: UPDATE_HEADING,
-    card: {
-      title: "Import new statements",
-      action: { label: "Import statements", to: "/import" },
-    },
+    card: { kind: "do-my-books", byHand: GUIDED_IMPORT },
     listsAccounts: true,
   };
+}
+
+/**
+ * The month the account's next statements start, "2026-10": the month of
+ * the day after its statements end, posted or in the drafts. Only the month,
+ * so the user downloads whole months and the import skips what it has. Null
+ * before any statement, when every statement it has is wanted.
+ */
+export function statementsNeededFrom(
+  account: HomeLedgerAccount,
+): string | null {
+  if (account.statements_until === null) return null;
+  return Temporal.PlainDate.from(account.statements_until)
+    .add({ days: 1 })
+    .toPlainYearMonth()
+    .toString();
 }
 
 /**

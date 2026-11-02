@@ -77,7 +77,7 @@ const READING: FileCheck = { kind: "reading", previous: null };
  * stopped it and what to do next.
  */
 export function AutoImportStatements() {
-  usePageTitle("Import statements");
+  usePageTitle("Import statements, guided");
   // Another screen may open the page with files (`importWithFiles`).
   const { state } = useLocation();
   const [files, setFiles] = useState<File[]>(() => carriedFiles(state));
@@ -277,7 +277,7 @@ export function AutoImportStatements() {
     <Screen
       width="narrow"
       header={
-        <ScreenTitle title="Import statements">
+        <ScreenTitle title="Import statements, guided">
           <p>
             Upload your bank or credit-card statements here. They'll be
             categorized automatically, and saved as Drafts for your review.

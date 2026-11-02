@@ -419,8 +419,8 @@ describe("statements waiting in the inbox", () => {
 
   it("keeps them when the add is refused", async () => {
     const { batch, files } = await saveToInbox([
-      new File(["NOPII"], "other-jan.pdf"),
-      new File(["NOPII"], "other-mar.pdf"),
+      new File(["NOPII jan"], "other-jan.pdf"),
+      new File(["NOPII mar"], "other-mar.pdf"),
     ]);
 
     const refused = await app.request("/add-account/add", {

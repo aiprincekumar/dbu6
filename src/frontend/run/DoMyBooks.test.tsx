@@ -19,8 +19,9 @@ import { doMyBooksPrompt } from "./inbox";
 
 /*
  * Drop + "Do my books": a drop only saves the files to the inbox; the files
- * waiting are listed, name and size, and one button hands the run over all
- * of them to the coding agent.
+ * uploaded are listed above the drop, name and size, and one button hands
+ * the run over all of them to the coding agent. The server skips a file
+ * already in the inbox, and the drop says so.
  */
 
 let host: HTMLDivElement;
@@ -28,6 +29,7 @@ let root: Root;
 let batches: StatementInboxBatch[];
 let saved: string[][];
 let removed: string[];
+let alreadyUploaded: string[];
 
 const BATCH: StatementInboxBatch = {
   batch: "2026-11-02T10-00-00-0505",
@@ -54,6 +56,7 @@ beforeEach(() => {
   batches = [];
   saved = [];
   removed = [];
+  alreadyUploaded = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -71,8 +74,15 @@ beforeEach(() => {
       if (url.includes("/statement-inbox") && method === "POST") {
         const form = init?.body as FormData;
         saved.push(form.getAll("files").map((file) => (file as File).name));
+        if (alreadyUploaded.length > 0) {
+          return Response.json({
+            ...BATCH,
+            files: [],
+            already_uploaded: alreadyUploaded,
+          });
+        }
         batches = [...batches, BATCH];
-        return Response.json(BATCH);
+        return Response.json({ ...BATCH, already_uploaded: [] });
       }
       if (url.includes("/statement-inbox")) {
         return Response.json({ batches });
@@ -125,7 +135,7 @@ async function choose(files: File[]) {
 
 function doMyBooksButton(): HTMLButtonElement | undefined {
   return [...host.querySelectorAll("button")].find((button) =>
-    button.textContent?.includes("Do my books"),
+    button.textContent?.includes("Add 1 file to my books"),
   );
 }
 
@@ -146,11 +156,31 @@ describe("Do my books", () => {
     expect(doMyBooksButton()).toBeDefined();
   });
 
-  it("lists the files a drop left from before", async () => {
+  it("lists the files a drop left from before, above the drop", async () => {
     batches = [BATCH];
     await render();
-    expect(host.textContent).toContain("sample-savings-050505.pdf");
+    const text = host.textContent ?? "";
+    expect(text).toContain("sample-savings-050505.pdf");
+    expect(text.indexOf("Statement files uploaded")).toBeLessThan(
+      text.indexOf("Drop your statement files here"),
+    );
     expect(doMyBooksButton()).toBeDefined();
+  });
+
+  it("says which files were already uploaded, adding none", async () => {
+    batches = [BATCH];
+    alreadyUploaded = ["sample-savings-050505.pdf"];
+    await render();
+    await choose([new File(["%PDF"], "sample-savings-050505.pdf")]);
+
+    expect(host.textContent).toContain(
+      "Already uploaded: sample-savings-050505.pdf",
+    );
+    expect(
+      [...host.querySelectorAll("li")].filter((row) =>
+        row.textContent?.includes("sample-savings-050505.pdf"),
+      ),
+    ).toHaveLength(1);
   });
 });
 

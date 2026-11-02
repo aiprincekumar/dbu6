@@ -37,6 +37,10 @@ export const homeAccountSchema = z.discriminatedUnion("in_ledger", [
     parent_path: z.string().nullable(),
     // The last posted balance assertion; null before the first.
     checkpoint: datedBalanceSchema.nullable(),
+    // The last day its statements cover, posted or waiting in the drafts:
+    // the later of the checkpoint and the drafts' last statement balance.
+    // Null before any. Update asks for statements from the month after it.
+    statements_until: z.string().nullable(),
     // Posted balance assertions its books miss: an entry changed after the
     // statement was added. The Reconciliation Differences report lists them.
     statement_differences: z.number(),
