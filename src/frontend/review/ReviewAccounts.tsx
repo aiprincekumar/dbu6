@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   isProblem,
+  isWaitBlock,
   postingBlocks,
   postingCheck,
   readyToAdd,
@@ -23,9 +24,15 @@ import { Button } from "../components/ui/button";
 import { agree, formatDaySpan, plural } from "../format";
 import { refreshDraftStatus, reviewAccountsQuery } from "../queries";
 import { fixReviewPrompt } from "./agentPrompts";
+import { agentFixes } from "./overview-state";
 import { BooksSetUp, HandOffNote, UpdateYourBooks } from "./hand-off";
 import { checkText } from "./posting-checks";
-import { readReviewRun, reviewHref, withReviewRun } from "./routes";
+import {
+  readReviewRun,
+  REVIEW_ROUTE,
+  reviewHref,
+  withReviewRun,
+} from "./routes";
 
 /**
  * `/review` (PLAN.md §11 P3): the drafts waiting for the books, by account.
@@ -39,13 +46,15 @@ import { readReviewRun, reviewHref, withReviewRun } from "./routes";
  * a later add lands. An account opened here keeps the first run
  * (`?run=setup`).
  *
- * The first run's end, "Your books are set up.", is the list emptied by an
- * Add all that started from books holding nothing but opening balances, or
- * by the by-hand first run.
+ * The first run's end, "Your books are set up.", is the list emptied on the
+ * first run (`?run=setup`): the by-hand chain's, or the one an Add all from
+ * books holding nothing but opening balances starts by putting it in the
+ * URL.
  */
 export function ReviewAccounts() {
   usePageTitle("Review");
   const { search } = useLocation();
+  const navigate = useNavigate();
   const run = readReviewRun(new URLSearchParams(search));
   const queryClient = useQueryClient();
   const query = useQuery(reviewAccountsQuery);
@@ -55,11 +64,8 @@ export function ReviewAccounts() {
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  // The first run: the by-hand chain's, or the one Add all started from
-  // books that held nothing but opening balances. It ends once nothing is
-  // left to pick.
-  const setup = run.setup || added?.first_post === true;
-  const setUp = setup && accounts?.length === 0;
+  // The first run ends once nothing is left to pick.
+  const setUp = run.setup && accounts?.length === 0;
   const handingOff = run.imported && accounts !== null && accounts.length > 0;
   // Add all's result stays on this page, whatever it leaves.
   const only =
@@ -74,16 +80,21 @@ export function ReviewAccounts() {
     setAdding(true);
     setAddError(null);
     try {
-      setAdded(
-        await draftTransactionsApi.postReadyDrafts({
-          body: { base_account_ids: ready.map((one) => one.account_id) },
-        }),
-      );
+      const result = await draftTransactionsApi.postReadyDrafts({
+        body: { base_account_ids: ready.map((one) => one.account_id) },
+      });
+      setAdded(result);
+      if (result.first_post) {
+        navigate(withReviewRun(REVIEW_ROUTE, { ...run, setup: true }), {
+          replace: true,
+        });
+      }
     } catch (e) {
       setAddError(apiErrorMessage(e));
     } finally {
+      // The button counts the list, so it waits for the list after the post.
+      await refreshDraftStatus(queryClient);
       setAdding(false);
-      void refreshDraftStatus(queryClient);
     }
   }
 
@@ -102,10 +113,7 @@ export function ReviewAccounts() {
       }
     >
       {handingOff && (
-        <HandOffNote
-          left={leftFacts(accounts, ready).length > 0}
-          className="mt-5"
-        />
+        <HandOffNote left={accounts.some(agentFixes)} className="mt-5" />
       )}
       {added && <AddedAll result={added} />}
       {accounts !== null && accounts.length > 0 && (
@@ -152,7 +160,7 @@ export function ReviewAccounts() {
               <AccountRow
                 key={account.account_id}
                 account={account}
-                setup={setup}
+                setup={run.setup}
               />
             ))}
           </ul>
@@ -183,6 +191,7 @@ function LeftAcrossAccounts({
 }) {
   const facts = leftFacts(accounts, ready);
   const entries = ready.reduce((sum, account) => sum + account.drafts, 0);
+  const fix = accounts.some(agentFixes);
   if (facts.length === 0 && ready.length === 0) return null;
   return (
     <section aria-label="What's left" className="mt-5 space-y-4">
@@ -200,7 +209,7 @@ function LeftAcrossAccounts({
               : `Add ${plural(entries, "entry", "entries")} from ${plural(ready.length, "account")} to my books`}
           </Button>
         )}
-        {facts.length > 0 && (
+        {fix && (
           <AgentButton
             label="Fix these"
             prompt={fixReviewPrompt(accounts)}
@@ -232,9 +241,14 @@ export function leftFacts(
 ): Fact[] {
   const sum = (count: (account: ReviewAccount) => number) =>
     accounts.reduce((total, account) => total + count(account), 0);
-  const waiting = accounts.filter(
-    (account) => account.add_first.length > 0 && !ready.includes(account),
-  ).length;
+  // Accounts whose only block is a wait that Add all can't get past; one
+  // with another block is counted under that block.
+  const waiting = accounts.filter((account) => {
+    const blocks = postingBlocks(account);
+    return (
+      blocks.length > 0 && blocks.every(isWaitBlock) && !ready.includes(account)
+    );
+  }).length;
   return [
     { label: "Need an account", value: sum((one) => one.uncategorised) },
     { label: "Possible duplicates", value: sum((one) => one.duplicates) },

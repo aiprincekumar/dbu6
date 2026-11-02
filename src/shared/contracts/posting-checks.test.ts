@@ -41,6 +41,12 @@ describe("readyToAdd", () => {
     expect(ids(readyToAdd(accounts))).toEqual([1, 2, 3]);
   });
 
+  it("leaves an account with no drafts left: there is nothing to add", () => {
+    expect(ids(readyToAdd([account(1), account(2, { drafts: 0 })]))).toEqual([
+      1,
+    ]);
+  });
+
   it("adds two accounts whose checks rely on each other, as the status shows them: waiting for neither", () => {
     // The draft status drops a wait that would close a cycle, so neither
     // names the other.

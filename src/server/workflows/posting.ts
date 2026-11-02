@@ -105,8 +105,9 @@ export type PostReadyOutcome =
  * account waiting for another to be added first is tried again once that
  * one is in, round after round until a round adds nothing, so the order the
  * ids come in doesn't matter, and an order the waits change while posting
- * is followed too. Only `accountIds` are posted; `names` names them, and
- * holds every account in the books.
+ * is followed too. An account with no drafts left is neither added nor
+ * left. Only `accountIds` are posted; `names` names them, and holds every
+ * account in the books.
  */
 export function postReady(
   ledger: Ledger,
@@ -123,14 +124,15 @@ export function postReady(
     draftsPosted: number;
   }[] = [];
   const blocks = new Map<number, PostingBlock>();
-  let firstPost: boolean | undefined;
+  const firstPost = !hasJournalsBesideOpenings(ledger.sqlite, ledger.auth);
   let remaining = [...new Set(accountIds)];
   for (;;) {
     const still: number[] = [];
     for (const accountId of remaining) {
       const outcome = postDrafts(ledger, accountId, names);
       if (outcome.kind === "posted") {
-        firstPost ??= outcome.firstPost;
+        // Posted in another tab, or twice: nothing was added.
+        if (outcome.draftsPosted === 0) continue;
         posted.push({
           accountId,
           name: names.get(accountId)!,
@@ -154,8 +156,6 @@ export function postReady(
       name: names.get(accountId)!,
       block: blocks.get(accountId)!,
     })),
-    // Nothing posted: the books are as they were, read as such.
-    firstPost:
-      firstPost ?? !hasJournalsBesideOpenings(ledger.sqlite, ledger.auth),
+    firstPost,
   };
 }

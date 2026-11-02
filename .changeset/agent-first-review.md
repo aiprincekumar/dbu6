@@ -18,15 +18,17 @@ one account at a time stays.
 new endpoint behind it, answering
 `{ posted: [{ account_id, name, drafts_posted }], left: [{ account_id, name, block }], first_post }`.
 It posts only the accounts named, each in its own transaction, and tries
-an account waiting for another again once that one is in; an id not in
-the books is refused with 404 and nothing posted. It is the person's
+an account waiting for another again once that one is in; an account
+with no drafts left is neither added nor left; an id not in the books is
+refused with 404 and nothing posted. It is the person's
 button: the agent never calls it. `GET /api/review/accounts` and
 `/api/review/accounts/:accountId` now count each account's
 `rule_requests`, and `POST /api/draft-transactions/post-to-journal`
 answers `first_post`: whether the books held nothing but opening balances
 before it.
 
-"Your books are set up." now follows from the books: it ends the first run
-that a post from books holding only opening balances starts, as well as
-the by-hand first run. Review's empty states and the end of a post lead to
+"Your books are set up." now follows from the books: an Add all from
+books holding only opening balances puts the first run in Review's URL
+(`?run=setup`), as the by-hand first run does, and the list emptied on it
+ends the run, however many Add alls that takes. Review's empty states and the end of a post lead to
 Update ("Update your books"), with importing by hand a small link.

@@ -31,6 +31,8 @@ let accounts: ReviewAccount[];
 let addAll: PostReadyResult;
 let posts: { url: string; body: unknown }[];
 let clipboard: string[];
+// While set, the list's reads wait for it.
+let listGate: Promise<void> | null;
 
 beforeAll(() => {
   (
@@ -45,6 +47,7 @@ beforeEach(() => {
   accounts = [];
   posts = [];
   clipboard = [];
+  listGate = null;
   addAll = { posted: [], left: [], first_post: false };
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -71,6 +74,7 @@ beforeEach(() => {
       if (url.includes("/agent-handoff")) {
         return Response.json({ error: "none" }, { status: 404 });
       }
+      if (listGate) await listGate;
       return Response.json({ accounts });
     }),
   );
@@ -346,5 +350,93 @@ describe("what is left across the accounts", () => {
     await settle();
 
     expect(text()).toContain("Your books are set up.");
+  });
+
+  it("keeps the first run in the URL, so the Add all that empties the list later ends it", async () => {
+    accounts = [
+      account(5, "Sample Savings", { uncategorised: 0 }),
+      account(6, "Sample Card", { uncategorised: 0 }),
+    ];
+    addAll = {
+      posted: [{ account_id: 5, name: "Sample Savings", drafts_posted: 20 }],
+      left: [
+        {
+          account_id: 6,
+          name: "Sample Card",
+          block: {
+            kind: "duplicates",
+            state: "blocks",
+            severity: "problem",
+            count: 1,
+          },
+        },
+      ],
+      first_post: true,
+    };
+    await renderAt("/review");
+    await act(async () =>
+      button("Add 40 entries from 2 accounts to my books")!.click(),
+    );
+    await settle();
+    expect(where()).toBe("/review?run=setup");
+
+    // The agent settled Sample Card; the next post is no longer the first.
+    addAll = {
+      posted: [{ account_id: 6, name: "Sample Card", drafts_posted: 20 }],
+      left: [],
+      first_post: false,
+    };
+    await act(async () =>
+      button("Add 20 entries from 1 account to my books")!.click(),
+    );
+    await settle();
+
+    expect(text()).toContain("Your books are set up.");
+  });
+
+  it("keeps Add all busy until the list is read again", async () => {
+    accounts = [account(5, "Sample Savings", { uncategorised: 0 })];
+    accounts.push(account(6, "Sample Card", { uncategorised: 0 }));
+    addAll = {
+      posted: [
+        { account_id: 5, name: "Sample Savings", drafts_posted: 20 },
+        { account_id: 6, name: "Sample Card", drafts_posted: 20 },
+      ],
+      left: [],
+      first_post: false,
+    };
+    await renderAt("/review");
+    let release!: () => void;
+    listGate = new Promise((resolve) => (release = resolve));
+    await act(async () =>
+      button("Add 40 entries from 2 accounts to my books")!.click(),
+    );
+    await settle();
+
+    // No second Add all from the list as it was before the post.
+    expect(button("Adding")?.disabled).toBe(true);
+    expect(button("Add 40")).toBeUndefined();
+
+    await act(async () => release());
+    await settle();
+    expect(button("Add")).toBeUndefined();
+    expect(facts("Added to your books")).toHaveLength(2);
+  });
+
+  it("counts an account with a failing check under it alone, not as waiting too", async () => {
+    accounts = [
+      account(5, "Sample Savings", { uncategorised: 3 }),
+      account(6, "Sample Card", {
+        uncategorised: 0,
+        failing_checks: 2,
+        add_first: [{ account_id: 5, name: "Sample Savings" }],
+      }),
+    ];
+    await renderAt("/review");
+
+    expect(facts("Left to fix")).toEqual([
+      ["Need an account", "3"],
+      ["Failing balance checks", "2"],
+    ]);
   });
 });

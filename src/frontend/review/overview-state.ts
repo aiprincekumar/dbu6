@@ -1,5 +1,6 @@
 import {
   isBlock,
+  isWaitBlock,
   postingBlocks,
   postingChecks,
   type PostingBlock,
@@ -132,10 +133,7 @@ export function overviewView(
 export function agentFixes(account: ReviewAccount): boolean {
   return (
     account.rule_requests > 0 ||
-    postingBlocks(account).some(
-      (block) =>
-        !(block.kind === "balance-checks" && block.severity === "attention"),
-    )
+    postingBlocks(account).some((block) => !isWaitBlock(block))
   );
 }
 
@@ -230,10 +228,7 @@ export function arrivalNotice(
   }
   // All that blocks is waiting for another account's drafts.
   const row = checkRow(block, detail, null);
-  const waitsFor =
-    block.kind === "balance-checks" && block.severity === "attention"
-      ? block.add_first
-      : [];
+  const waitsFor = isWaitBlock(block) ? block.add_first : [];
   return {
     title,
     facts,

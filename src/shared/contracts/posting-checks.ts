@@ -182,9 +182,20 @@ export function isProblem(block: PostingBlock): block is ProblemBlock {
   return block.severity === "problem";
 }
 
+export type WaitBlock = Extract<PostingBlock, { add_first: AddFirst }>;
+
 /**
- * The accounts of `accounts` that Add all can add: those with no block but
- * waiting for accounts it adds first. It starts from the accounts with no
+ * Whether a block only waits for other accounts' drafts to be added first:
+ * every check would pass once they are. A wait shows only when no balance
+ * check fails, so it is never beside a failing one.
+ */
+export function isWaitBlock(block: PostingBlock): block is WaitBlock {
+  return block.kind === "balance-checks" && block.severity === "attention";
+}
+
+/**
+ * The accounts of `accounts` that Add all can add: those with drafts and no
+ * block but waiting for accounts it adds first. It starts from the accounts with no
  * block and takes in, round by round, those whose only block is waiting for
  * accounts already taken, until a round takes none; so the accounts come
  * back in an order they can be added in, and an account waiting for one
@@ -195,11 +206,9 @@ export function isProblem(block: PostingBlock): block is ProblemBlock {
 export function readyToAdd<
   Account extends PostingInputs & { account_id: number },
 >(accounts: readonly Account[]): Account[] {
-  const waiting = accounts.filter((account) =>
-    postingBlocks(account).every(
-      (block) =>
-        block.kind === "balance-checks" && block.severity === "attention",
-    ),
+  const waiting = accounts.filter(
+    (account) =>
+      account.drafts > 0 && postingBlocks(account).every(isWaitBlock),
   );
   const ready: Account[] = [];
   const taken = new Set<number>();

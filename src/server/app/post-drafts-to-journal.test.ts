@@ -249,7 +249,8 @@ describe("postDraftsToJournal", () => {
 
     expect(postReadyDraftsToJournal(posting, [2], [])).toMatchObject({
       status: 200,
-      body: { posted: [{ account_id: 2, drafts_posted: 0 }], left: [] },
+      // An account with no drafts is neither added nor left.
+      body: { posted: [], left: [] },
     });
     expect(count("draft_transactions")).toBe(2);
   });

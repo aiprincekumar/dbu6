@@ -75,6 +75,7 @@ export {
   readyToAdd,
   isBlock,
   isProblem,
+  isWaitBlock,
   type AddFirst,
   type DraftCounts,
   type PostingCheck,
