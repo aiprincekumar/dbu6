@@ -6,6 +6,8 @@ An account's drafts have failing balance checks: on some day the running
 total misses the balance the statement printed. Review's Balance checks tab
 lists them, and `npx sapporta api get /api/review/accounts/<id>` returns them
 as `failing` (date, draft, running balance, statement balance, `diff`).
+These are drafts' checks; a posted check the books miss is
+`npx dbu6 docs playbook posted-balance-check`.
 
 ## Read
 

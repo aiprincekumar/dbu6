@@ -6,6 +6,9 @@ The importer refuses an account's statements with
 `reconciliation_match_failed`: nothing in them lands on the last statement
 balance in the books (`checkpoint_balance` on `checkpoint_date`).
 
+A check already posted that the books now miss is
+`npx dbu6 docs playbook posted-balance-check`.
+
 ## Read
 
 - Around `checkpoint_date`: the balance the statement prints there, the
