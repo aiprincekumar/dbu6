@@ -4,10 +4,10 @@ import { apiErrorMessage, statementInboxApi } from "../api";
 import { AgentButton } from "../components/agent-prompt";
 import { FRESH_QUERY } from "../queries";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { Button } from "../components/ui/button";
 import type { UpdateLink } from "../update/state";
 import { formatFileSize } from "../format";
+import { InfoButton } from "../views/import-statements/cards";
 import { Dropzone } from "../views/import-statements/files";
 import { doMyBooksPrompt, runLabel, saveToInbox } from "./inbox";
 
@@ -16,19 +16,33 @@ export const STATEMENT_INBOX_KEY = ["statement-inbox"] as const;
 /**
  * Drop + "Do my books", on Update and the first run's card: every statement
  * the user has goes into the inbox in one drop, and one button hands the
- * coding agent the run over all of them. Dropping only saves the files; the
- * agent reads them, and the user adds each account on Review once the run is
- * done. The files uploaded and not yet imported are listed above the drop,
- * so a second drop joins them in the same run; a file dropped again isn't
- * added twice. `byHand`, doing it by hand instead, sits beside the run's
- * button after an "or"; `body` is what is already set up.
+ * coding agent the run over all of them. The drop is the screen's focus.
+ * Dropping only saves the files; the agent reads them, and the user adds
+ * each account on Review once the run is done. The files uploaded and not
+ * yet imported are listed under the drop, so a second drop joins them in
+ * the same run; a file dropped again isn't added twice. "Choose files" is
+ * the primary action until a file is uploaded, then the run's button is.
+ * `byHand`, doing it by hand instead, is a quiet link beside the run's
+ * button; `body` is what is already set up.
  */
 export function DoMyBooks({
   body,
   byHand,
+  afterList = false,
+  choosePrimary = true,
 }: {
   body?: string;
   byHand?: UpdateLink;
+  /**
+   * Whether the list of statements to download is just above, so the drop
+   * says "Drop them here".
+   */
+  afterList?: boolean;
+  /**
+   * Whether "Choose files" may be the primary button while nothing is
+   * uploaded: not under the drafts card, whose button is the screen's one.
+   */
+  choosePrimary?: boolean;
 }) {
   const queryClient = useQueryClient();
   const inbox = useQuery({
@@ -55,24 +69,13 @@ export function DoMyBooks({
 
   return (
     <section>
-      <h2 className="text-heading text-foreground">Do my books</h2>
-      <div className="mt-1 space-y-1 pb-3 text-body text-ink-meta">
-        <p>
-          Drop every statement you have. Your coding agent imports and
-          categorizes them, asks only what it can't settle, and leaves them on
-          Review for you to add.
-        </p>
-        {body && <p>{body}</p>}
-      </div>
-      {files > 0 && (
-        <InboxFiles
-          batches={batches}
-          removing={remove.isPending}
-          onRemove={(savedPath) => remove.mutate(savedPath)}
-        />
-      )}
+      {body && <p className="mb-3 text-body text-ink-soft">{body}</p>}
       <Dropzone
         disabled={save.isPending}
+        title={afterList ? "Drop them here" : undefined}
+        hint="PDF, Excel, CSV or text. Add as many as you like."
+        prominent
+        primary={choosePrimary && files === 0}
         onFiles={(files) => {
           if (files.length > 0) save.mutate(files);
         }}
@@ -97,8 +100,15 @@ export function DoMyBooks({
           {apiErrorMessage(inbox.error)}
         </p>
       )}
+      {files > 0 && (
+        <InboxFiles
+          batches={batches}
+          removing={remove.isPending}
+          onRemove={(savedPath) => remove.mutate(savedPath)}
+        />
+      )}
       {(files > 0 || byHand) && (
-        <div className="mt-4 flex flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="mt-5 flex flex-wrap items-start gap-x-5 gap-y-2">
           {files > 0 && (
             <AgentButton
               label={runLabel(files)}
@@ -107,20 +117,29 @@ export function DoMyBooks({
             />
           )}
           {byHand && (
-            <div className="flex min-h-[calc(var(--height-sap-ctl)+2px)] items-center gap-2">
-              <span className="text-row text-ink-meta">or</span>
-              <Button
-                render={<Link to={byHand.to} />}
-                nativeButton={false}
-                variant="ghost"
-              >
-                {byHand.label}
-                <ArrowRight />
-              </Button>
-            </div>
+            <Link
+              to={byHand.to}
+              className="flex min-h-[calc(var(--height-sap-ctl)+2px)] items-center text-row text-ink-meta underline decoration-sap-border-strong underline-offset-4 hover:text-foreground hover:decoration-current"
+            >
+              {byHand.label}
+            </Link>
           )}
         </div>
       )}
+      <div className="mt-2 flex items-center gap-1 text-meta text-ink-meta">
+        <p>
+          Your coding agent imports the files you add. You check its entries on
+          Review and add them to your books.
+        </p>
+        <InfoButton label="How the coding agent adds your statements">
+          <p>
+            Your coding agent imports each file and categorizes its
+            transactions. It asks you in the terminal about anything it can't
+            work out.
+          </p>
+          <p>Nothing is posted to your books until you add it on Review.</p>
+        </InfoButton>
+      </div>
     </section>
   );
 }
@@ -140,9 +159,9 @@ function InboxFiles({
 }) {
   const files = batches.flatMap((batch) => batch.files);
   return (
-    <div className="mb-4">
+    <div className="mt-5">
       <div className="flex gap-3 border-b border-line-inner px-2 pb-2 text-meta text-ink-meta">
-        <span className="min-w-0 flex-1">Statement files uploaded</span>
+        <span className="min-w-0 flex-1">Files to add</span>
         <span className="w-20 shrink-0 text-right">Size</span>
         <span className="w-20 shrink-0" />
       </div>

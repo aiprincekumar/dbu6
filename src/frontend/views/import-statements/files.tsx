@@ -42,14 +42,24 @@ export function carriedFiles(state: unknown): File[] {
 /**
  * Where statements are dropped. Clicking anywhere in the zone opens the file
  * picker; "Choose files" is the keyboard path. Every file is taken: the
- * server says which ones it can't read.
+ * server says which ones it can't read. `prominent` makes the zone the
+ * screen's focus, tinted green and larger, as on Update; `primary` fills
+ * "Choose files" while choosing files is the one thing to do there.
  */
 export function Dropzone({
   disabled,
   onFiles,
+  title = "Drop your statement files here",
+  hint = "PDF, Excel or CSV. Add as many as you like.",
+  prominent = false,
+  primary = false,
 }: {
   disabled: boolean;
   onFiles: (files: File[]) => void;
+  title?: string;
+  hint?: string;
+  prominent?: boolean;
+  primary?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -85,30 +95,49 @@ export function Dropzone({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "rounded-card border-2 border-dashed px-4 py-5 text-center sm:p-6",
+        "rounded-card border-2 border-dashed px-4 text-center",
+        prominent ? "py-10 sm:py-11" : "py-5 sm:p-6",
         disabled
           ? "cursor-not-allowed border-waiting-border bg-waiting-bg"
           : dragging
             ? "border-primary bg-card"
-            : "cursor-pointer border-sap-border-strong bg-dropzone-bg hover:bg-muted",
+            : prominent
+              ? "cursor-pointer border-primary/45 bg-sap-brand-soft hover:bg-money-in-bg"
+              : "cursor-pointer border-sap-border-strong bg-dropzone-bg hover:bg-muted",
       )}
     >
       <div
         aria-hidden="true"
-        className="mx-auto flex size-11 items-center justify-center rounded-[12px] bg-tile-bg text-[17px] text-ink-soft"
+        className={cn(
+          "mx-auto flex items-center justify-center rounded-[12px]",
+          prominent
+            ? "size-13 bg-card text-[20px] text-primary"
+            : "size-11 bg-tile-bg text-[17px] text-ink-soft",
+        )}
       >
         ↑
       </div>
-      <p className="mt-3.5 text-[17px] font-semibold leading-tight text-foreground">
-        Drop your statement files here
+      <p
+        className={cn(
+          "font-semibold text-foreground",
+          prominent ? "mt-4 text-title" : "mt-3.5 text-[17px] leading-tight",
+        )}
+      >
+        {title}
       </p>
-      <p className="mt-1.5 text-row text-ink-meta">
-        PDF, Excel or CSV. Add as many as you like.
+      <p
+        className={cn(
+          "mt-1.5",
+          prominent ? "text-body text-ink-soft" : "text-row text-ink-meta",
+        )}
+      >
+        {hint}
       </p>
       <Button
         type="button"
-        variant="outline"
-        className="mt-4"
+        variant={primary ? "default" : "outline"}
+        size={prominent ? "lg" : "default"}
+        className={prominent ? "mt-5" : "mt-4"}
         disabled={disabled}
         onClick={(event) => {
           event.stopPropagation();

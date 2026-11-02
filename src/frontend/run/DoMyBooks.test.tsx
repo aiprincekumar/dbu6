@@ -19,7 +19,7 @@ import { doMyBooksPrompt } from "./inbox";
 
 /*
  * Drop + "Do my books": a drop only saves the files to the inbox; the files
- * uploaded are listed above the drop, name and size, and one button hands
+ * uploaded are listed under the drop, name and size, and one button hands
  * the run over all of them to the coding agent. The server skips a file
  * already in the inbox, and the drop says so.
  */
@@ -146,6 +146,12 @@ describe("Do my books", () => {
     expect(doMyBooksButton()).toBeUndefined();
   });
 
+  it("says “Drop them here” under the list of statements to download", async () => {
+    await render({ afterList: true });
+    expect(host.textContent).toContain("Drop them here");
+    expect(host.textContent).not.toContain("Drop your statement files here");
+  });
+
   it("saves a drop to the inbox, lists what waits, and offers the run", async () => {
     await render();
     await choose([new File(["%PDF"], "sample-savings-050505.pdf")]);
@@ -156,12 +162,12 @@ describe("Do my books", () => {
     expect(doMyBooksButton()).toBeDefined();
   });
 
-  it("lists the files a drop left from before, above the drop", async () => {
+  it("lists the files a drop left from before, under the drop", async () => {
     batches = [BATCH];
     await render();
     const text = host.textContent ?? "";
     expect(text).toContain("sample-savings-050505.pdf");
-    expect(text.indexOf("Statement files uploaded")).toBeLessThan(
+    expect(text.indexOf("Files to add")).toBeGreaterThan(
       text.indexOf("Drop your statement files here"),
     );
     expect(doMyBooksButton()).toBeDefined();

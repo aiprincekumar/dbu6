@@ -36,7 +36,7 @@ export function statementsHref(summary: Pick<HomeSummary, "any_imported">) {
   return summary.any_imported ? ADD_ROUTE : addHref({ setup: true });
 }
 
-/** "+ Add bank or card", under "Statements needed": /add's cards. */
+/** "+ Add bank or card", under "Download these statements": /add's cards. */
 export const ADD_BANK_OR_CARD: UpdateLink = {
   label: "Add bank or card",
   to: ADD_ROUTE,
