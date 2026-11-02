@@ -8,10 +8,11 @@ import {
 } from "../../shared/index";
 import type { StatusTone } from "../components/status-chip";
 import { RECONCILIATION_DIFFERENCES_HREF } from "../reports/links";
-import { ADD_ROUTE, addHref } from "../add-account/state";
+import { addHref } from "../add-account/state";
 import { reviewHref, REVIEW_ROUTE } from "../review/routes";
 import { SETUP_ROUTE } from "../setup/routes";
 import { joinNames, plural } from "../format";
+import { UPDATE_DROP_HREF } from "./routes";
 
 /*
  * What Update says, as a pure function of the summary;
@@ -19,28 +20,18 @@ import { joinNames, plural } from "../format";
  * precedence order: no chart, then drafts waiting, then nothing imported
  * (no bank or card yet, or only ones set up with no transactions), then new
  * statements to import. Each but drafts waiting is "Do my books": drop every
- * statement for a coding agent's run, with a small link to doing it by hand:
- * /setup's chart or /add's cards in the first run, /import after it. Drafts
- * waiting has its card, and the drop under it. Update only says that drafts are waiting; what they
- * still need is Review's to say. An empty Review doesn't mean the books are
- * up to date: a statement may not have been imported yet, so Update never
- * says so.
+ * statement for a coding agent's run, a new bank or card's too, with a small
+ * link to doing it by hand. Drafts waiting has its card, and the drop under
+ * it with the same link. By hand is /setup's chart before there is one,
+ * then /add's cards while nothing is imported, and /import after. Drafts
+ * waiting keeps /add's until a statement is posted, since /import can't add
+ * the bank or card a first run may still be missing. An account that needs
+ * its first statement leads to the drop on the page, `/update#drop`, since a
+ * run sets up a format it hasn't read. Update only says that drafts are
+ * waiting; what they still need is Review's to say. An empty Review doesn't
+ * mean the books are up to date: a statement may not have been imported
+ * yet, so Update never says so.
  */
-
-/**
- * Where a bank or card with no transactions yet gets its statements: /add,
- * as the first run while nothing is imported, so the card and an account's
- * "Needs a first statement" open the same run.
- */
-export function statementsHref(summary: Pick<HomeSummary, "any_imported">) {
-  return summary.any_imported ? ADD_ROUTE : addHref({ setup: true });
-}
-
-/** "+ Add bank or card", under "Download these statements": /add's cards. */
-export const ADD_BANK_OR_CARD: UpdateLink = {
-  label: "Add bank or card",
-  to: ADD_ROUTE,
-};
 
 export type UpdateStateId =
   "no-chart" | "nothing-imported" | "drafts" | "import-new";
@@ -56,7 +47,18 @@ export interface UpdateCard {
   title: string;
   body?: string;
   action: UpdateLink;
+  /** The drop under the card's link to doing it by hand. */
+  byHand: UpdateLink;
 }
+
+/**
+ * Adding a bank or card by hand in the first run: /add's cards, as the
+ * first run, beside the drop as a small link.
+ */
+export const FIRST_RUN_BY_HAND: UpdateLink = {
+  label: "Add a bank or card",
+  to: addHref({ setup: true }),
+};
 
 /**
  * Importing by hand once the first run is over: /import, beside the drop,
@@ -104,6 +106,7 @@ export function updateState(summary: HomeSummary): UpdateView {
       greeting: FIRST_RUN_GREETING,
       card: {
         kind: "do-my-books",
+        body: "Your coding agent proposes your accounts for your OK before it imports anything.",
         byHand: { label: "Set up by hand", to: SETUP_ROUTE },
       },
       listsAccounts: false,
@@ -117,14 +120,16 @@ export function updateState(summary: HomeSummary): UpdateView {
       card: {
         title: "There are draft entries waiting to be posted to your books",
         action: { label: "Review transactions", to: reviewTarget(summary) },
+        byHand: anyStatementPosted(accounts)
+          ? GUIDED_IMPORT
+          : FIRST_RUN_BY_HAND,
       },
       listsAccounts: true,
     };
   }
 
   // A bank or card set up with no transactions yet (by an agent, or an add
-  // left unfinished) is finished by dropping its statements at /add, like a
-  // new one.
+  // left unfinished) is finished by dropping its statements, like a new one.
   if (!summary.any_imported) {
     const waiting = named(inLedger(accounts));
     return {
@@ -133,7 +138,7 @@ export function updateState(summary: HomeSummary): UpdateView {
       card: {
         kind: "do-my-books",
         body: waiting ? `Set up, no transactions yet: ${waiting}.` : undefined,
-        byHand: { label: "Add a bank or card", to: statementsHref(summary) },
+        byHand: FIRST_RUN_BY_HAND,
       },
       listsAccounts: accounts.length > 0,
     };
@@ -168,13 +173,9 @@ export function statementsNeededFrom(
  * Problems in its drafts come first, since Review shows them; then books that
  * miss a statement balance, as an entry changed after its statement was
  * added; then drafts waiting; then an institution with no parser, whose
- * statements can't be imported until dropping them at /add teaches dbu6
- * their format.
+ * statements can't be imported until a run reads one: the drop on Update.
  */
-export function accountStatus(
-  account: HomeAccount,
-  statementsTo: string,
-): {
+export function accountStatus(account: HomeAccount): {
   tone: StatusTone;
   label: string;
   to?: string;
@@ -204,7 +205,7 @@ export function accountStatus(
     return {
       tone: "attention",
       label: "Needs a first statement",
-      to: statementsTo,
+      to: UPDATE_DROP_HREF,
     };
   }
   return null;
@@ -216,10 +217,8 @@ export function accountStatus(
  * when none.
  */
 export function waitingInUpdate(summary: HomeSummary): number {
-  const to = statementsHref(summary);
-  return summary.accounts.filter(
-    (account) => accountStatus(account, to) !== null,
-  ).length;
+  return summary.accounts.filter((account) => accountStatus(account) !== null)
+    .length;
 }
 
 /**
@@ -232,6 +231,15 @@ function reviewTarget({ accounts, totals }: HomeSummary): string {
   return pending.length === 1 && only.drafts === totals.drafts
     ? reviewHref(only.account_id)
     : REVIEW_ROUTE;
+}
+
+/**
+ * Whether any statement is in the books: a posted balance assertion on a
+ * listed account, the day Update's "Imported until" shows. Until then the
+ * first run goes on, and adding a bank or card by hand is its /add.
+ */
+function anyStatementPosted(accounts: readonly HomeAccount[]): boolean {
+  return inLedger(accounts).some((account) => account.checkpoint !== null);
 }
 
 /** The listed accounts the ledger has; only they can hold drafts. */

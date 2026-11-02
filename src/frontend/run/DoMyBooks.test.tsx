@@ -2,7 +2,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { Link, MemoryRouter } from "react-router-dom";
 import {
   afterEach,
   beforeAll,
@@ -21,7 +21,8 @@ import { doMyBooksPrompt } from "./inbox";
  * Drop + "Do my books": a drop only saves the files to the inbox; the files
  * uploaded are listed under the drop, name and size, and one button hands
  * the run over all of them to the coding agent. The server skips a file
- * already in the inbox, and the drop says so.
+ * already in the inbox, and the drop says so. Arriving at `#drop` scrolls
+ * to the drop and focuses "Choose files".
  */
 
 let host: HTMLDivElement;
@@ -97,9 +98,13 @@ afterEach(() => {
   act(() => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
-async function render(props: Parameters<typeof DoMyBooks>[0] = {}) {
+async function render(
+  props: Parameters<typeof DoMyBooks>[0] = {},
+  at = "/update",
+) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -108,11 +113,28 @@ async function render(props: Parameters<typeof DoMyBooks>[0] = {}) {
       createElement(
         QueryClientProvider,
         { client },
-        createElement(MemoryRouter, null, createElement(DoMyBooks, props)),
+        createElement(
+          MemoryRouter,
+          { initialEntries: [at] },
+          // A link to the drop from the same page, as Update's account
+          // status is.
+          createElement(
+            Link,
+            { to: "/update#drop" },
+            "Needs a first statement",
+          ),
+          createElement(DoMyBooks, props),
+        ),
       ),
     );
   });
   await settle();
+}
+
+function chooseFiles(): HTMLButtonElement | undefined {
+  return [...host.querySelectorAll("button")].find(
+    (button) => button.textContent === "Choose files",
+  );
 }
 
 async function settle() {
@@ -187,6 +209,43 @@ describe("Do my books", () => {
         row.textContent?.includes("sample-savings-050505.pdf"),
       ),
     ).toHaveLength(1);
+  });
+});
+
+describe("the drop's anchor", () => {
+  it("is the drop, and says a new bank or card's statements go in it", async () => {
+    await render();
+    const drop = host.querySelector("#drop");
+    expect(drop?.querySelector("[data-dropzone]")).not.toBeNull();
+    expect(host.textContent).toContain("from any bank or card, new ones too");
+  });
+
+  it("focuses Choose files on arriving at #drop", async () => {
+    const scrolled = vi
+      .spyOn(HTMLElement.prototype, "scrollIntoView")
+      .mockImplementation(() => {});
+    await render({}, "/update#drop");
+    expect(document.activeElement).toBe(chooseFiles());
+    expect(scrolled).toHaveBeenCalled();
+  });
+
+  it("leaves focus alone elsewhere, and takes it when a link on the page leads to #drop", async () => {
+    await render();
+    expect(document.activeElement).not.toBe(chooseFiles());
+
+    const link = host.querySelector("a");
+    if (!link) throw new Error("No link to the drop");
+    await act(async () => {
+      link.click();
+    });
+    expect(document.activeElement).toBe(chooseFiles());
+
+    // A second click on the same link focuses it again.
+    chooseFiles()?.blur();
+    await act(async () => {
+      link.click();
+    });
+    expect(document.activeElement).toBe(chooseFiles());
   });
 });
 

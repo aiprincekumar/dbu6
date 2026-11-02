@@ -12,6 +12,7 @@ import {
   useCategorizerStatus,
   type Finale,
 } from "../import-progress/LiveImport";
+import { ADD_ROUTE } from "../add-account/state";
 import { REVIEW_ROUTE } from "../review/routes";
 import { AgentUnavailableDialog } from "./categorization/AgentUnavailableDialog";
 import { agentUnavailable } from "./categorization/describeCategorization";
@@ -74,7 +75,9 @@ const READING: FileCheck = { kind: "reading", previous: null };
  * up a new format. One button then imports what is ready, its rows landing
  * in a live ledger as they are categorized, and files still to set up stay
  * in the list for later. Afterwards the page says what came in, or what
- * stopped it and what to do next.
+ * stopped it and what to do next. It imports into the banks and cards the
+ * books have; a new one is added at /add, which a small link under the drop
+ * leads to.
  */
 export function AutoImportStatements() {
   usePageTitle("Import statements, guided");
@@ -310,6 +313,15 @@ export function AutoImportStatements() {
               className="font-semibold text-primary no-underline hover:underline"
             >
               Import them freeform
+            </Link>
+          </p>
+          <p className="mt-1 text-meta text-ink-meta">
+            New bank or card?{" "}
+            <Link
+              to={ADD_ROUTE}
+              className="font-semibold text-primary no-underline hover:underline"
+            >
+              Add it with its statements
             </Link>
           </p>
         </div>

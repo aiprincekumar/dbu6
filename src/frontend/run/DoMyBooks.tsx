@@ -1,10 +1,12 @@
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { StatementInboxBatch } from "../../shared/index";
 import { apiErrorMessage, statementInboxApi } from "../api";
 import { AgentButton } from "../components/agent-prompt";
 import { FRESH_QUERY } from "../queries";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import { DROP_ID } from "../update/routes";
 import type { UpdateLink } from "../update/state";
 import { formatFileSize } from "../format";
 import { InfoButton } from "../views/import-statements/cards";
@@ -22,8 +24,11 @@ export const STATEMENT_INBOX_KEY = ["statement-inbox"] as const;
  * yet imported are listed under the drop, so a second drop joins them in
  * the same run; a file dropped again isn't added twice. "Choose files" is
  * the primary action until a file is uploaded, then the run's button is.
+ * A new bank or card's statements go in the same drop: the run sets it up.
  * `byHand`, doing it by hand instead, is a quiet link beside the run's
- * button; `body` is what is already set up.
+ * button; `body` is what to know before dropping, such as what is already
+ * set up. The drop is `#drop`: arriving there, or following a link to it
+ * from the same page, scrolls to it and focuses "Choose files".
  */
 export function DoMyBooks({
   body,
@@ -63,6 +68,18 @@ export function DoMyBooks({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: STATEMENT_INBOX_KEY }),
   });
+  const location = useLocation();
+  const drop = useRef<HTMLDivElement>(null);
+  // Each arrival at #drop is a new location, so a second click on the same
+  // link scrolls and focuses again.
+  useEffect(() => {
+    if (location.hash !== `#${DROP_ID}`) return;
+    const zone = drop.current;
+    if (!zone) return;
+    zone.scrollIntoView({ block: "center" });
+    // The drop's one button is "Choose files".
+    zone.querySelector("button")?.focus({ preventScroll: true });
+  }, [location.key, location.hash]);
   const batches = inbox.data?.batches ?? [];
   const files = batches.reduce((sum, batch) => sum + batch.files.length, 0);
   const skipped = save.data?.already_uploaded ?? [];
@@ -70,16 +87,18 @@ export function DoMyBooks({
   return (
     <section>
       {body && <p className="mb-3 text-body text-ink-soft">{body}</p>}
-      <Dropzone
-        disabled={save.isPending}
-        title={afterList ? "Drop them here" : undefined}
-        hint="PDF, Excel, CSV or text. Add as many as you like."
-        prominent
-        primary={choosePrimary && files === 0}
-        onFiles={(files) => {
-          if (files.length > 0) save.mutate(files);
-        }}
-      />
+      <div id={DROP_ID} ref={drop}>
+        <Dropzone
+          disabled={save.isPending}
+          title={afterList ? "Drop them here" : undefined}
+          hint="PDF, Excel, CSV or text, from any bank or card, new ones too."
+          prominent
+          primary={choosePrimary && files === 0}
+          onFiles={(files) => {
+            if (files.length > 0) save.mutate(files);
+          }}
+        />
+      </div>
       {skipped.length > 0 && (
         <p role="status" className="mt-3 text-row text-ink-meta">
           Already uploaded: {skipped.join(", ")}
@@ -136,6 +155,10 @@ export function DoMyBooks({
             Your coding agent imports each file and categorizes its
             transactions. It asks you in the terminal about anything it can't
             work out.
+          </p>
+          <p>
+            A bank or card new to your books goes in the same drop: your coding
+            agent sets it up from its statements.
           </p>
           <p>Nothing is posted to your books until you add it on Review.</p>
         </InfoButton>

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CreditCard, Landmark, Plus } from "lucide-react";
+import { CreditCard, Landmark } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   dayLabel,
@@ -22,9 +22,6 @@ import { formatDate, formatMonth } from "../format";
 import { DoMyBooks } from "../run/DoMyBooks";
 import {
   accountStatus,
-  ADD_BANK_OR_CARD,
-  GUIDED_IMPORT,
-  statementsHref,
   statementsNeededFrom,
   updateState,
   type UpdateCard,
@@ -103,7 +100,7 @@ export function Update() {
               />
             ) : (
               <DoMyBooks
-                byHand={GUIDED_IMPORT}
+                byHand={view.card.byHand}
                 afterList={view.listsAccounts}
                 choosePrimary={false}
               />
@@ -133,7 +130,7 @@ export function NextStep({ card }: { card: UpdateView["card"] }) {
     <>
       <StepCard card={card} />
       <div className="mt-10">
-        <DoMyBooks byHand={GUIDED_IMPORT} choosePrimary={false} />
+        <DoMyBooks byHand={card.byHand} choosePrimary={false} />
       </div>
     </>
   );
@@ -159,11 +156,11 @@ function StepCard({ card }: { card: UpdateCard }) {
  * statements start, and the last day its posted statements reached. A
  * compact list above the drop, read before downloading: one line per
  * account, so the drop under it keeps the page's weight. Its heading leads
- * into the drop's "Drop them here". The account's status, when something
- * waits on it, follows its name.
+ * into the drop's "Drop them here", which takes a new bank or card's
+ * statements too, so the list has no link to adding one. The account's
+ * status, when something waits on it, follows its name.
  */
 function StatementsNeeded({ summary }: { summary: HomeSummary }) {
-  const statementsTo = statementsHref(summary);
   return (
     <section aria-label="Statements to download">
       <h2 className="text-subheading text-foreground">
@@ -183,21 +180,10 @@ function StatementsNeeded({ summary }: { summary: HomeSummary }) {
         </thead>
         <tbody>
           {summary.accounts.map((account) => (
-            <AccountRow
-              key={account.account_id}
-              account={account}
-              statementsTo={statementsTo}
-            />
+            <AccountRow key={account.account_id} account={account} />
           ))}
         </tbody>
       </table>
-      <Link
-        to={ADD_BANK_OR_CARD.to}
-        className="mt-2 inline-flex items-center gap-1 px-2 text-meta text-ink-meta no-underline hover:text-foreground hover:underline hover:underline-offset-4"
-      >
-        <Plus className="size-3.5" />
-        {ADD_BANK_OR_CARD.label}
-      </Link>
     </section>
   );
 }
@@ -207,14 +193,8 @@ function StatementsNeeded({ summary }: { summary: HomeSummary }) {
  * something waits on it; the month its statements are needed from; and the
  * day its posted statements reached, from a phone's width up.
  */
-function AccountRow({
-  account,
-  statementsTo,
-}: {
-  account: HomeAccount;
-  statementsTo: string;
-}) {
-  const status = accountStatus(account, statementsTo);
+function AccountRow({ account }: { account: HomeAccount }) {
+  const status = accountStatus(account);
   const ledger = account.in_ledger
     ? accountLedgerHref(account.account_id)
     : null;

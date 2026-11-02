@@ -33,7 +33,7 @@ import {
  * Settings' Banks & cards on screen: one flat table with its marks, the
  * edit dialog, which asks for a number in view only when the bank has
  * another account, and removal, of a deleted account's row too. Adding is
- * /add's, which the page links to.
+ * the drop on Update, which the page links to.
  */
 
 let host: HTMLDivElement;
@@ -282,11 +282,13 @@ async function choose(name: string, item: "Edit" | "Remove") {
 }
 
 describe("BanksAndCards", () => {
-  it("links to /add when there are none, with no add buttons", async () => {
+  it("links to the drop on Update when there are none, with no add buttons", async () => {
     await renderPage([]);
 
     expect(text()).toContain("No banks or cards yet");
-    expect(button("Add a bank or card").getAttribute("href")).toBe("/add");
+    expect(button("Add a bank or card").getAttribute("href")).toBe(
+      "/update#drop",
+    );
     expect(text()).not.toContain("+ Bank account");
     expect(text()).not.toContain("+ Credit card");
   });
@@ -347,7 +349,9 @@ describe("BanksAndCards", () => {
     expect(
       rows[0].querySelector('[aria-label="Actions for Sample Bank Savings"]'),
     ).not.toBeNull();
-    expect(button("Add a bank or card").getAttribute("href")).toBe("/add");
+    expect(button("Add a bank or card").getAttribute("href")).toBe(
+      "/update#drop",
+    );
   });
 
   it("edits a row, the number tucked away while it is optional", async () => {

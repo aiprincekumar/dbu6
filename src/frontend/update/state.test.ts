@@ -6,9 +6,8 @@ import type {
   HomeSummary,
 } from "../../shared/index";
 import {
-  ADD_BANK_OR_CARD,
+  accountStatus,
   updateState,
-  statementsHref,
   statementsNeededFrom,
   waitingInUpdate,
   type UpdateCard,
@@ -85,6 +84,7 @@ describe("updateState", () => {
     expect(view.greeting).toBe("Let's set up your books");
     expect(view.card).toEqual({
       kind: "do-my-books",
+      body: "Your coding agent proposes your accounts for your OK before it imports anything.",
       byHand: { label: "Set up by hand", to: "/setup" },
     });
     // The card is the one thing to do: no empty list of accounts below it.
@@ -103,7 +103,7 @@ describe("updateState", () => {
   });
 
   it("names the banks and cards set up with no transactions yet", () => {
-    // Set up by an agent, or an add left unfinished: /add finishes them.
+    // Set up by an agent, or an add left unfinished: the drop finishes them.
     const view = updateState(
       summary([
         account({ checkpoint: null, statements_until: null }),
@@ -137,6 +137,26 @@ describe("updateState", () => {
     expect(view.card).toEqual({
       title: "There are draft entries waiting to be posted to your books",
       action: { label: "Review transactions", to: "/review/2" },
+      byHand: { label: "Import statements, guided", to: "/import" },
+    });
+  });
+
+  it("adds a bank or card by hand in the first run while its first drafts wait", () => {
+    // Nothing posted yet: /import can't add the bank or card the first run
+    // may still be missing, so the drop's link is the first run's /add.
+    const view = updateState(
+      summary([
+        account({
+          checkpoint: null,
+          statements_until: "2026-08-31",
+          drafts: 12,
+        }),
+      ]),
+    );
+    expect(view.state).toBe("drafts");
+    expect(stepCard(view).byHand).toEqual({
+      label: "Add a bank or card",
+      to: "/add?run=setup",
     });
   });
 
@@ -188,14 +208,28 @@ describe("updateState", () => {
     });
     expect(view.listsAccounts).toBe(true);
   });
+});
 
-  it("sends a bank or card's first statements to the first run until one is imported", () => {
-    expect(statementsHref({ any_imported: false })).toBe("/add?run=setup");
-    expect(statementsHref({ any_imported: true })).toBe("/add");
+describe("accountStatus", () => {
+  it("sends an account that needs its first statement to the drop", () => {
+    // Whether or not anything is imported yet: the run reads its format.
+    expect(accountStatus(account({ has_parser: false }))).toEqual({
+      tone: "attention",
+      label: "Needs a first statement",
+      to: "/update#drop",
+    });
   });
 
-  it("adds a bank or card through /add", () => {
-    expect(ADD_BANK_OR_CARD).toEqual({ label: "Add bank or card", to: "/add" });
+  it("puts drafts waiting before a first statement", () => {
+    expect(accountStatus(account({ has_parser: false, drafts: 3 }))).toEqual({
+      tone: "attention",
+      label: "3 drafts waiting",
+      to: "/review/2",
+    });
+  });
+
+  it("says nothing of an account nothing waits on", () => {
+    expect(accountStatus(account())).toBeNull();
   });
 });
 
@@ -230,7 +264,8 @@ describe("waitingInUpdate", () => {
       account(),
       account({ account_id: 3, drafts: 3 }),
       account({ account_id: 4, statement_differences: 1 }),
+      account({ account_id: 5, has_parser: false }),
     ]);
-    expect(waitingInUpdate(view)).toBe(2);
+    expect(waitingInUpdate(view)).toBe(3);
   });
 });

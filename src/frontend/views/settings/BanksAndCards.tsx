@@ -13,7 +13,6 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@sapporta/ui/tooltip";
 import { usePageTitle } from "@sapporta/frontend/shell";
 import type { StatementAccountRow } from "../../../shared/index";
-import { ADD_ROUTE } from "../../add-account/state";
 import { apiErrorMessage } from "../../api";
 import {
   AccountName,
@@ -25,6 +24,7 @@ import { Screen, ScreenTitle } from "../../components/screen";
 import { StatusChip } from "../../components/status-chip";
 import { Button } from "../../components/ui/button";
 import { maskIdentifier } from "../../format";
+import { UPDATE_DROP_HREF } from "../../update/routes";
 import { RowMenu } from "./RowMenu";
 import { statementAccountHref } from "./routes";
 import { lockedBecause } from "./statement-account-form";
@@ -37,7 +37,8 @@ import { useStatementAccounts } from "./statement-accounts";
  * count, and removing the row deletes an opening entry that opens it alone.
  * One whose account was deleted from the books can still be removed, which
  * stops dbu6 importing its statements.
- * A new bank or card comes in from its statements, at /add.
+ * A new bank or card comes in from its statements, dropped on Update for the
+ * coding agent's run, so "Add a bank or card" leads to that drop.
  *
  * Editing a row is the URL `/settings/banks/:accountId/edit`, whose form is
  * this route's child. Removing one is a confirmation, which is a step of the
@@ -52,7 +53,7 @@ export function BanksAndCards() {
 
   const addLink = (
     <Link
-      to={ADD_ROUTE}
+      to={UPDATE_DROP_HREF}
       className="text-primary underline-offset-4 hover:underline"
     >
       Add a bank or card
@@ -90,7 +91,7 @@ export function BanksAndCards() {
                 body="Each comes in from its statements."
                 action={
                   <Button
-                    render={<Link to={ADD_ROUTE} />}
+                    render={<Link to={UPDATE_DROP_HREF} />}
                     nativeButton={false}
                     variant="outline"
                     size="sm"
