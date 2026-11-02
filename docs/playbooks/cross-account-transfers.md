@@ -26,9 +26,9 @@ once on each account's drafts.
    account; the other draft is deleted, and the balances its statement
    printed before the money arrived are cleared. A 422 means the two aren't
    one transfer.
-3. The account whose draft was deleted now counts the other account's draft,
-   so posting it waits until that account is added (422,
-   `ADD_OTHER_ACCOUNT_FIRST`); Review says "Add <account> first".
+3. The account whose draft was deleted now counts the other account's
+   draft, so it goes into the books after that account; Review adds them in
+   that order, so name none.
 
 When the other side is already in the books, from the other account's
 statement, the draft is just an extra copy: delete it, as the `duplicates`
@@ -45,5 +45,3 @@ categorized to that account and kept; there is nothing to settle.
 ## Report
 
 - **Transfers:** each pair settled, by date, amount and the two accounts.
-- **Add in this order:** the accounts to add first, and the ones that wait
-  on them.

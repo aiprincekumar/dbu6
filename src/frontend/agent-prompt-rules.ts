@@ -1,5 +1,6 @@
-// Every prompt the app hands the user's coding agent is an AgentTask, written
-// out by agentPrompt in one shape: the outcome first, then the case's facts,
+// A prompt the app hands the user's coding agent for one task is an
+// AgentTask, written out by agentPrompt in one shape (a run's prompt is
+// runPrompt's, below): the outcome first, then the case's facts,
 // then only what the agent can't learn from the project (its AGENTS.md and
 // `npx dbu6 docs books` already say how to reach the app, how a balance check
 // works, and to ask before changing the books), and last the two replies the
@@ -15,7 +16,8 @@
 // The agent echoes what it is given. A prompt that opens with backstory gets
 // a plan that retells it, and a prompt with no shape for the report gets an
 // essay. So the outcome is one sentence we write, which the plan restates,
-// and each task names what its report holds, in the order the user needs it.
+// and each report has its headings, in the order the user needs them: the
+// playbook's, or the task's own where no playbook has them.
 import {
   guideCommand,
   playbookCommand,

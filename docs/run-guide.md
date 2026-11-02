@@ -9,8 +9,7 @@ you couldn't settle, in one round.
 
 **The only entries you write to the books are opening balances:** those
 the statements give, as you add their accounts, and those the user gives
-you for [accounts with no statements](#accounts-with-no-statements). The
-user adds the drafts on Review.
+you for [accounts with no statements](#accounts-with-no-statements).
 
 Read `npx dbu6 docs books` first: how to reach the app, the words to use
 ("Talking to the user"), the endpoints. This guide orders the work, says
@@ -240,7 +239,7 @@ under "Still open".
 ## Starting from the drafts
 
 No new files: the statements are already imported, and their drafts wait in
-Review. The user pressed **Fix these** on Review, or asked you to finish
+Review. The prompt from Review starts here, or the user asked you to finish
 what is left there. The work is the second half of a run, across every
 account with drafts at once, or across the accounts the prompt names: then
 the survey, the plan and the work cover only those, and you read another

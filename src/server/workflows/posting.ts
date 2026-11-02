@@ -107,7 +107,9 @@ export type PostReadyOutcome =
  * ids come in doesn't matter, and an order the waits change while posting
  * is followed too. An account with no drafts left is neither added nor
  * left. Only `accountIds` are posted; `names` names them, and holds every
- * account in the books.
+ * account in the books. `readyToAdd` decides the same accounts for the
+ * screens without trying them; the two are kept apart until the transfers
+ * and add-first order are rethought.
  */
 export function postReady(
   ledger: Ledger,

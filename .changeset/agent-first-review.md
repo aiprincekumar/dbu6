@@ -12,8 +12,9 @@ survey reads what is left; the prompt holds no copy of the counts. Beside it,
 blocks, each on its own, in an order the accounts' "Add <account> first"
 waits allow, and then lists what it added and what it left, and why. An
 account's Overview has the same **Fix these**, naming that account, which
-the section then keeps to, while
-something blocks it, and the notice after an import points to it. Adding
+the section then keeps to, while it has a block other than waiting for
+another account, or rule requests; the notice after an import points to
+it. Adding
 one account at a time stays.
 
 `POST /api/draft-transactions/post-ready` `{ base_account_ids }` is the

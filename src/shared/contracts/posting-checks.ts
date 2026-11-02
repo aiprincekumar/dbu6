@@ -6,7 +6,10 @@ import { z } from "zod";
  * them; each check's state is decided here from the counts, and the posting
  * gate, Update and Review all read it, so no screen decides on its own whether
  * drafts can be posted. Which accounts Review's Add all can add is decided
- * here too (`readyToAdd`).
+ * here too (`readyToAdd`), for the screens' counts; the posting workflow's
+ * `postReady` finds the same accounts its own way, by trying each in turn,
+ * a second algorithm kept until the transfers and add-first order are
+ * rethought.
  *
  * Counts are the draft reports' rows: a draft that matches two others is two
  * possible duplicates.

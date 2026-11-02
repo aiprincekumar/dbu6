@@ -132,7 +132,7 @@ export function DoMyBooks({
             <AgentButton
               label={runLabel(files)}
               prompt={doMyBooksPrompt(batches)}
-              afterwards="Answer its questions in the terminal, then add them on Review."
+              afterwards="Answer its questions in the terminal, then add the entries on Review."
             />
           )}
           {byHand && (
@@ -161,8 +161,8 @@ export function DoMyBooks({
             agent sets it up from its statements.
           </p>
           <p>
-            Nothing from your statements goes into your books until you add
-            it on Review.
+            Nothing from your statements goes into your books until you add it
+            on Review.
           </p>
         </InfoButton>
       </div>

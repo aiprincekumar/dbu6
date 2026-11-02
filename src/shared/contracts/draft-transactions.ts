@@ -63,9 +63,7 @@ const repeatedFormIdSchema = z.preprocess(
   z.array(z.coerce.number().int().positive()).min(1),
 );
 
-// Whether the books held nothing but opening balances before this post: the
-// first run's end ("Your books are set up.") is the post that leaves
-// nothing to review after such a start.
+// Whether the books held nothing but opening balances before this post.
 const firstPostSchema = z.boolean();
 
 /**
