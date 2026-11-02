@@ -21,8 +21,9 @@ there, following `npx dbu6 docs run`:
   settles duplicates and balance checks the statements explain.
 * What it can't settle, it asks in one round in the terminal. Your answers
   become mapping rules, so the next import knows them.
-* It never adds to your books. Review lists every account, and **Add N
-  entries from K accounts to my books** adds each one that is ready.
+* Nothing from your statements goes into your books until you add it on
+  Review, which lists every account and adds the ready ones together. The
+  opening balances you give it are recorded when you answer.
 
 A statement for a new bank or card goes on the same drop: there is no
 separate step to set it up first.

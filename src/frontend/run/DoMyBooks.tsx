@@ -132,7 +132,7 @@ export function DoMyBooks({
             <AgentButton
               label={runLabel(files)}
               prompt={doMyBooksPrompt(batches)}
-              afterwards="Answer its questions in the terminal, then add each account on Review."
+              afterwards="Answer its questions in the terminal, then add them on Review."
             />
           )}
           {byHand && (
@@ -160,7 +160,10 @@ export function DoMyBooks({
             A bank or card new to your books goes in the same drop: your coding
             agent sets it up from its statements.
           </p>
-          <p>Nothing is posted to your books until you add it on Review.</p>
+          <p>
+            Nothing from your statements goes into your books until you add
+            it on Review.
+          </p>
         </InfoButton>
       </div>
     </section>

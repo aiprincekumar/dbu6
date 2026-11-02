@@ -223,7 +223,7 @@ export const draftTransactionsContract = c.router({
     method: "POST",
     path: "/draft-transactions/post-ready",
     summary:
-      "Add all: post the drafts of every account named that nothing blocks, each account on its own, in an order the accounts' add-first waits allow; the rest are left with the check that blocks them. Only the accounts named are ever posted. For the person's own button: an agent never calls it",
+      "Add all: post the drafts of every account named that nothing blocks, each account on its own, in an order the accounts' add-first waits allow; the rest are left with the check that blocks them. Only the accounts named are ever posted. The person's own button, on Review",
     body: z.object({
       base_account_ids: z.array(z.number().int().positive()).min(1),
     }),

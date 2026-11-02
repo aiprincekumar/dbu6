@@ -70,7 +70,7 @@ Until something is in your books, dbu6 opens on **Do my books**: a drop for
 your statements and one button that hands them to your coding agent.
 
 1. **Drop your statements.** Every statement you have, from any bank or
-   card, any period, as PDF, CSV or XLS, in any order. They wait in the
+   card, any period, as PDF, CSV, XLS or text, in any order. They wait in the
    folder; nothing reads them yet.
 2. **Press Do my books.** Your coding agent starts in a terminal, in your
    books folder. Its first reply is a plan: the accounts it found in the
@@ -82,9 +82,10 @@ your statements and one button that hands them to your coding agent.
    can't settle from the statements, it asks in one round in the terminal:
    a payee it has never seen, a transfer with no other side, and what your
    cash, deposits, investments and loans held when the books start.
-4. **Add the entries on Review.** The agent never adds anything to your
-   books. Review lists every account, and **Add N entries from K accounts
-   to my books** adds every one that is ready; one that isn't says why.
+4. **Add the entries on Review.** Nothing from your statements goes into
+   your books until you add it there; the opening balances you give the
+   agent are recorded when you answer. Review lists every account and adds
+   the ready ones together; one that isn't ready says why.
 
 Once something is posted, dbu6 opens on **Overview**: the month's income,
 spending and savings beside your usual month, the largest spending categories,

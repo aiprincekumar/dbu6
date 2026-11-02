@@ -187,18 +187,11 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   it into one draft: `npx dbu6 docs playbook cross-account-transfers`. One
   already added to the books from the other account's statement shows up as a
   failing balance check instead (see below).
-- **"Add them to my books."** Adding is the user's own act, on Review.
-  Review's **Add N entries from K accounts to my books** adds every account
-  that nothing blocks but waiting for another account in the same set, each
-  on its own, in the order those waits allow, and names the ones it left
-  with why (`POST /api/draft-transactions/post-ready`, with
-  `base_account_ids`). It is the user's button: you never call it. Each
-  account's Review also has its own **Add N to my books**. Inside a run you
-  add nothing; outside one, with the user's yes for that account:
-  `npx sapporta api post /api/draft-transactions/post-to-journal --body '{"base_account_id":<id>}'`.
-  A 422 names the first check that still blocks. `ADD_OTHER_ACCOUNT_FIRST`
-  means every check passes, but counting drafts of the accounts in
-  `add_first`, which are categorized to this one: add those first. Two
+- **"Add them to my books."** Say which accounts are ready, and give
+  Review's link: the user adds them there. An account's
+  `add_first` (`GET /api/review/accounts`) means every check passes, but
+  counting drafts of those accounts, which are categorized to this one:
+  they go in first, and Review adds them in that order. Two
   accounts whose checks count each other's drafts never wait for each other;
   the first one added has balances in the books that miss until the other is
   added.
@@ -289,9 +282,7 @@ Leave a rule request you couldn't encode.
 - **"Here are all my statements; do my books."** Follow
   `npx dbu6 docs run`: one session from a pile of statements to every
   account ready to add, the user answering one round of questions. Its
-  "Entries" also start a run from the drafts already in Review, a balance
-  that stopped matching, a change to the chart, and the accounts with no
-  statements.
+  "Entries" list where else a run starts.
 - **"I opened a new account or card."** Add it yourself, from the
   statements the user names or the ones waiting in the statement inbox
   (`npx sapporta api get /api/statement-inbox`): read them, show the user

@@ -40,11 +40,8 @@ theirs: `user-config/`, `custom-built-parsers/`, `reports/`, and the ledger in
   one written for the installed version.
 
 - When the person asks you to do their books, or points you at their
-  statements, follow `npx dbu6 docs run`. Its "Entries" also start from:
-  - the drafts already waiting in Review;
-  - a balance in the books that stopped matching its statement;
-  - a change to the chart: rename, move, merge or split accounts;
-  - cash, deposits, investments and loans, which have no statements.
+  statements, follow `npx dbu6 docs run`. Its "Entries" list where else a
+  run starts.
 
 - Never post drafts: the person adds entries on Review.
 

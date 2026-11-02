@@ -7,13 +7,10 @@ categorize, settle duplicates and balance checks, and stop with every
 account ready to add. The user's only real input is their answers to what
 you couldn't settle, in one round.
 
-**You never add drafts to the books.** Adding is the user's own act: they
-open Review and press **Add N entries from K accounts to my books**, or an
-account's own **Add N to my books**. Never call
-`/api/draft-transactions/post-to-journal` or
-`/api/draft-transactions/post-ready`. The only entries you post are opening
-balances the user gave you ([Accounts with no
-statements](#accounts-with-no-statements)).
+**The only entries you write to the books are opening balances:** those
+the statements give, as you add their accounts, and those the user gives
+you for [accounts with no statements](#accounts-with-no-statements). The
+user adds the drafts on Review.
 
 Read `npx dbu6 docs books` first: how to reach the app, the words to use
 ("Talking to the user"), the endpoints. This guide orders the work, says
@@ -34,9 +31,10 @@ user's own words fits one of them.
 | a change to the chart: rename, move, merge or split | `npx dbu6 docs playbook chart-change`                       |
 | cash, deposits, investments or loans: no statements | [Accounts with no statements](#accounts-with-no-statements) |
 
-Each one starts with the preflight (phase 0), shows the user a plan, and
-waits for a yes before it writes anything. The two playbooks keep their own
-plan and permissions: every change they make is to entries in the books.
+Each one waits for the user's yes before it writes anything. A section of
+this guide starts with the preflight (phase 0) and shows its plan; the two
+playbooks keep their own plan and permissions: every change they make is to
+entries in the books.
 
 ## Where the statements are
 
@@ -405,7 +403,7 @@ Ready to add        Drafts  Rules   AI  You  Dups removed  Checks
 Sample savings         412    280   98   34             2   31/31
 Sample card            188    120   51   17             0     6/6
 
-Press "Add 600 entries from 2 accounts to my books" on Review.
+Add them on Review.
 
 Not ready           Why
 Sample current      7 drafts without an account: set them in its Drafts grid
@@ -419,9 +417,8 @@ Still open          Sample current: download June 2025, then drop it
 Skipped             Fixed deposits: no balance given
 ```
 
-- The button's counts are the "Ready to add" rows added up: their drafts,
-  and how many accounts. Review adds them in the order their transfers
-  need, so name no order.
+- Review adds the ready accounts together, in the order their transfers
+  need, so name no order and no button.
 - "Not ready" lists every account with drafts that isn't ready, each with
   why, in one line: drafts without an account (the user sets them in its
   Drafts grid), a possible duplicate or a failing check you couldn't

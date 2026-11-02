@@ -26,10 +26,13 @@ new statements, listed under "Entries":
   `chart-change`, for renaming, moving, merging or splitting accounts with
   their entries.
 
-The run's report now ends with the one button to press on Review, **Add N
-entries from K accounts to my books**, and lists each account that isn't
-ready with why. The agent never calls `POST /api/draft-transactions/post-ready`:
-the run guide lists it under "Never".
+The run's report now sends you to Review to add every ready account
+together, and lists each account that isn't ready with why. The agent never
+adds drafts to the books, inside a run or outside one: `DBU6-BOOKS.md` no
+longer has it call `post-to-journal` on a yes, and the run guide lists both
+posting endpoints under "Never". The only entries it records are opening
+balances: those the statements give, as before, and those you give it for
+accounts with no statements.
 
 `DBU6-BOOKS.md` no longer sends the person to a screen for work the agent
 can do: the agent adds a new bank or card from the statements named or
@@ -38,6 +41,6 @@ a refused statement to its playbook. Its screen links list the drop on
 Update first.
 
 A project made before this release can add the lines its new `AGENTS.md`
-has, under "Before you start": the run's entries, "Never post drafts: the
-person adds entries on Review." and "Ask your questions in one round in the
-terminal."
+has, under "Before you start": that the run's "Entries" list where else a
+run starts, "Never post drafts: the person adds entries on Review." and
+"Ask your questions in one round in the terminal."
