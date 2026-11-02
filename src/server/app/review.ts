@@ -14,7 +14,7 @@ import {
 } from "./account-standing.js";
 import {
   countDraftsByBaseAccount,
-  loadCategorizationRuleRequests,
+  countCategorizationRuleRequests,
   postingInputs,
 } from "../modules/drafts/index.js";
 import { loadOpeningEntries } from "../modules/journals/index.js";
@@ -62,11 +62,12 @@ export function listReviewAccounts(
   ledger: Ledger,
   institutions: readonly ImportInstitution[],
 ): ReviewAccount[] {
-  const { sqlite, auth } = ledger;
+  const { db, sqlite, auth } = ledger;
   const names = accountNames(sqlite, auth, institutions);
+  const ruleRequests = countCategorizationRuleRequests(db, auth);
   return Array.from(loadAccountStandings(sqlite, auth, institutions).values())
     .filter((standing) => standing.drafts !== undefined)
-    .map((standing) => reviewAccount(ledger, standing, names))
+    .map((standing) => reviewAccount(standing, names, ruleRequests))
     .sort(byName);
 }
 
@@ -76,7 +77,7 @@ export function loadReviewAccount(
   institutions: readonly ImportInstitution[],
   accountId: number,
 ): ReviewAccountDetail | null {
-  const { sqlite, auth } = ledger;
+  const { db, sqlite, auth } = ledger;
   const standing = loadAccountStandings(sqlite, auth, institutions, {
     accountId,
   }).get(accountId);
@@ -85,9 +86,9 @@ export function loadReviewAccount(
 
   return {
     account: reviewAccount(
-      ledger,
       standing,
       accountNames(sqlite, auth, institutions),
+      countCategorizationRuleRequests(db, auth),
     ),
     checkpoint: standing.checkpoint,
     has_opening_entry: loadOpeningEntries(sqlite, auth, { accountId }).has(
@@ -140,13 +141,12 @@ function otherAccountsWithDrafts(
     .sort(byName);
 }
 
-// `names` names the accounts to add first. The rule requests are read one
-// account at a time: an account with drafts has few, and Review lists few
-// accounts.
+// `names` names the accounts to add first; `ruleRequests` counts each
+// account's rule requests.
 function reviewAccount(
-  { db, auth }: Ledger,
   standing: AccountStanding,
   names: ReadonlyMap<number, string>,
+  ruleRequests: ReadonlyMap<number, number>,
 ): ReviewAccount {
   return {
     account_id: standing.account_id,
@@ -156,8 +156,7 @@ function reviewAccount(
     kind: standing.kind,
     ...postingInputs(standing.drafts, names),
     draft_span: standing.drafts?.draft_span ?? null,
-    rule_requests: loadCategorizationRuleRequests(db, auth, standing.account_id)
-      .length,
+    rule_requests: ruleRequests.get(standing.account_id) ?? 0,
   };
 }
 

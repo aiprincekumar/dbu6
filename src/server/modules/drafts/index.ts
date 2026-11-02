@@ -43,6 +43,7 @@ export {
 } from "./statement-activity.js";
 export {
   clearCategorizationRuleRequests,
+  countCategorizationRuleRequests,
   deleteCategorizationRuleRequest,
   insertCategorizationRuleRequest,
   loadCategorizationRuleRequest,

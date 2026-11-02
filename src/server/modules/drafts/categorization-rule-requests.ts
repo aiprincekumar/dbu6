@@ -1,4 +1,4 @@
-import { asc, eq, type SQL } from "drizzle-orm";
+import { asc, count, eq, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import {
   categorizationRuleRequestTransactionSchema,
@@ -36,6 +36,32 @@ export function loadCategorizationRuleRequests(
     auth,
     eq(categorizationRuleRequestsTable.base_account_id, baseAccountId),
   );
+}
+
+/**
+ * How many rule requests each statement account has, by its id; an account
+ * with none isn't in the map. The requests counted are the ones
+ * `loadCategorizationRuleRequests` lists.
+ */
+export function countCategorizationRuleRequests(
+  db: any,
+  auth: LedgerAuth,
+): Map<number, number> {
+  const access = auth.rowSecurity.forTable(categorizationRuleRequests);
+  const rows: { baseAccountId: number; requests: number }[] = db
+    .select({
+      baseAccountId: categorizationRuleRequestsTable.base_account_id,
+      requests: count(),
+    })
+    .from(categorizationRuleRequestsTable)
+    .innerJoin(
+      accountsTable,
+      eq(accountsTable.id, categorizationRuleRequestsTable.account_id),
+    )
+    .where(access.ownedRows())
+    .groupBy(categorizationRuleRequestsTable.base_account_id)
+    .all();
+  return new Map(rows.map((row) => [row.baseAccountId, row.requests]));
 }
 
 /** The rule request `id`, or null when it isn't the caller's. */
