@@ -1,0 +1,43 @@
+---
+"@dbu6/app": minor
+---
+
+The guides now lead with the run. README, Getting started, Importing
+statements and Your books start from dropping statements on Update and
+pressing **Do my books**: your coding agent sets up, imports and
+categorizes, asks only what it can't settle, in one round in the terminal,
+and you add the entries on Review. The screen-by-screen path is kept under
+"By hand".
+
+For your coding agent, `npx dbu6 docs run` has more ways in than a pile of
+new statements, listed under "Entries":
+
+- **Starting from the drafts:** no new files. The agent surveys Review
+  (`GET /api/review/accounts`, now with each account's `rule_requests`),
+  encodes your rule requests first, then categorizes, cleans up, asks one
+  round of questions and reports. Files waiting in the inbox are named, not
+  imported, unless you say so.
+- **Accounts with no statements:** on a first run the question round asks
+  what your cash, deposits, investments and loans held when the books
+  start, creates any account the chart lacks, and posts each opening
+  balance on your yes. The run's report no longer sends you to `/add/other`.
+- Two new playbooks: `posted-balance-check`, for a balance check in the
+  books that stopped matching (Reconciliation Differences), and
+  `chart-change`, for renaming, moving, merging or splitting accounts with
+  their entries.
+
+The run's report now ends with the one button to press on Review, **Add N
+entries from K accounts to my books**, and lists each account that isn't
+ready with why. The agent never calls `POST /api/draft-transactions/post-ready`:
+the run guide lists it under "Never".
+
+`DBU6-BOOKS.md` no longer sends the person to a screen for work the agent
+can do: the agent adds a new bank or card from the statements named or
+waiting in the inbox, posts a suggested opening balance on a yes, and takes
+a refused statement to its playbook. Its screen links list the drop on
+Update first.
+
+A project made before this release can add the lines its new `AGENTS.md`
+has, under "Before you start": the run's entries, "Never post drafts: the
+person adds entries on Review." and "Ask your questions in one round in the
+terminal."

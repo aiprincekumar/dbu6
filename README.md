@@ -35,11 +35,19 @@ npx dbu6 dev
 ```
 
 `npm init @dbu6` creates the folder, installs dbu6 into it and makes the
-database. `dev` serves the app: open <http://localhost:2345> and sign up. dbu6 then takes you
-through your chart of accounts, a bank or card, a recent statement for it, your
-opening balances, and reviewing what dbu6 categorized. Once something is in your
-books, it opens on Overview: the month's income, spending and savings, net worth,
-and how far each account's books go.
+database. `dev` serves the app: open <http://localhost:2345> and sign up.
+
+Then drop every statement you have on Update, from any bank or card, any
+period, and press **Do my books**. Your coding agent proposes a chart of
+accounts, sets up each bank and card, imports and categorizes, settles
+duplicates and balance checks, and asks you only what it can't settle, in
+one round in the terminal. You add the entries to your books on Review.
+Once something is in your books, dbu6 opens on Overview: the month's income,
+spending and savings, net worth, and how far each account's books go.
+
+By hand, dbu6 takes you through the same steps one screen at a time: your
+chart of accounts, a bank or card, a recent statement for it, your opening
+balances, and reviewing what dbu6 categorized.
 
 A coding agent works in the folder when it is asked to. A prompt dbu6 hands it
 gives the folder an agent token when the folder has no working one; to give it

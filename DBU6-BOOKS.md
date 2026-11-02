@@ -13,7 +13,7 @@ so you can skip OpenAPI discovery. For anything not covered here, use the
   | In the data                      | Say                                                          |
   | -------------------------------- | ------------------------------------------------------------ |
   | draft                            | an imported transaction waiting in Review                    |
-  | post                             | add to your books ("Add N to my books" on Review)            |
+  | post                             | add to your books (a button on Review; see below)            |
   | base account                     | the bank or card account the statement is for                |
   | `account_id` on a draft or entry | the account it goes to                                       |
   | balance assertion                | the balance printed on the statement                         |
@@ -35,18 +35,22 @@ so you can skip OpenAPI discovery. For anything not covered here, use the
   `SAPPORTA_PUBLIC_APP_URL`, set in the project's `.env.development`. Read it; do not
   assume a port: the template's `http://localhost:2345` is only a default, and
   a second project on the same machine is on other ports.
+  - Doing the books: `/update#drop`, the drop on Update, where the user drops
+    every statement and presses **Do my books**, which hands them to you
+    (`npx dbu6 docs run`). Send the user here for any new statement before
+    any by-hand screen.
   - Overview: `/`, or one month with `/?month=YYYY-MM`
   - Update (each account, how far it is imported, what waits on it): `/update`
-  - Import statements: `/import`
-  - Review: `/review/<account id>`, with the tabs `/drafts`,
+  - Review: `/review`, every account with drafts and the button that adds
+    the ready ones; one account: `/review/<account id>`, with the tabs `/drafts`,
     `/improve-categorization`, `/run-categorizer`, `/duplicates` and
     `/balance-checks`
   - Reports: `/reports/<report>`, for example
     `/reports/account-ledger?account_id=<id>`
   - Accounts: `/accounts`
-  - Setting up the books: `/setup` (the chart of accounts); adding a bank
-    or card: `/add`; recording cash, a deposit, an investment or a loan:
-    `/add/other`
+  - By hand, when the user asks for a screen: Import statements (`/import`),
+    the chart of accounts (`/setup`), adding a bank or card (`/add`),
+    recording cash, a deposit, an investment or a loan (`/add/other`)
   - Settings: `/settings`, with Banks & cards (`/settings/banks`) and
     Opening balances (`/settings/balances`)
 
@@ -183,7 +187,14 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   it into one draft: `npx dbu6 docs playbook cross-account-transfers`. One
   already added to the books from the other account's statement shows up as a
   failing balance check instead (see below).
-- **"Add them to my books."**
+- **"Add them to my books."** Adding is the user's own act, on Review.
+  Review's **Add N entries from K accounts to my books** adds every account
+  that nothing blocks but waiting for another account in the same set, each
+  on its own, in the order those waits allow, and names the ones it left
+  with why (`POST /api/draft-transactions/post-ready`, with
+  `base_account_ids`). It is the user's button: you never call it. Each
+  account's Review also has its own **Add N to my books**. Inside a run you
+  add nothing; outside one, with the user's yes for that account:
   `npx sapporta api post /api/draft-transactions/post-to-journal --body '{"base_account_id":<id>}'`.
   A 422 names the first check that still blocks. `ADD_OTHER_ACCOUNT_FIRST`
   means every check passes, but counting drafts of the accounts in
@@ -277,15 +288,23 @@ Leave a rule request you couldn't encode.
 
 - **"Here are all my statements; do my books."** Follow
   `npx dbu6 docs run`: one session from a pile of statements to every
-  account ready to add, the user answering one round of questions.
-- **"I opened a new account or card."** Send the user to `/add` (Update's
-  **+ Add** › Bank or card), where they drop its statements: dbu6 reads
-  them, sets the account up with its opening balance, and imports them, in
-  one go. Nothing is written until the statements are read and checked. A
-  bank dbu6 can't read yet leaves nothing in the books; once its parser
-  exists (`npx dbu6 docs parsers`), the user drops the files again. Its two
-  endpoints take the files as multipart `files`, repeated (curl, as under
-  [Reaching the app](#reaching-the-app)):
+  account ready to add, the user answering one round of questions. Its
+  "Entries" also start a run from the drafts already in Review, a balance
+  that stopped matching, a change to the chart, and the accounts with no
+  statements.
+- **"I opened a new account or card."** Add it yourself, from the
+  statements the user names or the ones waiting in the statement inbox
+  (`npx sapporta api get /api/statement-inbox`): read them, show the user
+  the account you will set up (its name, parent, bank and opening), and on
+  a yes add it, which sets the account up with its opening balance and
+  imports them, in one go. With more than one account's statements, that is
+  a run (`npx dbu6 docs run`). By hand, the user drops them at `/add`.
+  Nothing is written until the statements are read and checked. A bank
+  dbu6 can't read yet leaves nothing in the books; once its parser exists
+  (`npx dbu6 docs parsers`), add it again. Its two endpoints take the files
+  as multipart `files`, repeated (curl, as under
+  [Reaching the app](#reaching-the-app)), or inbox files by path
+  (`inbox_files`, repeated):
   - `POST /api/add-account/read` writes nothing to the books. Each file has
     a `status`: `read` (with the `account_key` it belongs to, its parser,
     period and row count), `unrecognized` or `ambiguous` (no saved parser
@@ -354,7 +373,8 @@ Leave a rule request you couldn't encode.
   one transaction, adding the institution when it is new; a refusal leaves
   neither:
   `npx sapporta api post /api/setup/statement-accounts --body '{"action":"create","kind":"bank","institution":"…","identifier":"<number or null>","ledger":{"source":"new","name":"…","parent_id":<id>}}'`.
-  Its statements, dropped at `/add` later, find it (`empty`).
+  Its statements, added later through `add-account/add` or dropped at
+  `/add`, find it (`empty`).
   - `kind` is `bank` (an Asset) or `card` (a Liability, `is_credit_card`),
     and the parent must be of that type; pick it with the user, never from a
     name. `"ledger":{"source":"existing","account_id":<id>}` uses an Asset or
@@ -374,21 +394,27 @@ Leave a rule request you couldn't encode.
   - `npx sapporta api get /api/setup/statement-accounts` lists them, each with
     its count of its own `entries` and `drafts`.
 
-- **Setting up the books.** The first run is a run of cards, one question
+- **Setting up the books.** Follow `npx dbu6 docs run`: from the
+  statements the user drops, it proposes the chart, adds the banks and
+  cards, imports and categorizes, and in its question round asks what cash,
+  deposits, investments and loans held when the books start; you post those
+  opening balances on the user's yes. The screens are the by-hand path.
+  By hand, the first run is a run of cards, one question
   each, and keeps nothing but the URL: `/setup` picks the chart of accounts,
   `/add?run=setup` adds the banks and cards one at a time, `/add/other`
   records cash, deposits and loans, and Review takes over. Until anything
-  is posted, Overview and Update show the first run's card, read from the
-  books: no chart points to `/setup`, a chart with no bank or card to
-  `/add?run=setup`. A bank or card counts as imported once it has entries
+  is posted, Overview and Update show the first run's card, **Do my books**,
+  read from the books, with a by-hand link: to `/setup` while there is no
+  chart, to adding a bank or card once there is. A bank or card counts as imported once it has entries
   (its opening entry aside) or drafts from its own statements; a card
   payment another account's import posted to it doesn't count.
   - `npx sapporta api get /api/setup/chart-of-accounts` gives books with no
     accounts a starter chart, and `POST` with `{"accounts":[…]}` creates one,
     each account naming its parent by name. It refuses books that have any
     account.
-  - Cash, a deposit, an investment or a loan (`/add/other`) is an account
-    in the chart; add a missing one on the Accounts page first. Its
+  - Cash, a deposit, an investment or a loan is an account in the chart;
+    create a missing one first ("Add an account" below; by hand, the
+    Accounts page), then its opening balance. Its
     balance is recorded as an opening balance (below), dated by default the
     day before its first activity, else the day the books start.
 - **Opening balance.**
@@ -397,7 +423,8 @@ Leave a rule request you couldn't encode.
   balances (`/settings/balances`) changes and removes them, and records a
   missing one; `/opening-balances` redirects there, keeping its
   `?account=`, which names an account by name or path and opens its row.
-  Send the user to one of those. Their endpoints do the same:
+  Those are the by-hand path. You record one through the same endpoints,
+  with the user's yes on the account, date and amount:
   `npx sapporta api get /api/opening-balances` lists every asset and liability
   account with its `section`, first transaction, a default date, a
   suggested amount and its `opening` entry, and
@@ -442,8 +469,11 @@ Leave a rule request you couldn't encode.
   `npx sapporta rows create accounts --values '{"name":"…","account_type":"…","parent_id":<id>}'`,
   with the name, type and parent in the one call; the parent's type must be
   the same. A bank or card is not added this way: its import preset comes
-  with it at `/add`, or from Settings › Banks & cards (above).
-- **"Rename or move an account."**
+  with it from `POST /api/add-account/add`, or from Settings › Banks & cards
+  (above).
+- **"Rename or move an account."** For more than one account, or a merge
+  or split with the entries on them, follow
+  `npx dbu6 docs playbook chart-change`. One account:
   `npx sapporta rows update accounts <id> --values '{…}'`, with the name, type and
   parent in the one update: a trigger refuses a cell saved alone when it
   disagrees with the rest of the tree. Rules and prompt files name accounts by
@@ -472,9 +502,11 @@ Leave a rule request you couldn't encode.
   preset names an account by id inside JSON with no foreign key, so a raw
   `rows delete` can leave a preset pointing at an account that is gone.
 - **"This statement won't import."**
-  The Import screen gives a prompt for each problem. Parser work follows
-  the parsers guide (`npx dbu6 docs parsers`), and failed uploads are kept in
-  `tmp/statement-uploads/`. The common refusals:
+  Each refusal has a playbook: the table under "Accounts and imports" in
+  `npx dbu6 docs run` maps refusal codes to `npx dbu6 docs playbook <name>`,
+  the same method the Import screen's prompts send you to. Parser work
+  follows the parsers guide (`npx dbu6 docs parsers`), and failed uploads
+  are kept in `tmp/statement-uploads/`. The common refusals:
   - `opening_balance_unavailable`: the account has no balance in the books
     yet. Record the opening balance (above), then import again.
   - `reconciliation_match_failed`: nothing in the statement lands on the last
@@ -512,9 +544,11 @@ minus the statement's balance.
 Usual causes:
 
 - **The same difference from the very first check:** no opening balance is in
-  the books. Record it on Settings › Opening balances
-  (`/settings/balances?account=<name>`), which suggests the amount from
-  that first check.
+  the books. `npx sapporta api get /api/opening-balances` suggests the
+  amount from that first check (`implied_opening`, with `default_date`).
+  Propose it to the user, and post it on a yes ("Opening balance" above).
+  By hand, it is Settings › Opening balances
+  (`/settings/balances?account=<name>`).
 - **A difference that starts on one day:** a transfer or card payment is
   already in the books, or in the drafts, from the other account's statement,
   and a draft repeats it. `diff` equals its amount. When the other side is a
@@ -524,6 +558,9 @@ Usual causes:
   imported.
 - **A transaction added later,** by hand or from another statement, dated
   inside this statement's period.
+
+A check on entries already in the books, on the Reconciliation Differences
+report, is `npx dbu6 docs playbook posted-balance-check`.
 
 Find the first failing day. List the activity around it with the running
 total, and look for an amount equal to `diff`, or to the change in `diff`

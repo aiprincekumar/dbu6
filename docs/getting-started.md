@@ -16,11 +16,11 @@ Statement imports also need:
 Two things are optional:
 
 * **git** — with it, `init` makes your first commit.
-* **A coding agent** — Claude Code, Codex or Pi. It categorizes transactions,
-  proposes a chart of accounts, and writes a parser for a statement dbu6
-  cannot read yet. Without one, imports still work and only your own mapping
-  rules categorize. **Settings** names the agent dbu6 found and lets you
-  switch.
+* **A coding agent** — Claude Code, Codex or Pi. It does your books from the
+  statements you drop: proposes a chart of accounts, writes a parser for a
+  statement dbu6 cannot read yet, imports and categorizes. Without one, you
+  keep the books by hand: imports still work and only your own mapping rules
+  categorize. **Settings** names the agent dbu6 found and lets you switch.
 
 ```sh
 # macOS
@@ -66,16 +66,48 @@ with Ctrl-C. `npx dbu6 start` is the same server for good, without the reload.
 
 ## Set up your books
 
-Until something is in your books, dbu6 opens on the next thing to do, one at a
-time.
+Until something is in your books, dbu6 opens on **Do my books**: a drop for
+your statements and one button that hands them to your coding agent.
+
+1. **Drop your statements.** Every statement you have, from any bank or
+   card, any period, as PDF, CSV or XLS, in any order. They wait in the
+   folder; nothing reads them yet.
+2. **Press Do my books.** Your coding agent starts in a terminal, in your
+   books folder. Its first reply is a plan: the accounts it found in the
+   statements, the chart of accounts it proposes, and what it already knows
+   it must ask. It changes nothing until you say go.
+3. **Answer its questions, once.** It writes a parser for a statement dbu6
+   can't read yet, sets up each bank and card with its opening balance,
+   imports, categorizes, and settles duplicates and balance checks. What it
+   can't settle from the statements, it asks in one round in the terminal:
+   a payee it has never seen, a transfer with no other side, and what your
+   cash, deposits, investments and loans held when the books start.
+4. **Add the entries on Review.** The agent never adds anything to your
+   books. Review lists every account, and **Add N entries from K accounts
+   to my books** adds every one that is ready; one that isn't says why.
+
+Once something is posted, dbu6 opens on **Overview**: the month's income,
+spending and savings beside your usual month, the largest spending categories,
+net worth, the last twelve months, and each bank and card's balance with the
+date its books are complete until. It starts on the latest month every account
+covers, so a statement you haven't imported yet doesn't make a month look
+cheap. **Update** is where you keep the books current: each account, how far it
+is imported, and what waits on it. Drop new statements there and press the
+same button.
+
+### By hand
+
+Every step has a screen of its own, for when you'd rather not use an agent,
+or want to do one part yourself. The first card's by-hand link takes you
+through them one at a time:
 
 1. **Pick a chart of accounts.** Start from dbu6's starter chart, or describe
    your money in a sentence — "salaried in Bengaluru, rent, two children in
    school, a car loan, some freelance income" — and a coding agent proposes
    accounts that fit. Nothing is created until you accept.
-2. **Add a bank or card.** From that first card, later from Update's **+ Add**,
-   or in Settings → Banks and cards. Name the institution and which of your
-   accounts its statements belong to.
+2. **Add a bank or card.** Name the institution and which of your accounts
+   its statements belong to. Later, a new bank or card's statements go on
+   the drop like any other; Import statements links to adding one by hand.
 3. **Import a recent statement for it.** Download one from your bank as a PDF,
    CSV or XLS and drop it on Import statements. dbu6 recognizes the layout,
    takes the account's starting balance from it, and shows you the rows it
@@ -87,16 +119,8 @@ time.
    duplicates against earlier imports, see the balance checks, and post.
    Nothing reaches your books until you post.
 
-Once something is posted, dbu6 opens on **Overview**: the month's income,
-spending and savings beside your usual month, the largest spending categories,
-net worth, the last twelve months, and each bank and card's balance with the
-date its books are complete until. It starts on the latest month every account
-covers, so a statement you haven't imported yet doesn't make a month look
-cheap. **Update** is where you keep the books current: each account, how far it
-is imported, and what waits on it, with Import and Review one click away.
-
-Steps 3 and 5 are worth reading up on: [Importing
-statements](statements.md) and [Categorization](categorization.md).
+Worth reading up on: [Importing statements](statements.md) and
+[Categorization](categorization.md).
 
 ## Every day
 
@@ -113,9 +137,9 @@ In the folder, `npm run dev`, `npm start`, `npm run check` and
 
 ## Coding agents
 
-dbu6 hands prompts to a coding agent — to categorize what your rules did not,
-to propose a chart of accounts, or to write a parser for a statement it cannot
-read. Two things make such a prompt work: the skill below, installed once for
+dbu6 hands prompts to a coding agent — to do your books from the statements
+you drop, to categorize what your rules did not, to propose a chart of
+accounts, or to write a parser for a statement it cannot read. Two things make such a prompt work: the skill below, installed once for
 the agents on this machine, and the CLI, which arrives in the folder with dbu6.
 
 **The Sapporta skill.** dbu6 applications are built on

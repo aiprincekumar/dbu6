@@ -40,7 +40,15 @@ theirs: `user-config/`, `custom-built-parsers/`, `reports/`, and the ledger in
   one written for the installed version.
 
 - When the person asks you to do their books, or points you at their
-  statements, follow `npx dbu6 docs run`.
+  statements, follow `npx dbu6 docs run`. Its "Entries" also start from:
+  - the drafts already waiting in Review;
+  - a balance in the books that stopped matching its statement;
+  - a change to the chart: rename, move, merge or split accounts;
+  - cash, deposits, investments and loans, which have no statements.
+
+- Never post drafts: the person adds entries on Review.
+
+- Ask your questions in one round in the terminal.
 
 - To find a transaction, a draft or an account, search first:
   `npx sapporta api get /api/search --query '{"q":"<words>"}'`. It is the
