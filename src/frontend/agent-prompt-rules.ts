@@ -7,7 +7,10 @@
 //
 // The method for each kind of problem lives once, in a playbook
 // (`npx dbu6 docs playbook <name>`), which the run guide follows too; a task
-// names its playbook and keeps for `how` only what the screen adds.
+// names its playbook and keeps for `how` only what the screen adds. A
+// playbook's "Report" section is its report's headings; a task that names
+// one leaves `report` out, and older tasks that still pass one are moving
+// to that.
 //
 // The agent echoes what it is given. A prompt that opens with backstory gets
 // a plan that retells it, and a prompt with no shape for the report gets an
@@ -20,7 +23,21 @@ import {
   type RunSection,
 } from "../shared/index";
 
-export interface AgentTask {
+export type AgentTask = TaskCase &
+  (
+    | {
+        /** The playbook that holds the method, and the report's headings. */
+        playbook: PlaybookName;
+        report?: readonly ReportSection[];
+      }
+    | {
+        playbook?: undefined;
+        /** The final reply's sections, in the order the user reads them. */
+        report: readonly ReportSection[];
+      }
+  );
+
+interface TaskCase {
   /**
    * What the user gets when the agent is done, in one sentence, in the
    * app's words: "Get HDFC Bank's 3 failing balance checks to pass, so its
@@ -29,12 +46,8 @@ export interface AgentTask {
   outcome: string;
   /** What the app saw: the case's numbers, ids, files and messages. */
   facts: string;
-  /** The playbook that holds the method for this kind of problem. */
-  playbook?: PlaybookName;
   /** How to go about it, only where the guides and playbook don't say. */
   how?: string;
-  /** The final reply's sections, in the order the user reads them. */
-  report: readonly ReportSection[];
 }
 
 /**
@@ -67,9 +80,12 @@ data's ("Talking to the user" in \`${guideCommand("books")}\`). Leave out how
 you worked it out, and any heading with nothing under it.`;
 
 export function agentPrompt(task: AgentTask): AgentPrompt {
-  const report = task.report
-    .map(({ heading, says }) => `**${heading}**: ${says}`)
-    .join("\n");
+  const report =
+    task.report === undefined
+      ? `The headings are the ones under "Report" in the playbook.`
+      : task.report
+          .map(({ heading, says }) => `**${heading}**: ${says}`)
+          .join("\n");
   const playbook =
     task.playbook === undefined
       ? undefined

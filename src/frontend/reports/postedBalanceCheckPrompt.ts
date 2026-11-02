@@ -64,21 +64,6 @@ export function postedBalanceCheckPrompt(
     facts: `Posted balance checks that miss (books minus statement is the difference):
 ${differencesTable(differences)}`,
     playbook: "posted-balance-check",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "why the books stopped matching, in one sentence per account.",
-      },
-      {
-        heading: "The fix",
-        says: "each change as date, description, amount, and what it becomes.",
-      },
-      {
-        heading: "After the fix",
-        says: "which checks match, and anything still unexplained.",
-      },
-      { heading: "Next", says: "ask whether to apply it." },
-    ],
   });
 }
 

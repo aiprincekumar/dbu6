@@ -109,7 +109,10 @@ describe("the Find why this stopped matching prompt", () => {
       "Follow `npx dbu6 docs playbook posted-balance-check`.",
     );
     expect(prompt).toContain(PLAN_FIRST_RULE);
-    expect(prompt).toMatch(/\n\*\*Next\*\*: ask whether to apply it\.$/);
+    // Its report's headings are the playbook's.
+    expect(prompt).toMatch(
+      /The headings are the ones under "Report" in the playbook\.$/,
+    );
   });
 
   it("lists the first rows and leaves the rest to the app", () => {

@@ -22,9 +22,11 @@ describe("the Reorganize my chart prompt", () => {
     );
   });
 
-  it("keeps the plan-first rule, and ends with what changed and the check", () => {
+  it("keeps the plan-first rule, and reports as the playbook says", () => {
     expect(prompt).toContain(PLAN_FIRST_RULE);
-    expect(prompt).toContain("**Changed**: each account renamed, moved");
-    expect(prompt).toMatch(/\n\*\*Check\*\*: whether net worth .*\.$/);
+    expect(prompt).toMatch(
+      /The headings are the ones under "Report" in the playbook\.$/,
+    );
+    expect(prompt).not.toContain("**Changed**");
   });
 });

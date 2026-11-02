@@ -15,18 +15,4 @@ export const REORGANIZE_CHART_PROMPT: AgentPrompt = agentPrompt({
   how: `When I say go I may name the changes I want: make those. If I name none,
 read the chart and how each account is used, and propose the changes as a
 list before you make any.`,
-  report: [
-    {
-      heading: "Changed",
-      says: "each account renamed, moved, merged or split, as before → after.",
-    },
-    {
-      heading: "Entries moved",
-      says: "how many entries went to another account, by account.",
-    },
-    {
-      heading: "Check",
-      says: "whether net worth and each month's income and expenses are what they were before.",
-    },
-  ],
 });
