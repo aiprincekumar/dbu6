@@ -3,7 +3,10 @@ import type { IncomeExpensesAccount } from "../../shared/index.js";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { renderVisibleJournalsAsHledger } from "../modules/journals/index.js";
-import { postDraftsToJournal } from "./post-drafts-to-journal.js";
+import {
+  postDraftsToJournal,
+  postReadyDraftsToJournal,
+} from "./post-drafts-to-journal.js";
 import { renderDraftHledger } from "./render-draft-hledger.js";
 import { incomeExpensesReport } from "./reports/income-expenses.js";
 import { readOnlyLedger } from "../modules/ledger-sql/index.js";
@@ -171,6 +174,104 @@ describe("postDraftsToJournal", () => {
         countPostedAssertionFailures(sqlite, auth, { accountId: 4 }),
       ).toEqual(new Map());
     });
+
+    it("adds both in the order the card's checks need, whatever order they're asked in", () => {
+      const { sqlite, posting, count } = withCardPayment();
+      sqlite.exec(`DELETE FROM draft_transactions WHERE id = 205`);
+
+      expect(postReadyDraftsToJournal(posting, [4, 1], [])).toEqual({
+        status: 200,
+        body: {
+          posted: [
+            { account_id: 1, name: "Sample Savings", drafts_posted: 3 },
+            { account_id: 4, name: "Sample Card", drafts_posted: 1 },
+          ],
+          left: [],
+          first_post: false,
+        },
+      });
+      expect(count("draft_transactions")).toBe(0);
+      expect(
+        countPostedAssertionFailures(sqlite, auth, { accountId: 4 }),
+      ).toEqual(new Map());
+    });
+
+    it("adds what it can and leaves the rest with what blocks it", () => {
+      const { sqlite, posting, count } = withCardPayment();
+      sqlite.exec(`
+        DELETE FROM draft_transactions WHERE id = 205;
+        UPDATE draft_transactions SET account_id = NULL WHERE id = 201;
+        INSERT INTO accounts VALUES
+          (5, 'workspace', 'user', 'Sample Wallet', NULL, 'Asset', ${STAMP});
+        INSERT INTO draft_transactions VALUES
+          (206, 'workspace', 'user', '2026-02-04', 'NOPII top up', 0, 100, 3, 5, NULL, NULL, 'k-206', ${STAMP}, NULL);
+      `);
+
+      expect(postReadyDraftsToJournal(posting, [4, 1, 5], [])).toEqual({
+        status: 200,
+        body: {
+          posted: [{ account_id: 5, name: "Sample Wallet", drafts_posted: 1 }],
+          left: [
+            {
+              account_id: 4,
+              name: "Sample Card",
+              block: {
+                kind: "balance-checks",
+                state: "blocks",
+                severity: "attention",
+                add_first: [{ account_id: 1, name: "Sample Savings" }],
+              },
+            },
+            {
+              account_id: 1,
+              name: "Sample Savings",
+              block: {
+                kind: "categorization",
+                state: "blocks",
+                severity: "attention",
+                count: 1,
+              },
+            },
+          ],
+          first_post: false,
+        },
+      });
+      expect(count("draft_transactions")).toBe(4);
+    });
+  });
+
+  it("adds only the accounts it is given, and refuses one it can't find", () => {
+    const { posting, count } = ledger();
+    expect(postReadyDraftsToJournal(posting, [99, 1], [])).toMatchObject({
+      status: 404,
+    });
+    expect(count("draft_transactions")).toBe(2);
+
+    expect(postReadyDraftsToJournal(posting, [2], [])).toMatchObject({
+      status: 200,
+      body: { posted: [{ account_id: 2, drafts_posted: 0 }], left: [] },
+    });
+    expect(count("draft_transactions")).toBe(2);
+  });
+
+  it("says whether the books held anything but opening balances before", () => {
+    // Sample Savings' opening is on Salary, which records income: the books
+    // hold more than what the accounts held at the start.
+    expect(postDraftsToJournal(ledger().posting, 1, [])).toMatchObject({
+      status: 200,
+      body: { first_post: false },
+    });
+
+    const books = ledger();
+    books.sqlite.exec(`
+      INSERT INTO accounts VALUES
+        (6, 'workspace', 'user', 'Opening Balances', NULL, 'Equity', ${STAMP});
+      UPDATE journal_entries SET account_id = 6 WHERE id = 102;
+    `);
+    expect(postDraftsToJournal(books.posting, 1, [])).toMatchObject({
+      status: 200,
+      body: { first_post: true },
+    });
   });
 
   it("refuses an account it can't find", () => {
@@ -188,6 +289,7 @@ describe("postDraftsToJournal", () => {
         journals_created: 2,
         entries_created: 4,
         drafts_posted: 2,
+        first_post: false,
       },
     });
     expect(count("draft_transactions")).toBe(0);

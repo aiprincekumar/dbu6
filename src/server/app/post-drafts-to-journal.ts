@@ -11,7 +11,7 @@ import {
 import type { Ledger } from "../modules/ledger-sql/index.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
 import { accountNames } from "./account-names.js";
-import { postDrafts } from "../workflows/posting.js";
+import { postDrafts, postReady } from "../workflows/posting.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
 
@@ -25,6 +25,19 @@ api.register(
     return postDraftsToJournal(
       ledger,
       request.body.base_account_id,
+      loadImportPresets(ledger.db, ledger.auth),
+    );
+  },
+);
+
+api.register(
+  "postReadyDrafts",
+  draftTransactionsContract.postReadyDrafts,
+  async ({ c, request }) => {
+    const ledger = requireWorkflowLedger(c);
+    return postReadyDraftsToJournal(
+      ledger,
+      request.body.base_account_ids,
       loadImportPresets(ledger.db, ledger.auth),
     );
   },
@@ -63,9 +76,53 @@ export function postDraftsToJournal(
           journals_created: outcome.journalsCreated,
           entries_created: outcome.entriesCreated,
           drafts_posted: outcome.draftsPosted,
+          first_post: outcome.firstPost,
         },
       };
   }
+}
+
+type PostReadyResponse = ServerInferResponses<
+  typeof draftTransactionsContract.postReadyDrafts,
+  200 | 404
+>;
+
+/**
+ * Add all: posts the accounts of `base_account_ids` that nothing blocks,
+ * each on its own, answered with what was added and what was left and why,
+ * the accounts named as the presets' `institutions` name them.
+ */
+export function postReadyDraftsToJournal(
+  ledger: Ledger,
+  base_account_ids: readonly number[],
+  institutions: readonly ImportInstitution[],
+): PostReadyResponse {
+  const names = accountNames(ledger.sqlite, ledger.auth, institutions);
+  const outcome = postReady(ledger, base_account_ids, names);
+  if (outcome.kind === "accounts-not-found") {
+    return {
+      status: 404,
+      body: { error: `Accounts not found: ${outcome.accountIds.join(", ")}` },
+    };
+  }
+  // One run of the writer for every account the batch posted.
+  if (outcome.posted.length > 0) writeCommentsSoon();
+  return {
+    status: 200,
+    body: {
+      posted: outcome.posted.map(({ accountId, name, draftsPosted }) => ({
+        account_id: accountId,
+        name,
+        drafts_posted: draftsPosted,
+      })),
+      left: outcome.left.map(({ accountId, name, block }) => ({
+        account_id: accountId,
+        name,
+        block,
+      })),
+      first_post: outcome.firstPost,
+    },
+  };
 }
 
 /** The 422 for the first block, in the codes and counts callers read. */

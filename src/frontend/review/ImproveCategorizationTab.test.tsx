@@ -153,6 +153,7 @@ function detail(uncategorised: number): ReviewAccountDetail {
       failing_checks: 0,
       add_first: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-01" },
+      rule_requests: 0,
     },
     checkpoint: null,
     has_opening_entry: true,

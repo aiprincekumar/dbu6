@@ -85,7 +85,9 @@ export function reviewPage(
  * What /add hands Review in the URL (PLAN.md "Routes and URL state"):
  * `?imported=1` marks where the flow landed, and `?run=setup` the first
  * run, whose Review ends with "Your books are set up." once nothing is left
- * to post. A later add also says what it imported, `&drafts=176&categorized=69`,
+ * to post. The by-hand chain starts it; a post from books that held nothing
+ * but opening balances (the post's `first_post`) starts it too, and its
+ * links on carry it. A later add also says what it imported, `&drafts=176&categorized=69`,
  * for the notice its Overview opens with. Review's own links carry the run,
  * not the rest: that is read once, where the flow landed.
  */

@@ -8,7 +8,10 @@ import {
   loadDraftStatus,
 } from "../modules/drafts/index.js";
 import { planJournals } from "../modules/journal-plan/index.js";
-import { insertJournalPlan } from "../modules/journals/index.js";
+import {
+  hasJournalsBesideOpenings,
+  insertJournalPlan,
+} from "../modules/journals/index.js";
 import type { Ledger } from "../modules/ledger-sql/index.js";
 
 export type PostingOutcome =
@@ -22,6 +25,8 @@ export type PostingOutcome =
       journalsCreated: number;
       entriesCreated: number;
       draftsPosted: number;
+      // The books held nothing but opening balances before this post.
+      firstPost: boolean;
     };
 
 /**
@@ -66,6 +71,7 @@ export function postDrafts(
     ),
     baseAccountId,
   );
+  const firstPost = !hasJournalsBesideOpenings(sqlite, auth);
   const inserted = db.transaction((tx: any) => {
     const written = insertJournalPlan(tx, plan, auth);
     deleteAccountDrafts(tx, baseAccountId, auth);
@@ -78,5 +84,78 @@ export function postDrafts(
     journalsCreated: inserted.journals,
     entriesCreated: inserted.entries,
     draftsPosted: loaded.drafts.length,
+    firstPost,
+  };
+}
+
+export type PostReadyOutcome =
+  // Accounts not in the books; nothing was posted.
+  | { kind: "accounts-not-found"; accountIds: number[] }
+  | {
+      kind: "done";
+      posted: { accountId: number; name: string; draftsPosted: number }[];
+      left: { accountId: number; name: string; block: PostingBlock }[];
+      firstPost: boolean;
+    };
+
+/**
+ * Add all: posts each of `accountIds` that nothing blocks, one account at a
+ * time, each in its own transaction, so an account whose drafts changed
+ * since the person counted them is left without undoing the others. An
+ * account waiting for another to be added first is tried again once that
+ * one is in, round after round until a round adds nothing, so the order the
+ * ids come in doesn't matter, and an order the waits change while posting
+ * is followed too. Only `accountIds` are posted; `names` names them, and
+ * holds every account in the books.
+ */
+export function postReady(
+  ledger: Ledger,
+  accountIds: readonly number[],
+  names: ReadonlyMap<number, string>,
+): PostReadyOutcome {
+  const missing = accountIds.filter((id) => !names.has(id));
+  if (missing.length > 0) {
+    return { kind: "accounts-not-found", accountIds: missing };
+  }
+  const posted: {
+    accountId: number;
+    name: string;
+    draftsPosted: number;
+  }[] = [];
+  const blocks = new Map<number, PostingBlock>();
+  let firstPost: boolean | undefined;
+  let remaining = [...new Set(accountIds)];
+  for (;;) {
+    const still: number[] = [];
+    for (const accountId of remaining) {
+      const outcome = postDrafts(ledger, accountId, names);
+      if (outcome.kind === "posted") {
+        firstPost ??= outcome.firstPost;
+        posted.push({
+          accountId,
+          name: names.get(accountId)!,
+          draftsPosted: outcome.draftsPosted,
+        });
+      } else if (outcome.kind === "blocked") {
+        blocks.set(accountId, outcome.block);
+        still.push(accountId);
+      }
+      // Not found: every id was found above, and nothing runs between.
+    }
+    const progressed = still.length < remaining.length;
+    remaining = still;
+    if (!progressed || remaining.length === 0) break;
+  }
+  return {
+    kind: "done",
+    posted,
+    left: remaining.map((accountId) => ({
+      accountId,
+      name: names.get(accountId)!,
+      block: blocks.get(accountId)!,
+    })),
+    // Nothing posted: the books are as they were, read as such.
+    firstPost:
+      firstPost ?? !hasJournalsBesideOpenings(ledger.sqlite, ledger.auth),
   };
 }

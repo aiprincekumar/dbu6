@@ -8,6 +8,7 @@ import {
   importProgressIdSchema,
   importProgressSchema,
 } from "./import-progress.js";
+import { postingBlockSchema } from "./posting-checks.js";
 
 const c = initContract();
 
@@ -61,6 +62,35 @@ const repeatedFormIdSchema = z.preprocess(
   (value) => (Array.isArray(value) ? value : [value]),
   z.array(z.coerce.number().int().positive()).min(1),
 );
+
+// Whether the books held nothing but opening balances before this post: the
+// first run's end ("Your books are set up.") is the post that leaves
+// nothing to review after such a start.
+const firstPostSchema = z.boolean();
+
+/**
+ * What Add all did: the accounts it added, in the order it added them, and
+ * the ones it left, each with the first check that kept it out when it
+ * stopped.
+ */
+export const postReadyResultSchema = z.object({
+  posted: z.array(
+    z.object({
+      account_id: z.number(),
+      name: z.string(),
+      drafts_posted: z.number(),
+    }),
+  ),
+  left: z.array(
+    z.object({
+      account_id: z.number(),
+      name: z.string(),
+      block: postingBlockSchema,
+    }),
+  ),
+  first_post: firstPostSchema,
+});
+export type PostReadyResult = z.infer<typeof postReadyResultSchema>;
 
 export const draftTransactionsContract = c.router({
   classifyDraftTransactions: c.mutation({
@@ -182,10 +212,26 @@ export const draftTransactionsContract = c.router({
         journals_created: z.number(),
         entries_created: z.number(),
         drafts_posted: z.number(),
+        first_post: firstPostSchema,
       }),
       403: errorSchema,
       404: errorSchema,
       422: errorSchema,
+    },
+  }),
+  postReadyDrafts: c.mutation({
+    method: "POST",
+    path: "/draft-transactions/post-ready",
+    summary:
+      "Add all: post the drafts of every account named that nothing blocks, each account on its own, in an order the accounts' add-first waits allow; the rest are left with the check that blocks them. Only the accounts named are ever posted. For the person's own button: an agent never calls it",
+    body: z.object({
+      base_account_ids: z.array(z.number().int().positive()).min(1),
+    }),
+    responses: {
+      200: postReadyResultSchema,
+      403: errorSchema,
+      // One of the accounts isn't in the books; nothing was posted.
+      404: errorSchema,
     },
   }),
 });

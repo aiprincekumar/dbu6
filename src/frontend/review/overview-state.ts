@@ -5,6 +5,7 @@ import {
   type PostingBlock,
   type PostingCheck,
   type PostingCheckKind,
+  type ReviewAccount,
   type ReviewAccountDetail,
 } from "../../shared/index";
 import type { Fact } from "../components/fact-table";
@@ -17,7 +18,8 @@ import {
   formatShortDate,
   plural,
 } from "../format";
-import { accountsText, checkText, duplicatesText } from "./posting-checks";
+import { UPDATE_ROUTE } from "../update/routes";
+import { accountsText, checkText } from "./posting-checks";
 import {
   checkTab,
   needsAccountHref,
@@ -30,8 +32,9 @@ import {
 /*
  * What an account's Overview says, as a pure function of its summary
  * (PLAN.md §11 P3): the verdict, one row per check in tab order, why the
- * post button waits, and what posting will do. The rows are the posting
- * gate's own checks (`postingChecks`), so the ticks and a refusal agree.
+ * post button waits, whether the coding agent has something to fix, and
+ * what posting will do. The rows are the posting gate's own checks
+ * (`postingChecks`), so the ticks and a refusal agree.
  */
 
 /** A figure inside a sentence, set in mono. */
@@ -67,6 +70,8 @@ export interface OverviewView {
   /** What posting adds, as labelled facts; only when nothing blocks it. */
   posting?: readonly Fact[];
   button: string;
+  /** Whether Fix these has something to hand the coding agent. */
+  fix: boolean;
 }
 
 export interface PostedView {
@@ -74,7 +79,8 @@ export interface PostedView {
   verdict: string;
   outcome: Phrase;
   /**
-   * The primary action: the next account to review, else Overview.
+   * The primary action: Review's Add all while other accounts are ready to
+   * add, else the next account to review, else Overview.
    */
   next: OverviewLink;
   /** A quiet second way on, when there is another account. */
@@ -113,7 +119,24 @@ export function overviewView(
     waiting: ready ? undefined : blocks.map(waitingReason).join(" · "),
     posting: ready ? postingFacts(detail) : undefined,
     button: "Add to my books",
+    fix: agentFixes(account),
   };
+}
+
+/**
+ * Whether the coding agent has something to fix in an account's drafts: a
+ * check that blocks, but for waiting for another account, which the person
+ * settles by adding that one; or rule requests waiting to be turned into
+ * rules.
+ */
+export function agentFixes(account: ReviewAccount): boolean {
+  return (
+    account.rule_requests > 0 ||
+    postingBlocks(account).some(
+      (block) =>
+        !(block.kind === "balance-checks" && block.severity === "attention"),
+    )
+  );
 }
 
 /**
@@ -159,14 +182,18 @@ export interface ArrivalNotice {
   facts: { label: string; value: string }[];
   /** The one next step, in a line. */
   next: string;
-  /** Where that step is done; absent when it is here, on the Overview. */
-  action?: OverviewLink;
+  /**
+   * Where that step is done: a link, or "fix" for Fix these, which hands
+   * what is left to the coding agent; absent when it is here, on the
+   * Overview.
+   */
+  action?: OverviewLink | "fix";
 }
 
 /**
  * The notice over the Overview a later add lands on: what it imported, how
- * much came categorized, and the one thing to do next, the first check
- * that blocks, in tab order.
+ * much came categorized, and the one thing to do next: hand what is left to
+ * the coding agent, or add another account first, or add these.
  */
 export function arrivalNotice(
   detail: ReviewAccountDetail,
@@ -189,41 +216,30 @@ export function arrivalNotice(
       : []),
   ];
   const title = `${plural(imported.drafts, "transaction")} imported`;
+  if (agentFixes(account)) {
+    return {
+      title,
+      facts,
+      next: "Next: hand what's left to your agent, then add them to your books.",
+      action: "fix",
+    };
+  }
   const [block] = postingBlocks(account);
   if (block === undefined) {
     return { title, facts, next: "Next: add them to your books." };
   }
+  // All that blocks is waiting for another account's drafts.
   const row = checkRow(block, detail, null);
-  switch (block.kind) {
-    case "categorization":
-      return {
-        title,
-        facts,
-        next: `Next: give ${block.count === 1 ? "it" : `the ${block.count}`} an account, then add them to your books.`,
-        action: { label: `Categorize ${block.count}`, to: row.link!.to },
-      };
-    case "duplicates":
-      return {
-        title,
-        facts,
-        next: `Next: check the ${duplicatesText(block.count)}.`,
-        action: row.link,
-      };
-    case "balance-checks":
-      return block.severity === "attention"
-        ? {
-            title,
-            facts,
-            next: `Next: add ${accountsText(block.add_first)} to your books first. These balance checks count ${block.add_first.length === 1 ? "its" : "their"} drafts.`,
-            action: row.link,
-          }
-        : {
-            title,
-            facts,
-            next: "Next: find out why the balances don't add up.",
-            action: row.link,
-          };
-  }
+  const waitsFor =
+    block.kind === "balance-checks" && block.severity === "attention"
+      ? block.add_first
+      : [];
+  return {
+    title,
+    facts,
+    next: `Next: add ${accountsText(waitsFor)} to your books first. These balance checks count ${waitsFor.length === 1 ? "its" : "their"} drafts.`,
+    action: row.link,
+  };
 }
 
 /** One unmet check, as the waiting button lists it: "12 still need an account". */
@@ -235,15 +251,18 @@ function waitingReason(block: PostingBlock): string {
 
 /**
  * The Overview once the drafts are in the books. `before` is the summary the
- * post was made from; `others` the accounts that still have drafts. On the
- * first run (`setup`), the links on carry it, and posting the last drafts
- * ends it: the books are set up.
+ * post was made from; `others` the accounts that still have drafts, of which
+ * `readyOthers` are ready to add. On the first run (`setup`), the links on
+ * carry it, and posting the last drafts ends it: the books are set up.
  */
 export function postedView(
   before: ReviewAccountDetail,
   draftsPosted: number,
   others: ReviewAccountDetail["other_accounts"],
-  setup = false,
+  {
+    setup = false,
+    readyOthers = 0,
+  }: { setup?: boolean; readyOthers?: number } = {},
 ): PostedView {
   const next = others[0];
   const posted = journey(before, "posted");
@@ -251,6 +270,21 @@ export function postedView(
     `${plural(draftsPosted, "transaction")} added.`,
     ...lastAssertion(before, "is now"),
   ];
+  if (next && readyOthers > 0) {
+    return {
+      journey: posted,
+      verdict: "Added to your books",
+      outcome,
+      next: {
+        label: `Add ${plural(readyOthers, "ready account")}`,
+        to: withReviewRun(REVIEW_ROUTE, { setup }),
+      },
+      also: {
+        label: `Review ${next.name}`,
+        to: withReviewRun(reviewHref(next.account_id), { setup }),
+      },
+    };
+  }
   if (next) {
     return {
       journey: posted,
@@ -278,7 +312,7 @@ export function postedView(
         verdict: "Added to your books",
         outcome,
         next: BOOKS_SET_UP_NEXT,
-        also: { label: "Import another statement", to: "/import" },
+        also: { label: "Update your books", to: UPDATE_ROUTE },
       };
 }
 

@@ -70,7 +70,9 @@ export {
   postingCheck,
   postingChecks,
   postingBlocks,
+  postingBlockSchema,
   postingInputsSchema,
+  readyToAdd,
   isBlock,
   isProblem,
   type AddFirst,
@@ -133,8 +135,10 @@ export {
   draftTransactionsContract,
   draftClassificationSchema,
   gpayDraftClassificationSchema,
+  postReadyResultSchema,
   type DraftClassification,
   type GPayDraftClassification,
+  type PostReadyResult,
 } from "./draft-transactions.js";
 export {
   categorizationRuleRequestSchema,

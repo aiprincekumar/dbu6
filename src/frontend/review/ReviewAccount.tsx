@@ -25,7 +25,7 @@ import { AccountParentPath } from "../components/account-name";
 import { EmptyState } from "../components/empty-state";
 import { LoadError } from "../components/load-error";
 import { Button } from "../components/ui/button";
-import { BooksSetUp } from "./hand-off";
+import { BooksSetUp, UpdateYourBooks } from "./hand-off";
 import {
   refreshDraftStatus,
   reviewAccountQuery,
@@ -49,6 +49,8 @@ import {
 export interface ReviewPosted {
   before: ReviewAccountDetail;
   draftsPosted: number;
+  /** The books held nothing but opening balances before it: the first run. */
+  firstPost: boolean;
 }
 
 export interface ReviewAccountContext {
@@ -171,16 +173,7 @@ function ReviewAccountFrame({ accountId }: { accountId: number }) {
             className="max-w-[760px]"
             title={`No drafts for ${detail.account.name}`}
             body="Everything imported for this account is already in your books."
-            action={
-              <Button
-                render={<Link to="/import" />}
-                nativeButton={false}
-                variant="outline"
-                size="sm"
-              >
-                Import statements
-              </Button>
-            }
+            action={<UpdateYourBooks />}
           />
         </div>
       ) : (

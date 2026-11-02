@@ -1,4 +1,3 @@
-import type Database from "better-sqlite3";
 import { TsRestApi, type SapportaEnv } from "@sapporta/server";
 import {
   reviewContract,
@@ -15,39 +14,39 @@ import {
 } from "./account-standing.js";
 import {
   countDraftsByBaseAccount,
+  loadCategorizationRuleRequests,
   postingInputs,
 } from "../modules/drafts/index.js";
 import { loadOpeningEntries } from "../modules/journals/index.js";
-import type { LedgerAuth } from "../modules/ledger-sql/index.js";
-import { requireWorkflowAuth } from "./workflow-auth.js";
+import type { Ledger } from "../modules/ledger-sql/index.js";
+import { requireWorkflowLedger } from "./workflow-auth.js";
 
 /*
  * Review (PLAN.md §11 P3): the accounts with drafts, and for one account
  * what blocks adding its drafts to the books. Each account is projected from
  * its standing, whose draft status the posting gate reads too. One account's
  * review reads the standing of that account alone, and of the others only
- * their names and draft counts.
+ * their names and draft counts. Beside what blocks posting, each account
+ * says how many rule requests wait for the coding agent, so Review's summary
+ * and the agent's prompt count them.
  */
 
 const api = new TsRestApi<SapportaEnv>();
 
 api.register("accounts", reviewContract.accounts, async ({ c }) => {
-  const auth = requireWorkflowAuth(c);
-  const institutions = loadImportPresets(c.get("db"), auth);
+  const ledger = requireWorkflowLedger(c);
+  const institutions = loadImportPresets(ledger.db, ledger.auth);
   return {
     status: 200,
-    body: {
-      accounts: listReviewAccounts(c.get("sqlite"), auth, institutions),
-    },
+    body: { accounts: listReviewAccounts(ledger, institutions) },
   };
 });
 
 api.register("account", reviewContract.account, async ({ c, request }) => {
-  const auth = requireWorkflowAuth(c);
+  const ledger = requireWorkflowLedger(c);
   const detail = loadReviewAccount(
-    c.get("sqlite"),
-    auth,
-    loadImportPresets(c.get("db"), auth),
+    ledger,
+    loadImportPresets(ledger.db, ledger.auth),
     request.params.accountId,
   );
   if (detail === null) {
@@ -60,23 +59,24 @@ export default api;
 
 /** Every account with drafts, sorted by display name. */
 export function listReviewAccounts(
-  sqlite: Database.Database,
-  auth: LedgerAuth,
+  ledger: Ledger,
   institutions: readonly ImportInstitution[],
 ): ReviewAccount[] {
-  return accountsWithDrafts(
-    loadAccountStandings(sqlite, auth, institutions),
-    accountNames(sqlite, auth, institutions),
-  );
+  const { sqlite, auth } = ledger;
+  const names = accountNames(sqlite, auth, institutions);
+  return Array.from(loadAccountStandings(sqlite, auth, institutions).values())
+    .filter((standing) => standing.drafts !== undefined)
+    .map((standing) => reviewAccount(ledger, standing, names))
+    .sort(byName);
 }
 
 /** One account's review, or null when the account isn't in scope. */
 export function loadReviewAccount(
-  sqlite: Database.Database,
-  auth: LedgerAuth,
+  ledger: Ledger,
   institutions: readonly ImportInstitution[],
   accountId: number,
 ): ReviewAccountDetail | null {
+  const { sqlite, auth } = ledger;
   const standing = loadAccountStandings(sqlite, auth, institutions, {
     accountId,
   }).get(accountId);
@@ -84,7 +84,11 @@ export function loadReviewAccount(
   const { drafts } = standing;
 
   return {
-    account: reviewAccount(standing, accountNames(sqlite, auth, institutions)),
+    account: reviewAccount(
+      ledger,
+      standing,
+      accountNames(sqlite, auth, institutions),
+    ),
     checkpoint: standing.checkpoint,
     has_opening_entry: loadOpeningEntries(sqlite, auth, { accountId }).has(
       accountId,
@@ -115,19 +119,13 @@ export function loadReviewAccount(
       draft_account: row.draft_account,
       matched_account: row.matched_account,
     })),
-    other_accounts: otherAccountsWithDrafts(
-      sqlite,
-      auth,
-      institutions,
-      accountId,
-    ),
+    other_accounts: otherAccountsWithDrafts(ledger, institutions, accountId),
   };
 }
 
 /** The accounts other than `accountId` with drafts, sorted by display name. */
 function otherAccountsWithDrafts(
-  sqlite: Database.Database,
-  auth: LedgerAuth,
+  { sqlite, auth }: Ledger,
   institutions: readonly ImportInstitution[],
   accountId: number,
 ): ReviewAccountDetail["other_accounts"] {
@@ -142,18 +140,11 @@ function otherAccountsWithDrafts(
     .sort(byName);
 }
 
-function accountsWithDrafts(
-  standings: ReadonlyMap<number, AccountStanding>,
-  names: ReadonlyMap<number, string>,
-): ReviewAccount[] {
-  return Array.from(standings.values())
-    .filter((standing) => standing.drafts !== undefined)
-    .map((standing) => reviewAccount(standing, names))
-    .sort(byName);
-}
-
-// `names` names the accounts to add first.
+// `names` names the accounts to add first. The rule requests are read one
+// account at a time: an account with drafts has few, and Review lists few
+// accounts.
 function reviewAccount(
+  { db, auth }: Ledger,
   standing: AccountStanding,
   names: ReadonlyMap<number, string>,
 ): ReviewAccount {
@@ -165,6 +156,8 @@ function reviewAccount(
     kind: standing.kind,
     ...postingInputs(standing.drafts, names),
     draft_span: standing.drafts?.draft_span ?? null,
+    rule_requests: loadCategorizationRuleRequests(db, auth, standing.account_id)
+      .length,
   };
 }
 

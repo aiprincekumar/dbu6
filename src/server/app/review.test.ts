@@ -1,6 +1,8 @@
 import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { listReviewAccounts, loadReviewAccount } from "./review.js";
+import type { Ledger } from "../modules/ledger-sql/index.js";
 import { testLedgerAuth } from "../modules/ledger-sql/testing.js";
 
 const auth = testLedgerAuth();
@@ -10,9 +12,10 @@ const auth = testLedgerAuth();
  * drafts: a pair repeating one source key, whose second balance misses by 40,
  * and an uncategorised one. Sample Card (1) has one categorised draft. Sample
  * Loan (4) is a Liability with no preset. Cash (6) has no drafts. Sample
- * Savings sits under Assets (7).
+ * Savings sits under Assets (7). Its uncategorised draft is in a rule request
+ * waiting for the coding agent; another user's account has one too.
  */
-function ledger(): Database.Database {
+function ledger(): Ledger {
   const sqlite = new Database(":memory:");
   sqlite.exec(`
     CREATE TABLE accounts (
@@ -31,6 +34,10 @@ function ledger(): Database.Database {
       id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, source_narration TEXT,
       withdrawal REAL, deposit REAL, account_id INTEGER, base_account_id INTEGER,
       balance_assertion_base_account REAL, source_reference TEXT, source_transaction_key TEXT, comment TEXT
+    );
+    CREATE TABLE categorization_rule_requests (
+      id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, base_account_id INTEGER,
+      account_id INTEGER, transactions TEXT, note TEXT, created_at TEXT
     );
 
     INSERT INTO accounts VALUES
@@ -54,8 +61,16 @@ function ledger(): Database.Database {
       (204, 'workspace', 'user', '2026-03-04', 'NOPII card shop', 25, 0, 3, 1, NULL, NULL, 'k-204', NULL),
       (205, 'workspace', 'user', '2026-03-05', 'NOPII loan', 10, 0, 3, 4, NULL, NULL, 'k-205', NULL),
       (206, 'workspace', 'other-user', '2026-03-05', 'NOPII other', 10, 0, NULL, 5, NULL, NULL, 'k-206', NULL);
+
+    INSERT INTO categorization_rule_requests VALUES
+      (301, 'workspace', 'user', 2, 3,
+        '[{"date":"2026-03-13","source_narration":"NOPII shop","direction":"withdrawal","amount":60}]',
+        '', '2026-03-14T00:00:00Z'),
+      (302, 'workspace', 'other-user', 5, 3,
+        '[{"date":"2026-03-05","source_narration":"NOPII other","direction":"withdrawal","amount":10}]',
+        '', '2026-03-14T00:00:00Z');
   `);
-  return sqlite;
+  return { db: drizzle(sqlite), sqlite, auth };
 }
 
 const account = (id: number, name: string, isCreditCard = false) => ({
@@ -82,8 +97,8 @@ const presets = [
 ];
 
 describe("listReviewAccounts", () => {
-  it("lists only the accounts with drafts, named from presets or their own name, by name", () => {
-    expect(listReviewAccounts(ledger(), auth, presets)).toEqual([
+  it("lists only the accounts with drafts, named from presets or their own name, by name, with their rule requests", () => {
+    expect(listReviewAccounts(ledger(), presets)).toEqual([
       {
         account_id: 1,
         path: "Sample Card",
@@ -97,6 +112,7 @@ describe("listReviewAccounts", () => {
         failing_checks: 0,
         add_first: [],
         draft_span: { first_date: "2026-03-04", last_date: "2026-03-04" },
+        rule_requests: 0,
       },
       {
         account_id: 4,
@@ -111,6 +127,7 @@ describe("listReviewAccounts", () => {
         failing_checks: 0,
         add_first: [],
         draft_span: { first_date: "2026-03-05", last_date: "2026-03-05" },
+        rule_requests: 0,
       },
       {
         account_id: 2,
@@ -125,6 +142,7 @@ describe("listReviewAccounts", () => {
         failing_checks: 1,
         add_first: [],
         draft_span: { first_date: "2026-03-02", last_date: "2026-03-13" },
+        rule_requests: 1,
       },
     ]);
   });
@@ -132,7 +150,7 @@ describe("listReviewAccounts", () => {
 
 describe("loadReviewAccount", () => {
   it("says what blocks one account's drafts and which other accounts have drafts", () => {
-    const detail = loadReviewAccount(ledger(), auth, presets, 2);
+    const detail = loadReviewAccount(ledger(), presets, 2);
 
     expect(detail).toMatchObject({
       account: {
@@ -141,6 +159,7 @@ describe("loadReviewAccount", () => {
         name: "Sample Savings Statement",
         drafts: 3,
         balance_checks: 2,
+        rule_requests: 1,
       },
       checkpoint: { date: "2026-02-10", balance: 1500 },
       // Journal 10 opens it against Groceries, not Equity.
@@ -181,7 +200,7 @@ describe("loadReviewAccount", () => {
   });
 
   it("answers for an account whose drafts are all in the books", () => {
-    const detail = loadReviewAccount(ledger(), auth, presets, 6);
+    const detail = loadReviewAccount(ledger(), presets, 6);
 
     expect(detail).toEqual({
       account: {
@@ -197,6 +216,7 @@ describe("loadReviewAccount", () => {
         failing_checks: 0,
         add_first: [],
         draft_span: null,
+        rule_requests: 0,
       },
       checkpoint: null,
       has_opening_entry: false,
@@ -212,7 +232,7 @@ describe("loadReviewAccount", () => {
   });
 
   it("finds nothing for an unknown account or another user's", () => {
-    expect(loadReviewAccount(ledger(), auth, presets, 99)).toBeNull();
-    expect(loadReviewAccount(ledger(), auth, presets, 5)).toBeNull();
+    expect(loadReviewAccount(ledger(), presets, 99)).toBeNull();
+    expect(loadReviewAccount(ledger(), presets, 5)).toBeNull();
   });
 });

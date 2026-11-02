@@ -8,15 +8,19 @@ import { REVIEW_TABS } from "./routes";
 describe("checkText", () => {
   it("says a passing check the way Overview and the tabs both show it", () => {
     expect(
-      postingChecks({ ...NO_POSTING_INPUTS, drafts: 21, balance_checks: 13 }).map(
-        checkText,
-      ),
+      postingChecks({
+        ...NO_POSTING_INPUTS,
+        drafts: 21,
+        balance_checks: 13,
+      }).map(checkText),
     ).toEqual([
       "All 21 transactions go to an account",
       "No possible duplicates",
       "Your books agree with the bank",
     ]);
-    expect(postingChecks({ ...NO_POSTING_INPUTS, drafts: 1 }).map(checkText)).toEqual([
+    expect(
+      postingChecks({ ...NO_POSTING_INPUTS, drafts: 1 }).map(checkText),
+    ).toEqual([
       "The transaction goes to an account",
       "No possible duplicates",
       "These drafts have no balance checks",

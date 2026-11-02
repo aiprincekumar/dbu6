@@ -151,6 +151,7 @@ function respond(url: URL): unknown {
           balance_checks: 0,
           failing_checks: 0,
           add_first: [],
+          rule_requests: 0,
           draft_span: null,
         },
       ],

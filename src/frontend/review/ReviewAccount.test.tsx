@@ -13,6 +13,7 @@ import {
   vi,
 } from "vitest";
 import type { ReviewAccountDetail } from "../../shared/index";
+import { Overview } from "./Overview";
 import { ReviewAccount, useReviewAccount } from "./ReviewAccount";
 
 /*
@@ -70,6 +71,7 @@ function detail(account: Partial<ReviewAccountDetail["account"]> = {}) {
       failing_checks: 0,
       add_first: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-15" },
+      rule_requests: 0,
       ...account,
     },
     checkpoint: { date: "2026-08-31", balance: 50505 },
@@ -96,7 +98,7 @@ function Where() {
   return createElement("code", null, useLocation().pathname);
 }
 
-async function renderAt(url: string) {
+async function renderAt(url: string, overview = false) {
   await act(async () => {
     root.render(
       createElement(
@@ -121,7 +123,9 @@ async function renderAt(url: string) {
               },
               createElement(Route, {
                 index: true,
-                element: createElement(Tab, { name: "overview" }),
+                element: overview
+                  ? createElement(Overview)
+                  : createElement(Tab, { name: "overview" }),
               }),
               createElement(Route, {
                 path: "drafts",
@@ -310,6 +314,88 @@ describe("what /add hands the account's review", () => {
     await renderAt("/review/5?run=setup");
 
     expect(text()).toContain("No drafts for Sample Savings");
+    expect(text()).not.toContain("Your books are set up.");
+  });
+});
+
+describe("an account's Overview", () => {
+  // The account's summary on GET, the post's answer on POST; no agent the
+  // server can start.
+  function serve(post: Record<string, unknown>, others: unknown[] = []) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null;
+        const url = request?.url ?? String(input);
+        requests.push(url);
+        if ((request?.method ?? init?.method) === "POST") {
+          return Response.json(post);
+        }
+        if (url.includes("/agent-handoff")) {
+          return Response.json({ error: "none" }, { status: 404 });
+        }
+        if (url.endsWith("/review/accounts")) {
+          return Response.json({ accounts: [] });
+        }
+        return Response.json({
+          ...detail({ uncategorised: 0 }),
+          other_accounts: others,
+        });
+      }),
+    );
+  }
+  const posted = (first_post: boolean) => ({
+    base_account: "Sample Savings",
+    journals_created: 23,
+    entries_created: 46,
+    drafts_posted: 23,
+    first_post,
+  });
+  const button = (label: string) =>
+    Array.from(host.querySelectorAll("button")).find((one) =>
+      one.textContent?.startsWith(label),
+    );
+
+  it("offers Fix these while something blocks the add", async () => {
+    responses = [{ status: 200, body: detail({ uncategorised: 3 }) }];
+    await renderAt("/review/5", true);
+
+    expect(button("Fix these")).toBeDefined();
+  });
+
+  it("says the books are set up when the first post leaves nothing to review", async () => {
+    serve(posted(true));
+    await renderAt("/review/5", true);
+
+    expect(button("Fix these")).toBeUndefined();
+    await act(async () => button("Add to my books")!.click());
+    await settle();
+
+    expect(text()).toContain("Your books are set up.");
+  });
+
+  const others = [{ account_id: 6, name: "Sample Card", drafts: 4 }];
+
+  it("carries a first post on to the next account", async () => {
+    serve(posted(true), others);
+    await renderAt("/review/5", true);
+    await act(async () => button("Add to my books")!.click());
+    await settle();
+
+    expect(
+      host.querySelector('a[href="/review/6?run=setup"]')?.textContent,
+    ).toBe("Review Sample Card");
+  });
+
+  it("doesn't carry a later post", async () => {
+    serve(posted(false), others);
+    await renderAt("/review/5", true);
+    await act(async () => button("Add to my books")!.click());
+    await settle();
+
+    expect(host.querySelector('a[href="/review/6"]')?.textContent).toBe(
+      "Review Sample Card",
+    );
     expect(text()).not.toContain("Your books are set up.");
   });
 });

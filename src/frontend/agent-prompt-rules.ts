@@ -97,16 +97,23 @@ use the 050505 / NOPII / sample conventions in \`${guideCommand("parsers")}\`.`;
  * statements are, and the guide. It is short on purpose: the method, the
  * questions and the report are the guide's, so improving the run is a change
  * to the guide. Its gate is the run's survey, not three lines: the agent has
- * to read the statements before it can say what the work is.
+ * to read the statements before it can say what the work is. A run that
+ * doesn't start from a pile of statements names the guide's section it
+ * starts at, by its heading (`start`), such as "Starting from the drafts".
  */
 export function runPrompt(task: {
   outcome: string;
   facts: string;
+  start?: string;
 }): AgentPrompt {
+  const follow =
+    task.start === undefined
+      ? `Follow \`${guideCommand("run")}\`.`
+      : `Follow \`${guideCommand("run")}\`, starting at its section "${task.start}".`;
   return [
     `Outcome: ${task.outcome}`,
     task.facts,
-    `Follow \`${guideCommand("run")}\`.`,
+    follow,
     RUN_PLAN_FIRST_RULE,
   ].join("\n\n") as AgentPrompt;
 }

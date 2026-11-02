@@ -5,7 +5,8 @@ import { z } from "zod";
  * added to the books (PLAN.md §11 P3). The API's draft status module counts
  * them; each check's state is decided here from the counts, and the posting
  * gate, Update and Review all read it, so no screen decides on its own whether
- * drafts can be posted.
+ * drafts can be posted. Which accounts Review's Add all can add is decided
+ * here too (`readyToAdd`).
  *
  * Counts are the draft reports' rows: a draft that matches two others is two
  * possible duplicates.
@@ -62,38 +63,51 @@ export const POSTING_CHECK_KINDS = [
 export type PostingCheckKind = (typeof POSTING_CHECK_KINDS)[number];
 
 /**
- * One check on an account's drafts: it passes, or it blocks posting with a
- * count. A block is a problem when the numbers don't add up (usually a wrong or
- * missing statement), and needs attention when drafts only need an account,
- * or only wait for another account's drafts to be added first.
+ * A check that blocks posting. A block is a problem when the numbers don't
+ * add up (usually a wrong or missing statement), and needs attention when
+ * drafts only need an account, or only wait for another account's drafts to
+ * be added first. A schema, since Add all answers with the block that kept
+ * each account out.
+ */
+export const postingBlockSchema = z.union([
+  z.object({
+    kind: z.literal("categorization"),
+    state: z.literal("blocks"),
+    severity: z.literal("attention"),
+    count: z.number(),
+  }),
+  z.object({
+    kind: z.literal("duplicates"),
+    state: z.literal("blocks"),
+    severity: z.literal("problem"),
+    count: z.number(),
+  }),
+  z.object({
+    kind: z.literal("balance-checks"),
+    state: z.literal("blocks"),
+    severity: z.literal("problem"),
+    count: z.number(),
+  }),
+  z.object({
+    kind: z.literal("balance-checks"),
+    state: z.literal("blocks"),
+    severity: z.literal("attention"),
+    add_first: addFirstSchema,
+  }),
+]);
+export type PostingBlock = z.infer<typeof postingBlockSchema>;
+
+/**
+ * One check on an account's drafts: it passes, or it blocks posting.
  * Drafts that carry no balance check have none to pass, which doesn't block.
  */
 export type PostingCheck =
   | { kind: "categorization"; state: "passes"; drafts: number }
-  | {
-      kind: "categorization";
-      state: "blocks";
-      severity: "attention";
-      count: number;
-    }
   | { kind: "duplicates"; state: "passes" }
-  | { kind: "duplicates"; state: "blocks"; severity: "problem"; count: number }
   | { kind: "balance-checks"; state: "none" }
   | { kind: "balance-checks"; state: "passes" }
-  | {
-      kind: "balance-checks";
-      state: "blocks";
-      severity: "problem";
-      count: number;
-    }
-  | {
-      kind: "balance-checks";
-      state: "blocks";
-      severity: "attention";
-      add_first: AddFirst;
-    };
+  | PostingBlock;
 
-export type PostingBlock = Extract<PostingCheck, { state: "blocks" }>;
 export type ProblemBlock = Extract<PostingBlock, { severity: "problem" }>;
 
 const CHECKS: {
@@ -166,4 +180,39 @@ export function isBlock(check: PostingCheck): check is PostingBlock {
 
 export function isProblem(block: PostingBlock): block is ProblemBlock {
   return block.severity === "problem";
+}
+
+/**
+ * The accounts of `accounts` that Add all can add: those with no block but
+ * waiting for accounts it adds first. It starts from the accounts with no
+ * block and takes in, round by round, those whose only block is waiting for
+ * accounts already taken, until a round takes none; so the accounts come
+ * back in an order they can be added in, and an account waiting for one
+ * outside `accounts`, or for one with a problem, stays out. Accounts that
+ * wait for each other wait forever, and stay out too; the draft status
+ * drops such waits before they get here (`addFirst`).
+ */
+export function readyToAdd<
+  Account extends PostingInputs & { account_id: number },
+>(accounts: readonly Account[]): Account[] {
+  const waiting = accounts.filter((account) =>
+    postingBlocks(account).every(
+      (block) =>
+        block.kind === "balance-checks" && block.severity === "attention",
+    ),
+  );
+  const ready: Account[] = [];
+  const taken = new Set<number>();
+  for (;;) {
+    const round = waiting.filter(
+      (account) =>
+        !taken.has(account.account_id) &&
+        account.add_first.every((first) => taken.has(first.account_id)),
+    );
+    if (round.length === 0) return ready;
+    for (const account of round) {
+      ready.push(account);
+      taken.add(account.account_id);
+    }
+  }
 }

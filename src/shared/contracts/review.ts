@@ -23,6 +23,9 @@ export const reviewAccountSchema = z.object({
   ...postingInputsSchema.shape,
   // The drafts' first and last dates; null when there are none.
   draft_span: dateSpanSchema.nullable(),
+  // Rule requests made from its drafts, waiting for the coding agent to turn
+  // them into rules. They don't block adding the drafts.
+  rule_requests: z.number(),
 });
 export type ReviewAccount = z.infer<typeof reviewAccountSchema>;
 

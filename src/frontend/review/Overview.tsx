@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@sapporta/ui/cn";
+import { readyToAdd, type ReviewAccount } from "../../shared/index";
 import { apiErrorMessage, draftTransactionsApi } from "../api";
 import {
   Dialog,
@@ -10,10 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@sapporta/ui/dialog";
+import { AgentButton } from "../components/agent-prompt";
 import { FactTable } from "../components/fact-table";
 import { ProgressSteps, type Step } from "../components/progress-steps";
 import type { StatusTone } from "../components/status-chip";
 import { Button } from "../components/ui/button";
+import { reviewAccountsQuery } from "../queries";
+import { fixAccountPrompt } from "./agentPrompts";
 import {
   arrivalNotice,
   overviewView,
@@ -26,9 +31,11 @@ import { useReviewAccount } from "./ReviewAccount";
 
 /**
  * An account's Overview (PLAN.md §11 P3): where its drafts are on their way
- * into the books, whether they can be added, what blocks them, and the one
- * button that adds them. After an add, a notice says what it imported and
- * what to do next.
+ * into the books, whether they can be added, what blocks them, the one
+ * button that adds them, and Fix these, which hands what is left to the
+ * coding agent. After an add, a notice says what it imported and what to do
+ * next. A post from books that held nothing but opening balances starts the
+ * first run, whose links on carry it until nothing is left to post.
  */
 export function Overview() {
   const {
@@ -43,13 +50,18 @@ export function Overview() {
   } = useReviewAccount();
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // After a post, the other accounts ready to add, for the way on.
+  const others = useQuery({ ...reviewAccountsQuery, enabled: posted !== null });
 
   if (posted) {
     const view = postedView(
       posted.before,
       posted.draftsPosted,
       detail.other_accounts,
-      setup,
+      {
+        setup: setup || posted.firstPost,
+        readyOthers: readyOthers(others.data, detail.account.account_id),
+      },
     );
     return (
       <OverviewColumn journey={view.journey} verdict={view.verdict}>
@@ -86,7 +98,11 @@ export function Overview() {
       const result = await draftTransactionsApi.postDraftsToJournal({
         body: { base_account_id: detail.account.account_id },
       });
-      setPosted({ before: detail, draftsPosted: result.drafts_posted });
+      setPosted({
+        before: detail,
+        draftsPosted: result.drafts_posted,
+        firstPost: result.first_post,
+      });
     } catch (e) {
       // A 422 means the drafts changed since this summary was loaded.
       setError(apiErrorMessage(e));
@@ -101,6 +117,7 @@ export function Overview() {
       {imported && (
         <ImportedNotice
           notice={arrivalNotice(detail, imported)}
+          account={detail.account}
           open={notice}
           onClose={closeNotice}
         />
@@ -123,7 +140,7 @@ export function Overview() {
           {error}
         </p>
       )}
-      <div className="mt-10">
+      <div className="mt-10 flex flex-wrap items-start gap-3">
         <Button
           onClick={post}
           waiting={view.waiting}
@@ -133,9 +150,28 @@ export function Overview() {
           {posting && <Loader2 className="animate-spin" />}
           {posting ? "Adding…" : view.button}
         </Button>
+        {view.fix && (
+          <AgentButton
+            label="Fix these"
+            prompt={fixAccountPrompt(detail.account)}
+          />
+        )}
       </div>
     </OverviewColumn>
   );
+}
+
+/**
+ * How many accounts but `posted` Review's list has ready to add, from the
+ * list as last read; none before it is read.
+ */
+function readyOthers(
+  accounts: readonly ReviewAccount[] | undefined,
+  posted: number,
+): number {
+  if (accounts === undefined) return 0;
+  return readyToAdd(accounts.filter((account) => account.account_id !== posted))
+    .length;
 }
 
 /**
@@ -171,10 +207,12 @@ function OverviewColumn({
  */
 function ImportedNotice({
   notice,
+  account,
   open,
   onClose,
 }: {
   notice: ArrivalNotice;
+  account: ReviewAccount;
   open: boolean;
   onClose: () => void;
 }) {
@@ -192,7 +230,9 @@ function ImportedNotice({
         <FactTable rows={notice.facts} />
         <p className="text-body font-semibold text-foreground">{notice.next}</p>
         <DialogFooter>
-          {notice.action ? (
+          {notice.action === "fix" ? (
+            <AgentButton label="Fix these" prompt={fixAccountPrompt(account)} />
+          ) : notice.action ? (
             <Button
               render={<Link to={notice.action.to} />}
               nativeButton={false}
