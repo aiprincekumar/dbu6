@@ -254,7 +254,7 @@ describe("what is left across the accounts", () => {
     ];
   }
 
-  it("counts what is left, and hands all of it to the agent in one prompt", async () => {
+  it("counts what is left, and hands all of it to the agent in one run", async () => {
     accounts = books();
     await renderAt("/review");
 
@@ -266,7 +266,7 @@ describe("what is left across the accounts", () => {
     await act(async () => button("Fix these")!.click());
     await settle();
 
-    expect(clipboard).toEqual([fixReviewPrompt(books())]);
+    expect(clipboard).toEqual([fixReviewPrompt()]);
   });
 
   it("adds every account nothing blocks, and says what it added and left", async () => {

@@ -212,7 +212,7 @@ function LeftAcrossAccounts({
         {fix && (
           <AgentButton
             label="Fix these"
-            prompt={fixReviewPrompt(accounts)}
+            prompt={fixReviewPrompt()}
             primary={ready.length === 0}
           />
         )}

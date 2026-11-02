@@ -244,7 +244,9 @@ under "Still open".
 No new files: the statements are already imported, and their drafts wait in
 Review. The user pressed **Fix these** on Review, or asked you to finish
 what is left there. The work is the second half of a run, across every
-account with drafts at once.
+account with drafts at once, or across the accounts the prompt names: then
+the survey, the plan and the work cover only those, and you read another
+account only to settle a transfer with it.
 
 ### 0. Preflight
 
@@ -344,6 +346,10 @@ What you held or owed on 2025-03-31, the day your books start
    names that date.
 
 The amount is the user's. Never guess one, or take it from a description.
+
+**Report.** In a run, the "Opening balances" and "Skipped" lines of [the
+report](#the-report). Started from this section, those two lines are the
+whole report.
 Changing an opening balance already recorded is asked on its own
 (`PUT /api/opening-balances/<account id>`, the books guide's "Opening
 balance").

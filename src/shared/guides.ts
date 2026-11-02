@@ -63,6 +63,16 @@ export const GUIDES = {
 
 export type GuideName = keyof typeof GUIDES;
 
+// The run guide's sections a run can start at, by their `## ` headings, as a
+// prompt names them (`runPrompt`'s `start`). A run from a pile of statements
+// starts at the top and names none.
+export const RUN_SECTIONS = [
+  "Starting from the drafts",
+  "Accounts with no statements",
+] as const;
+
+export type RunSection = (typeof RUN_SECTIONS)[number];
+
 /** The command that prints a guide, as a prompt tells the agent to run it. */
 export function guideCommand(name: GuideName): string {
   return `npx dbu6 docs ${name}`;

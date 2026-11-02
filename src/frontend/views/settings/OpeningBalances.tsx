@@ -116,7 +116,7 @@ export function OpeningBalances() {
     <div className="flex flex-wrap items-start gap-x-5 gap-y-2">
       <AgentButton
         label="Fill in what you own and owe"
-        prompt={ownAndOwePrompt(data)}
+        prompt={ownAndOwePrompt()}
         afterwards="Answer its questions in the terminal. The balances it records show here."
       />
       <Link

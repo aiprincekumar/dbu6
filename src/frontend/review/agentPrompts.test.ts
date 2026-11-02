@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type {
-  ReviewAccount,
   ReviewAccountDetail,
   ReviewDuplicate,
   ReviewFailingCheck,
@@ -161,67 +160,35 @@ describe("balanceChecksPrompt", () => {
 });
 
 describe("fixReviewPrompt", () => {
-  const account = (
-    account_id: number,
-    name: string,
-    overrides: Partial<ReviewAccount> = {},
-  ): ReviewAccount => ({
-    ...detail({}).account,
-    account_id,
-    path: name,
-    name,
-    ...overrides,
-  });
+  it("hands everything left to one run from the drafts, which surveys it", () => {
+    const prompt = fixReviewPrompt();
 
-  // Sample Card waits for Sample Savings, ready to add; Sample Loan for
-  // Sample Wallet, which needs accounts. Sample Bank is ready but has rule
-  // requests for the agent.
-  const accounts = [
-    account(1, "Sample Savings"),
-    account(2, "Sample Card", {
-      add_first: [{ account_id: 1, name: "Sample Savings" }],
-    }),
-    account(3, "Sample Wallet", { uncategorised: 4, duplicates: 2 }),
-    account(4, "Sample Loan", {
-      add_first: [{ account_id: 3, name: "Sample Wallet" }],
-    }),
-    account(5, "Sample Bank", { rule_requests: 3 }),
-  ];
-
-  it("hands everything left to one run from the drafts, a row per account", () => {
-    const prompt = fixReviewPrompt(accounts);
-
-    expect(prompt).toMatch(
-      /^Outcome: Get every account in Review ready for me to add to my books/,
+    expect(prompt).toBe(
+      [
+        "Outcome: Get every account in Review ready for me to add to my books, asking me only what you can't settle.",
+        'Follow `npx dbu6 docs run`, starting at its section "Starting from the drafts".',
+        RUN_PLAN_FIRST_RULE,
+      ].join("\n\n"),
     );
-    expect(prompt).toContain(`Accounts in Review with something left:
-Account        Id  Drafts  Need an account  Duplicates  Failing checks  Rule requests  Add first
-Sample Wallet   3      21                4           2               0              0
-Sample Loan     4      21                0           0               0              0  Sample Wallet
-Sample Bank     5      21                0           0               0              3`);
-    expect(prompt).toContain(
-      "Ready to add, nothing to do: Sample Savings (account id 1), Sample Card (account id 2)",
-    );
-    expect(prompt).toContain(
-      'Follow `npx dbu6 docs run`, starting at its section "Starting from the drafts".',
-    );
-    expect(prompt).toContain(RUN_PLAN_FIRST_RULE);
     // A run's report is the guide's, not a per-tab task's.
     expect(prompt).not.toContain(PLAN_FIRST_RULE);
-    expect(prompt).not.toContain("playbook");
   });
 
-  it("hands one account's drafts on its own Overview", () => {
-    const prompt = fixAccountPrompt(accounts[2]);
+  it("names the one account an Overview hands over", () => {
+    const prompt = fixAccountPrompt({
+      ...detail({}).account,
+      account_id: 3,
+      name: "Sample Wallet",
+    });
 
     expect(prompt).toMatch(
       /^Outcome: Get Sample Wallet's drafts ready for me to add to my books/,
     );
-    expect(prompt).toContain(`What is left in Sample Wallet's drafts:
-Account        Id  Drafts  Need an account  Duplicates  Failing checks  Rule requests  Add first
-Sample Wallet   3      21                4           2               0              0`);
+    expect(prompt).toContain("Account: Sample Wallet (account id 3)");
     expect(prompt).toContain(
       'starting at its section "Starting from the drafts"',
     );
+    // What is left on it is the survey's to read.
+    expect(prompt).not.toContain("Duplicates");
   });
 });

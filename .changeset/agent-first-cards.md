@@ -14,10 +14,10 @@ its by-hand way beside it.
   each check that misses, as account, date, books, statement, difference
   and journal, in aligned columns.
 - **Settings › Opening balances** shows **Fill in what you own and owe**,
-  for cash, deposits, investments and loans, which have no statements. Its
-  prompt lists the chart's accounts with no statements and the balance
-  each has, and follows the "Accounts with no statements" section of `npx
-  dbu6 docs run`. **Record a balance by hand** (/add/other) is the quiet
+  for cash, deposits, investments and loans, which have no statements. It
+  starts a run at the "Accounts with no statements" section of `npx dbu6
+  docs run`, which reads the chart's opening balances itself, asks for the
+  figures in the terminal, and records the ones you give. **Record a balance by hand** (/add/other) is the quiet
   link beside it.
 
 Two playbooks are new under `npx dbu6 docs playbook`: `posted-balance-check`

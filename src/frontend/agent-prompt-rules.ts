@@ -17,6 +17,7 @@ import {
   guideCommand,
   playbookCommand,
   type PlaybookName,
+  type RunSection,
 } from "../shared/index";
 
 export interface AgentTask {
@@ -99,24 +100,23 @@ use the 050505 / NOPII / sample conventions in \`${guideCommand("parsers")}\`.`;
  * to the guide. Its gate is the run's survey, not three lines: the agent has
  * to read the statements before it can say what the work is. A run that
  * doesn't start from a pile of statements names the guide's section it
- * starts at, by its heading (`start`), such as "Starting from the drafts".
+ * starts at (`start`). `scope` is what the run covers when that is less
+ * than the section's own: the files dropped, or the accounts. What is left
+ * on them is the survey's to read, so the prompt holds no copy of it.
  */
 export function runPrompt(task: {
   outcome: string;
-  facts: string;
-  start?: string;
+  scope?: string;
+  start?: RunSection;
 }): AgentPrompt {
   const follow =
     task.start === undefined
       ? `Follow \`${guideCommand("run")}\`.`
       : `Follow \`${guideCommand("run")}\`, starting at its section "${task.start}".`;
-  return [
-    `Outcome: ${task.outcome}`,
-    task.facts,
-    follow,
-    RUN_PLAN_FIRST_RULE,
-  ].join("\n\n") as AgentPrompt;
+  return [`Outcome: ${task.outcome}`, task.scope, follow, RUN_PLAN_FIRST_RULE]
+    .filter((part) => part !== undefined && part !== "")
+    .join("\n\n") as AgentPrompt;
 }
 
-export const RUN_PLAN_FIRST_RULE = `Your first reply is the survey and plan the guide describes: read the
-statements and the books, change nothing, and wait until I say go.`;
+export const RUN_PLAN_FIRST_RULE = `Your first reply is the survey and plan the guide describes: read what it
+says to read, change nothing, and wait until I say go.`;

@@ -64,6 +64,6 @@ export function doMyBooksPrompt(
   return runPrompt({
     outcome:
       "Turn the statements waiting in the statement inbox into books ready for me to add, asking me only what you can't settle.",
-    facts: `Statements: ${plural(files, "file")} in the inbox.`,
+    scope: `Statements: ${plural(files, "file")} in the inbox.`,
   });
 }

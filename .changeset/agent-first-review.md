@@ -6,11 +6,13 @@ Review's list now opens on what is left across every account: counts of
 transactions that need an account, possible duplicates, failing balance
 checks, accounts waiting on another account, and rule requests, with one
 **Fix these** button that hands all of it to the coding agent as a run
-starting at the run guide's "Starting from the drafts" section. Beside it,
+starting at the run guide's "Starting from the drafts" section, whose
+survey reads what is left; the prompt holds no copy of the counts. Beside it,
 **Add N entries from K accounts to my books** adds every account nothing
 blocks, each on its own, in an order the accounts' "Add <account> first"
 waits allow, and then lists what it added and what it left, and why. An
-account's Overview has the same **Fix these**, for that account, while
+account's Overview has the same **Fix these**, naming that account, which
+the section then keeps to, while
 something blocks it, and the notice after an import points to it. Adding
 one account at a time stays.
 
