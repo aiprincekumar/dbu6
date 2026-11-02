@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { listInbox, saveToInbox } from "./statement-inbox.js";
 import { Hono } from "hono";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -375,6 +376,72 @@ describe("POST /add-account/add", () => {
       code: "statement_unreadable",
     });
     expect(staged()).toEqual([]);
+  });
+});
+
+describe("statements waiting in the inbox", () => {
+  // A run sends inbox files by path, as `inbox_files`.
+  function inboxForm(paths: string[], fields: Record<string, string> = {}) {
+    const body = new FormData();
+    for (const path of paths) body.append("inbox_files", path);
+    for (const [key, value] of Object.entries(fields)) body.append(key, value);
+    return body;
+  }
+
+  it("reads them where they are, then adds them and removes them", async () => {
+    const { batch, files } = await saveToInbox([
+      new File(["NOPII"], "other-aug.pdf"),
+    ]);
+    const paths = files.map((file) => file.saved_path);
+
+    const read = await app.request("/add-account/read", {
+      method: "POST",
+      body: inboxForm(paths),
+    });
+    expect(read.status).toBe(200);
+    expect(await read.json()).toMatchObject({
+      accounts: [{ status: "new" }],
+    });
+    expect(staged()).toEqual([]);
+    expect(await listInbox()).toEqual([{ batch, files }]);
+
+    const added = await app.request("/add-account/add", {
+      method: "POST",
+      body: inboxForm(paths, {
+        institution: "NOPII Bank",
+        name: "Sample Current",
+        parent_id: "1",
+      }),
+    });
+    expect(added.status, await added.clone().text()).toBe(200);
+    expect(await listInbox()).toEqual([]);
+  });
+
+  it("keeps them when the add is refused", async () => {
+    const { batch, files } = await saveToInbox([
+      new File(["NOPII"], "other-jan.pdf"),
+      new File(["NOPII"], "other-mar.pdf"),
+    ]);
+
+    const refused = await app.request("/add-account/add", {
+      method: "POST",
+      body: inboxForm(
+        files.map((file) => file.saved_path),
+        { institution: "NOPII Bank", name: "Sample Current" },
+      ),
+    });
+    expect(refused.status).toBe(422);
+    expect(await listInbox()).toEqual([{ batch, files }]);
+    expect(staged()).toEqual([]);
+  });
+
+  it("refuses a path that isn't in the inbox", async () => {
+    const response = await app.request("/add-account/read", {
+      method: "POST",
+      body: inboxForm(["package.json"]),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "not_in_inbox" });
   });
 });
 

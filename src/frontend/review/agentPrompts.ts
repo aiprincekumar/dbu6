@@ -1,11 +1,10 @@
 // The tasks Review's Duplicates and Balance checks tabs hand the coding agent:
-// the account and the rows the tab shows. How to read the drafts, how a
-// balance check is computed and its usual causes, and asking before changing
-// anything are in the books guide, which the project's AGENTS.md sends the
-// agent to.
+// the account and the rows the tab shows. How to settle each is in its
+// playbook; how to read the drafts, how a balance check is computed and its
+// usual causes, and asking before changing anything are in the books guide,
+// which the project's AGENTS.md sends the agent to.
 
 import {
-  guideCommand,
   type ReviewAccountDetail,
   type ReviewDuplicate,
   type ReviewFailingCheck,
@@ -17,8 +16,6 @@ import { duplicatesText, failingChecksText } from "./posting-checks";
 /** Rows listed in a prompt before the rest are left to the API. */
 export const PROMPT_ROW_LIMIT = 50;
 
-const BOOKS_GUIDE = guideCommand("books");
-
 export function duplicatesPrompt(detail: ReviewAccountDetail): AgentPrompt {
   const { account } = detail;
   return agentPrompt({
@@ -27,8 +24,7 @@ export function duplicatesPrompt(detail: ReviewAccountDetail): AgentPrompt {
 
 Possible duplicates (date · amount · draft · what it matched · how):
 ${rows(detail.duplicates, duplicateLine)}`,
-    how: `For each, find out whether the two are one real transaction or two
-("Is this a duplicate?" in \`${BOOKS_GUIDE}\`).`,
+    playbook: "duplicates",
     report: [
       {
         heading: "Verdict",
@@ -51,8 +47,7 @@ export function balanceChecksPrompt(detail: ReviewAccountDetail): AgentPrompt {
 
 Failing checks (running balance minus the statement's is the difference):
 ${rows(failing, failingLine)}`,
-    how: `Find what explains the first failing day's difference, as "When a balance
-check fails" in \`${BOOKS_GUIDE}\` says.`,
+    playbook: "balance-checks",
     report: [
       {
         heading: "What's wrong",
@@ -96,9 +91,11 @@ function rows<T>(items: readonly T[], line: (item: T) => string): string {
 
 function duplicateLine(row: ReviewDuplicate): string {
   const matched =
-    row.other_draft_id !== null
-      ? `draft ${row.other_draft_id} "${row.other_narration ?? ""}"`
-      : `journal ${row.matched_journal_id} "${row.other_narration ?? ""}" (${row.matched_account ?? "no account"})`;
+    row.match_kind === "draft-transfer"
+      ? `${row.matched_account ?? "another account"}'s draft ${row.other_draft_id} "${row.other_narration ?? ""}" (a transfer on both statements)`
+      : row.other_draft_id !== null
+        ? `draft ${row.other_draft_id} "${row.other_narration ?? ""}"`
+        : `journal ${row.matched_journal_id} "${row.other_narration ?? ""}" (${row.matched_account ?? "no account"})`;
   return `- ${row.date} · ${row.direction} ${amount(row.amount)} · draft ${row.draft_id} "${row.narration}" · ${matched} · ${row.match_type}, ${Math.round(row.confidence * 100)}%`;
 }
 

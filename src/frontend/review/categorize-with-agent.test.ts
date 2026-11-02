@@ -4,7 +4,7 @@ import type {
   ReviewAccountDetail,
 } from "../../shared/index";
 import { PLAN_FIRST_RULE } from "../agent-prompt-rules";
-import { RULE_FACTS } from "./categorization-rule-requests";
+import { USER_RUNS_CATEGORIZER } from "./categorization-rule-requests";
 import {
   categorizeWithAgentPrompt,
   QUESTIONS_AT_A_TIME,
@@ -22,6 +22,7 @@ const detail: ReviewAccountDetail = {
     duplicates: 0,
     balance_checks: 0,
     failing_checks: 0,
+    add_first: [],
     draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
   },
   checkpoint: null,
@@ -59,31 +60,28 @@ describe("categorizeWithAgentPrompt", () => {
       `'{"base_account_id":{"eq":7},"account_id":{"is":"null"}}'`,
     );
     expect(prompt).toContain("Screen: /review/7/improve-categorization");
-    expect(prompt).toContain(RULE_FACTS);
+    expect(prompt).toContain("Follow `npx dbu6 docs playbook categorize`.");
+    expect(prompt).toContain(USER_RUNS_CATEGORIZER);
     expect(prompt).not.toContain("rule request");
   });
 
-  it("settles the sure groups in one list, then asks about the rest a few at a time", () => {
+  it("leaves the method to the playbook, and asks a few questions at a time", () => {
     const prompt = categorizeWithAgentPrompt(detail, []);
 
-    expect(prompt).toContain("every group you're sure of in one list");
     expect(prompt).toContain(`at most ${QUESTIONS_AT_A_TIME} at a time`);
-    expect(prompt).toContain("numbered options");
+    expect(prompt).not.toContain("numbered options");
     expect(prompt).toContain(PLAN_FIRST_RULE);
     expect(prompt).toMatch(
       /\n\*\*New rules\*\*: .*\n\*\*Set by hand\*\*: .*\n\*\*Still without an account\*\*: .*\n\*\*Next\*\*: Run categorizer, on Review\.$/,
     );
   });
 
-  it("takes the rule requests already made as answers, and deletes each once encoded", () => {
+  it("takes the rule requests already made as answers", () => {
     const prompt = categorizeWithAgentPrompt(detail, [RULE_REQUEST]);
 
     expect(prompt).toContain("Rule requests I've made: 1");
     expect(prompt).toContain(
       `npx sapporta api get /api/categorization-rule-requests --query '{"base_account_id":7}'`,
-    );
-    expect(prompt).toContain(
-      "npx sapporta api delete /api/categorization-rule-requests/<rule request id>",
     );
   });
 });

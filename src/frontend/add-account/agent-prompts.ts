@@ -5,11 +5,8 @@ import {
 } from "../agent-prompt-rules";
 import {
   NEW_PARSER_REPORT,
-  PART_PARSERS,
   PARTED_PARSERS_REPORT,
-  PRESETS_SECTION,
   triedParsers,
-  WRITE_PARSER,
 } from "../parser-prompts";
 import type { Unreadable } from "./state";
 
@@ -37,11 +34,9 @@ export function addUnrecognizedPrompt(
     outcome: `Add a bank account or card from ${file.file_name}, a statement format no saved parser recognises, by writing a parser for it.`,
     facts: `File: ${file.saved_path}
 ${triedParsers(file.candidate_parser_paths)}`,
-    how: `${WRITE_PARSER}
-Then list it on the bank's institution in the import presets
-(${PRESETS_SECTION}): add_parser to the institution that covers this bank,
-or add_institution. Never add an account: /add sets it up from the
-statements. Ask me the bank when the file doesn't say.`,
+    playbook: "unrecognized-statement",
+    how: `I'm adding this bank or card at /add, which sets the account up from the
+statements: add no account to the import presets.`,
     report: [
       NEW_PARSER_REPORT,
       { heading: "Import presets", says: "what changed in them." },
@@ -57,7 +52,7 @@ export function addAmbiguousPrompt(
     outcome: `Add a bank account or card from ${file.file_name}, which more than one saved parser recognises, by making only one of them read it.`,
     facts: `File: ${file.saved_path}
 Parsers that read it: ${file.matching_parser_paths.join(", ")}`,
-    how: PART_PARSERS,
+    playbook: "ambiguous-parsers",
     report: [
       PARTED_PARSERS_REPORT,
       { heading: "The fix", says: "what changed in each parser." },

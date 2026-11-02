@@ -7,7 +7,7 @@ import type {
 import { PLAN_FIRST_RULE } from "../agent-prompt-rules";
 import {
   amountsSeen,
-  RULE_FACTS,
+  USER_RUNS_CATEGORIZER,
   RULE_REQUEST_TRANSACTION_LIMIT,
   ruleRequestsPrompt,
 } from "./categorization-rule-requests";
@@ -24,6 +24,7 @@ const detail: ReviewAccountDetail = {
     duplicates: 0,
     balance_checks: 0,
     failing_checks: 0,
+    add_first: [],
     draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
   },
   checkpoint: null,
@@ -115,20 +116,14 @@ describe("ruleRequestsPrompt", () => {
     );
   });
 
-  it("adds only what the books guide's mapping section leaves easy to get wrong", () => {
+  it("leaves the method to the rule-requests playbook", () => {
     const prompt = ruleRequestsPrompt(detail, [
       ruleRequest([draft("NOPII SAMPLE 050505")]),
     ]);
 
-    expect(prompt).toContain(RULE_FACTS);
-    expect(RULE_FACTS).toContain("never its\ndate");
-    expect(RULE_FACTS).toContain("How it was paid (UPI, NEFT, card)");
-    expect(RULE_FACTS).toContain("60–480 becomes 50–500");
-    expect(RULE_FACTS).toContain("Don't run the categorizer");
-    expect(RULE_FACTS).toContain("`npx dbu6 docs books`");
-    expect(prompt).toContain(
-      "`npx sapporta api delete /api/categorization-rule-requests/<rule request id>`",
-    );
+    expect(prompt).toContain("Follow `npx dbu6 docs playbook rule-requests`.");
+    expect(prompt).toContain(USER_RUNS_CATEGORIZER);
+    expect(prompt).not.toContain("60–480 becomes 50–500");
     expect(prompt).not.toContain("My note");
   });
 

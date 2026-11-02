@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guideCommand } from "../../../shared/index";
+import { guideCommand, playbookCommand } from "../../../shared/index";
 import { PLAN_FIRST_RULE } from "../../agent-prompt-rules";
 import {
   ambiguousPrompt,
@@ -118,11 +118,8 @@ describe("a file no parser reads", () => {
     );
     expect(prompt).toContain(`File: ${STAGED}`);
     expect(prompt).toContain("Parsers that rejected it: sample-bank-pdf");
-    expect(prompt).toContain(guideCommand("parser-guide"));
-    expect(prompt).toContain(
-      `"Import presets" in \`${guideCommand("books")}\``,
-    );
-    expect(prompt).toContain("add_account");
+    expect(prompt).toContain(playbookCommand("unrecognized-statement"));
+    expect(prompt).toContain("an account already in my books");
     expect(prompt).toContain("date range, row count, opening and closing");
     expect(prompt).toContain(
       "**Next**: press Try again beside the file at /import.",
@@ -137,7 +134,7 @@ describe("a file several parsers claim", () => {
       "Parsers that read it: sample-bank-pdf, sample-card-pdf",
     );
     expect(prompt).toContain(`File: ${STAGED}`);
-    expect(prompt).toContain("loosen no validation");
+    expect(prompt).toContain(playbookCommand("ambiguous-parsers"));
     expect(prompt).toContain(
       "**Next**: press Try again beside the file at /import.",
     );
@@ -186,9 +183,7 @@ describe("a statement with no account number", () => {
       "Account identifier on the statement: none emitted",
     );
     expect(prompt).toContain("Sample Savings, Sample Salary");
-    expect(prompt).toContain('"Emitted account identifier"');
-    expect(prompt).toContain("Don't guess an identifier.");
-    expect(prompt).toContain("050505");
+    expect(prompt).toContain(playbookCommand("identifier-required"));
   });
 });
 
@@ -204,7 +199,7 @@ describe("an account's statements the importer refused", () => {
     expect(prompt).toContain("Parser: sample-bank-xls");
     expect(prompt).toContain("Error: balance_mismatch");
     expect(prompt).toContain("Statement closing: 2500");
-    expect(prompt).toContain("never by loosening validation");
+    expect(prompt).toContain(playbookCommand("balance-mismatch"));
   });
 
   it("asks before changing my books to reconcile", () => {

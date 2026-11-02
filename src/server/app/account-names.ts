@@ -1,3 +1,4 @@
+import type Database from "better-sqlite3";
 import {
   accountKindOf,
   accountKindOfType,
@@ -5,6 +6,8 @@ import {
   type ImportAccount,
   type ImportInstitution,
 } from "../../shared/index.js";
+import { loadLedgerAccounts } from "../modules/accounts/index.js";
+import type { LedgerAuth } from "../modules/ledger-sql/index.js";
 
 /*
  * What the everyday screens call a ledger account (PLAN.md §11 P1, P3). A
@@ -44,4 +47,18 @@ export function accountLabel(
     return { name: preset.name, kind: accountKindOf(preset.is_credit_card) };
   }
   return { name: account.name, kind: accountKindOfType(account.account_type) };
+}
+
+/** What the everyday screens call each ledger account, by id. */
+export function accountNames(
+  sqlite: Database.Database,
+  auth: LedgerAuth,
+  institutions: readonly ImportInstitution[],
+): Map<number, string> {
+  return new Map(
+    loadLedgerAccounts(sqlite, auth).map((account) => [
+      account.id,
+      accountLabel(account, institutions).name,
+    ]),
+  );
 }

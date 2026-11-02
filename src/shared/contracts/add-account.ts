@@ -192,6 +192,8 @@ export const addAccountRefusalSchema = z.object({
   error: z.string(),
   code: z.enum([
     "missing_multipart_field",
+    // An `inbox_files` path that isn't a file in the statement inbox.
+    "not_in_inbox",
     // The fields don't parse; or a new account has neither a name nor an
     // account from the chart, no group when no bank or card of its kind has
     // one to share, no kind when the statements print none, or no bank
@@ -295,7 +297,7 @@ export const addAccountContract = c.router({
     method: "POST",
     path: "/add-account/read",
     summary:
-      "Read dropped statements (`files`, repeated) as /import would, writing nothing to the books: which account each belongs to, whether that account is new, empty or in the books, its dates, rows and opening, whether the opening must be typed, the refusal importing them would give, and who categorizes. The files stay staged under tmp/statement-uploads/ only when a coding agent's prompt needs them",
+      "Read dropped statements (`files`, repeated, or `inbox_files`: `saved_path`s from GET /statement-inbox) as /import would, writing nothing to the books: which account each belongs to, whether that account is new, empty or in the books, its dates, rows and opening, whether the opening must be typed, the refusal importing them would give, and who categorizes. Uploaded files stay staged under tmp/statement-uploads/ only when a coding agent's prompt needs them; inbox files stay in the inbox",
     contentType: "multipart/form-data",
     body: z.any(),
     responses: {
@@ -308,7 +310,7 @@ export const addAccountContract = c.router({
     method: "POST",
     path: "/add-account/add",
     summary:
-      "Add a bank or card from its statements (`files`, all one account's; fields per addAccountFieldsSchema, and an optional `progress_id` for addProgress): create the ledger account and its preset entry (or use the one named, or the empty one the files belong to), tie it to the parser and number, record its opening balance the day before the earliest row, then import the files as /import does, categorization included. Everything that doesn't depend on timing is checked before anything is written",
+      "Add a bank or card from its statements (`files`, or `inbox_files` as /add-account/read takes them, all one account's; fields per addAccountFieldsSchema, and an optional `progress_id` for addProgress): create the ledger account and its preset entry (or use the one named, or the empty one the files belong to), tie it to the parser and number, record its opening balance the day before the earliest row, then import the files as /import does, categorization included. Everything that doesn't depend on timing is checked before anything is written. Inbox files it adds are removed from the inbox",
     contentType: "multipart/form-data",
     body: z.any(),
     responses: {

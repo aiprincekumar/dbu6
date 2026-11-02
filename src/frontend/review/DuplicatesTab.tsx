@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { postingCheck } from "../../shared/index";
+import { postingCheck, type ReviewDuplicate } from "../../shared/index";
 import { reportsApi } from "../reports/client";
 import { duplicatesPrompt } from "./agentPrompts";
 import { checkText, duplicatesText } from "./posting-checks";
@@ -21,6 +21,7 @@ export function DuplicatesTab() {
   const { detail } = useReviewAccount();
   const { account } = detail;
   const check = postingCheck(account, "duplicates");
+  const transfers = transfersByAccount(detail.duplicates);
 
   if (check.state === "passes") {
     return (
@@ -47,6 +48,13 @@ export function DuplicatesTab() {
         and delete it. If both are real transactions, ask your coding agent to
         find out why they match.
       </ReportSummary>
+      {transfers.map(([name, count]) => (
+        <ReportSummary key={name}>
+          {count === 1 ? "One is a transfer" : `${count} are transfers`}, also
+          on {name}'s statement. Don't delete either side: your coding agent
+          settles each into one entry, dated the earlier day.
+        </ReportSummary>
+      ))}
       <AccountReport
         report="duplicate-drafts"
         accountId={account.account_id}
@@ -62,4 +70,18 @@ export function DuplicatesTab() {
       />
     </ReportTab>
   );
+}
+
+// The transfers among the duplicates, counted by the account whose statement
+// also has them: [name, count], in the order they come.
+function transfersByAccount(
+  duplicates: readonly ReviewDuplicate[],
+): [string, number][] {
+  const counts = new Map<string, number>();
+  for (const row of duplicates) {
+    if (row.match_kind !== "draft-transfer" || row.matched_account === null)
+      continue;
+    counts.set(row.matched_account, (counts.get(row.matched_account) ?? 0) + 1);
+  }
+  return Array.from(counts);
 }

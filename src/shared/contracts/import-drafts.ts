@@ -262,6 +262,11 @@ export const autoImportErrorSchema = z.union([
     error: z.literal("missing_multipart_field"),
     message: z.string(),
   }),
+  // An `inbox_files` path that isn't a file in the statement inbox.
+  z.object({
+    error: z.literal("not_in_inbox"),
+    message: z.string(),
+  }),
 ]);
 
 export type AutoImportPlanFile = z.infer<typeof autoImportPlanFileSchema>;
@@ -279,7 +284,7 @@ export const importDraftsContract = c.router({
     method: "POST",
     path: "/import-draft/statements/auto",
     summary:
-      "Upload statement files as `files`, and optionally a Google Pay Takeout HTML as `gpay` to name UPI recipients, and a `progress_id` for statementsAutoProgress; each file is recognised by a saved parser, its preset account is resolved from the institution listing that parser and the account the statement reports, and one statement import runs per account",
+      "Upload statement files as `files` (or name ones waiting in the statement inbox as `inbox_files`, `saved_path`s from GET /statement-inbox; once the whole batch imports they are removed from the inbox), and optionally a Google Pay Takeout HTML as `gpay` to name UPI recipients, and a `progress_id` for statementsAutoProgress; each file is recognised by a saved parser, its preset account is resolved from the institution listing that parser and the account the statement reports, and one statement import runs per account",
     contentType: "multipart/form-data",
     body: z.any(),
     responses: {

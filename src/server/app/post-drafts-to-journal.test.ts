@@ -7,9 +7,11 @@ import { postDraftsToJournal } from "./post-drafts-to-journal.js";
 import { renderDraftHledger } from "./render-draft-hledger.js";
 import { incomeExpensesReport } from "./reports/income-expenses.js";
 import { readOnlyLedger } from "../modules/ledger-sql/index.js";
+import { countPostedAssertionFailures } from "../modules/reconciliation/index.js";
 import { testLedgerAuth } from "../modules/ledger-sql/testing.js";
 
 const auth = testLedgerAuth();
+const STAMP = "'2026-03-01T00:00:00Z', '2026-03-01T00:00:00Z'";
 
 /*
  * Sample Savings (1) opened at 1,000. Its two drafts, a deposit and a
@@ -77,7 +79,7 @@ describe("postDraftsToJournal", () => {
       `UPDATE draft_transactions SET account_id = NULL WHERE id = 202`,
     );
 
-    expect(postDraftsToJournal(posting, 1)).toMatchObject({
+    expect(postDraftsToJournal(posting, 1, [])).toMatchObject({
       status: 422,
       body: { code: "UNCATEGORIZED_DRAFTS", uncategorized_count: 1 },
     });
@@ -94,7 +96,7 @@ describe("postDraftsToJournal", () => {
       FROM draft_transactions WHERE id = 202
     `);
 
-    expect(postDraftsToJournal(posting, 1)).toMatchObject({
+    expect(postDraftsToJournal(posting, 1, [])).toMatchObject({
       status: 422,
       body: { code: "DUPLICATE_DRAFTS", duplicate_count: 1 },
     });
@@ -107,22 +109,79 @@ describe("postDraftsToJournal", () => {
       `UPDATE draft_transactions SET balance_assertion_base_account = 1300 WHERE id = 202`,
     );
 
-    expect(postDraftsToJournal(posting, 1)).toMatchObject({
+    expect(postDraftsToJournal(posting, 1, [])).toMatchObject({
       status: 422,
       body: { code: "FAILING_ASSERTIONS", failing_count: 1 },
     });
     expect([count("journals"), count("draft_transactions")]).toEqual([1, 2]);
   });
 
+  describe("a card payment drafted from both statements", () => {
+    /*
+     * Sample Card (4) owed 2,000. Sample Savings paid it 1,000 on 2 Feb
+     * (draft 203, categorized to the card), and the card spent 500 on 5 Feb,
+     * owing 1,500. The card's own copy of the payment is draft 205.
+     */
+    function withCardPayment() {
+      const books = ledger();
+      books.sqlite.exec(`
+        INSERT INTO accounts VALUES
+          (4, 'workspace', 'user', 'Sample Card', NULL, 'Liability', ${STAMP});
+        INSERT INTO journals VALUES (11, 'workspace', 'user', '2026-01-10', 'Opening', ${STAMP});
+        INSERT INTO journal_entries VALUES
+          (111, 'workspace', 'user', 11, 4, 0, 2000, -2000, NULL, NULL, NULL, ${STAMP}, NULL),
+          (112, 'workspace', 'user', 11, 3, 2000, 0, NULL, NULL, NULL, NULL, ${STAMP}, NULL);
+        UPDATE draft_transactions SET balance_assertion_base_account = 400 WHERE id = 202;
+        INSERT INTO draft_transactions VALUES
+          (203, 'workspace', 'user', '2026-02-02', 'NOPII card payment', 1000, 0, 4, 1, NULL, NULL, 'k-203', ${STAMP}, NULL),
+          (204, 'workspace', 'user', '2026-02-05', 'NOPII shop', 500, 0, 2, 4, -1500, NULL, 'k-204', ${STAMP}, NULL),
+          (205, 'workspace', 'user', '2026-02-03', 'NOPII payment received', 0, 1000, 1, 4, NULL, NULL, 'k-205', ${STAMP}, NULL);
+      `);
+      return books;
+    }
+
+    it("finds the card's copy a duplicate of the bank's draft", () => {
+      const { posting } = withCardPayment();
+      expect(postDraftsToJournal(posting, 4, [])).toMatchObject({
+        status: 422,
+        body: { code: "DUPLICATE_DRAFTS", duplicate_count: 1 },
+      });
+    });
+
+    it("refuses the card until the bank whose draft its checks count is added, then adds both", () => {
+      const { sqlite, posting, count } = withCardPayment();
+      sqlite.exec(`DELETE FROM draft_transactions WHERE id = 205`);
+
+      expect(postDraftsToJournal(posting, 4, [])).toMatchObject({
+        status: 422,
+        body: {
+          code: "ADD_OTHER_ACCOUNT_FIRST",
+          add_first: [{ account_id: 1, name: "Sample Savings" }],
+        },
+      });
+      expect(count("draft_transactions")).toBe(4);
+
+      expect(postDraftsToJournal(posting, 1, [])).toMatchObject({
+        status: 200,
+      });
+      expect(postDraftsToJournal(posting, 4, [])).toMatchObject({
+        status: 200,
+      });
+      expect(
+        countPostedAssertionFailures(sqlite, auth, { accountId: 4 }),
+      ).toEqual(new Map());
+    });
+  });
+
   it("refuses an account it can't find", () => {
     const { posting } = ledger();
-    expect(postDraftsToJournal(posting, 99)).toMatchObject({ status: 404 });
+    expect(postDraftsToJournal(posting, 99, [])).toMatchObject({ status: 404 });
   });
 
   it("adds the drafts to the books and clears them", () => {
     const { sqlite, posting, count } = ledger();
 
-    expect(postDraftsToJournal(posting, 1)).toEqual({
+    expect(postDraftsToJournal(posting, 1, [])).toEqual({
       status: 200,
       body: {
         base_account: "Sample Savings",
@@ -187,7 +246,7 @@ describe("postDraftsToJournal", () => {
       `UPDATE draft_transactions SET comment = 'Sample grocer' WHERE id = 202`,
     );
 
-    expect(postDraftsToJournal(posting, 1)).toMatchObject({ status: 200 });
+    expect(postDraftsToJournal(posting, 1, [])).toMatchObject({ status: 200 });
     expect(
       sqlite
         .prepare(
@@ -241,7 +300,7 @@ describe("postDraftsToJournal", () => {
     const preview = renderDraftHledger(posting.db, 1, auth)?.hledger_journal;
     // A journal per draft: the two already here and the four above.
     expect(preview?.split("\n\n")).toHaveLength(6);
-    expect(postDraftsToJournal(posting, 1)).toMatchObject({ status: 200 });
+    expect(postDraftsToJournal(posting, 1, [])).toMatchObject({ status: 200 });
 
     const postedIds = (
       sqlite
@@ -367,7 +426,7 @@ describe("postDraftsToJournal on an account tree", () => {
   it("posts drafts filed on parent accounts to those accounts, and Income and Expenses counts them there", () => {
     const { sqlite, posting, count } = treeLedger();
 
-    expect(postDraftsToJournal(posting, 16)).toMatchObject({ status: 200 });
+    expect(postDraftsToJournal(posting, 16, [])).toMatchObject({ status: 200 });
     expect(
       sqlite
         .prepare(

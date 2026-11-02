@@ -7,15 +7,15 @@ import {
   type ReviewAccountDetail,
 } from "../../shared/index.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
-import { accountLabel } from "./account-names.js";
+import { accountLabel, accountNames } from "./account-names.js";
+import { loadLedgerAccounts } from "../modules/accounts/index.js";
 import {
   loadAccountStandings,
   type AccountStanding,
 } from "./account-standing.js";
-import { loadLedgerAccounts } from "../modules/accounts/index.js";
 import {
   countDraftsByBaseAccount,
-  draftCounts,
+  postingInputs,
 } from "../modules/drafts/index.js";
 import { loadOpeningEntries } from "../modules/journals/index.js";
 import type { LedgerAuth } from "../modules/ledger-sql/index.js";
@@ -64,7 +64,10 @@ export function listReviewAccounts(
   auth: LedgerAuth,
   institutions: readonly ImportInstitution[],
 ): ReviewAccount[] {
-  return accountsWithDrafts(loadAccountStandings(sqlite, auth, institutions));
+  return accountsWithDrafts(
+    loadAccountStandings(sqlite, auth, institutions),
+    accountNames(sqlite, auth, institutions),
+  );
 }
 
 /** One account's review, or null when the account isn't in scope. */
@@ -81,7 +84,7 @@ export function loadReviewAccount(
   const { drafts } = standing;
 
   return {
-    account: reviewAccount(standing),
+    account: reviewAccount(standing, accountNames(sqlite, auth, institutions)),
     checkpoint: standing.checkpoint,
     has_opening_entry: loadOpeningEntries(sqlite, auth, { accountId }).has(
       accountId,
@@ -141,21 +144,26 @@ function otherAccountsWithDrafts(
 
 function accountsWithDrafts(
   standings: ReadonlyMap<number, AccountStanding>,
+  names: ReadonlyMap<number, string>,
 ): ReviewAccount[] {
   return Array.from(standings.values())
     .filter((standing) => standing.drafts !== undefined)
-    .map(reviewAccount)
+    .map((standing) => reviewAccount(standing, names))
     .sort(byName);
 }
 
-function reviewAccount(standing: AccountStanding): ReviewAccount {
+// `names` names the accounts to add first.
+function reviewAccount(
+  standing: AccountStanding,
+  names: ReadonlyMap<number, string>,
+): ReviewAccount {
   return {
     account_id: standing.account_id,
     path: standing.path,
     parent_path: standing.parent_path,
     name: standing.name,
     kind: standing.kind,
-    ...draftCounts(standing.drafts),
+    ...postingInputs(standing.drafts, names),
     draft_span: standing.drafts?.draft_span ?? null,
   };
 }

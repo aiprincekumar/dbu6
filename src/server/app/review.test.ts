@@ -95,6 +95,7 @@ describe("listReviewAccounts", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
+        add_first: [],
         draft_span: { first_date: "2026-03-04", last_date: "2026-03-04" },
       },
       {
@@ -108,6 +109,7 @@ describe("listReviewAccounts", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
+        add_first: [],
         draft_span: { first_date: "2026-03-05", last_date: "2026-03-05" },
       },
       {
@@ -121,6 +123,7 @@ describe("listReviewAccounts", () => {
         duplicates: 1,
         balance_checks: 2,
         failing_checks: 1,
+        add_first: [],
         draft_span: { first_date: "2026-03-02", last_date: "2026-03-13" },
       },
     ]);
@@ -192,6 +195,7 @@ describe("loadReviewAccount", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
+        add_first: [],
         draft_span: null,
       },
       checkpoint: null,

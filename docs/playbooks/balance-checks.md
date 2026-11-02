@@ -1,0 +1,43 @@
+# Failing balance checks in Review
+
+## When
+
+An account's drafts have failing balance checks: on some day the running
+total misses the balance the statement printed. Review's Balance checks tab
+lists them, and `npx sapporta api get /api/review/accounts/<id>` returns them
+as `failing` (date, draft, running balance, statement balance, `diff`).
+
+## Read
+
+- "When a balance check fails" in `npx dbu6 docs books`: how the running
+  total is added up, the usual causes, and the SQL that lists the activity
+  around a day.
+- The account's last statement balance in the books (`checkpoint`), and its
+  drafts' dates.
+
+## Change
+
+Start from the first failing day; later ones usually follow from it. Look
+for an amount equal to `diff`, or to the change in `diff` between two
+failing days. Propose each change as date, description, amount, and what it
+becomes.
+
+A difference equal to a transfer or card payment that another account's
+statement also carries is the `cross-account-transfers` playbook, whether
+its other side is a draft or already in the books.
+
+## Never
+
+- Change a statement balance (`balance_assertion_base_account`,
+  `account_balance_assertion`).
+- Delete a draft just to make a check pass.
+- Delete a day's last draft without first moving its balance onto the day's
+  new last draft.
+
+## Report
+
+- **What's wrong:** why the running balance misses the statement's, in one
+  sentence.
+- **The fix:** each change as date, description, amount, and what it
+  becomes.
+- **After the fix:** which checks pass, and anything still unexplained.

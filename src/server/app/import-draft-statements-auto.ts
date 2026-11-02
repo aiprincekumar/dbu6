@@ -31,9 +31,11 @@ import {
   uploadedFile,
   withStagedUploads,
   withTempUpload,
+  type ProjectFile,
   type StagedUploads,
 } from "./upload-tmp.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
+import { inboxFilesFromField, useUpInboxFiles } from "./statement-inbox.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 
 // Automatic statement import: the user uploads statement files, and
@@ -203,7 +205,7 @@ export function batchResponse(
 }
 
 export interface AutoImportUploads {
-  statements: File[];
+  statements: (File | ProjectFile)[];
   gpay: File | null;
 }
 
@@ -216,7 +218,9 @@ export async function importStatementsAutomatically(
 ): Promise<AutoImportRouteResponse> {
   const { statements, gpay } = uploads;
   const received = statements
-    .map((file) => `${file.name} (${file.size}B)`)
+    .map((file) =>
+      file instanceof File ? `${file.name} (${file.size}B)` : file.name,
+    )
     .join(", ");
   const takeout = gpay
     ? `; Google Pay takeout ${gpay.name} (${gpay.size}B)`
@@ -244,7 +248,7 @@ export async function importStatementsAutomatically(
 }
 
 async function importStaged(
-  statements: File[],
+  statements: (File | ProjectFile)[],
   gpayHtmlPath: string | null,
   institutions: readonly ImportInstitution[],
   ledger: Ledger,
@@ -326,6 +330,27 @@ export async function checkStatementUploads(
   });
 }
 
+// The inbox files whose statements are now in the drafts: every one when the
+// batch imported, else those of the accounts imported before the refusal,
+// found by the name each was dropped with. Two files of one name can't be
+// told apart there, so neither is taken.
+export function importedInboxFiles(
+  response: AutoImportRouteResponse,
+  files: readonly ProjectFile[],
+): ProjectFile[] {
+  if (response.status === 200) return [...files];
+  const groups =
+    "imported_groups" in response.body
+      ? (response.body.imported_groups ?? [])
+      : [];
+  const imported = new Set(groups.flatMap((group) => group.file_names));
+  return files.filter(
+    (file) =>
+      imported.has(file.name) &&
+      files.filter((other) => other.name === file.name).length === 1,
+  );
+}
+
 export default function importDraftStatementsAutoApi(
   loadCategorizer: LoadCategorizer,
 ): TsRestApi<SapportaEnv> {
@@ -338,7 +363,20 @@ export default function importDraftStatementsAutoApi(
     async ({ c, request, files: uploadedFiles }) => {
       const ledger = requireWorkflowLedger(c);
 
-      const statements = filesFromField(uploadedFiles, "files");
+      const inbox = await inboxFilesFromField(request.body);
+      if ("notInInbox" in inbox) {
+        return {
+          status: 400 as const,
+          body: {
+            error: "not_in_inbox" as const,
+            message: inbox.notInInbox,
+          },
+        };
+      }
+      const statements = [
+        ...filesFromField(uploadedFiles, "files"),
+        ...inbox.files,
+      ];
       if (statements.length === 0) {
         return {
           status: 400 as const,
@@ -351,13 +389,15 @@ export default function importDraftStatementsAutoApi(
 
       const tracked = running.start(formFields(request.body).progress_id);
       try {
-        return await importStatementsAutomatically(
+        const response = await importStatementsAutomatically(
           { statements, gpay: uploadedFile(uploadedFiles, "gpay") },
           loadImportPresets(ledger.db, ledger.auth),
           ledger,
           loadCategorizer,
           tracked?.onProgress,
         );
+        await useUpInboxFiles(importedInboxFiles(response, inbox.files));
+        return response;
       } finally {
         tracked?.finish();
       }

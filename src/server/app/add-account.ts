@@ -20,9 +20,11 @@ import {
   filesFromField,
   formFields,
   withStagedUploads,
+  type ProjectFile,
   type StagedUploads,
 } from "./upload-tmp.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
+import { inboxFilesFromField, useUpInboxFiles } from "./statement-inbox.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 
 /*
@@ -30,7 +32,9 @@ import { writeCommentsSoon } from "../workflows/comment-writer.js";
  * dropped files are staged as /import stages them (`withStagedUploads`).
  * The read keeps only those its reply's card hands the user a coding-agent
  * prompt for (`promptedFiles`). The browser sends the files again with the
- * add, which reads them afresh and keeps nothing.
+ * add, which reads them afresh and keeps nothing. A coding agent's run sends
+ * files waiting in the statement inbox by path (`inbox_files`) instead: they
+ * are read where they are, and an add that imports them removes them.
  *
  * An add sent with a `progress_id` says how far it has got to
  * `addProgress` while it runs (import-progress.ts).
@@ -45,9 +49,11 @@ export default function addAccountApi(
   api.register(
     "readStatements",
     addAccountContract.readStatements,
-    async ({ c, files }) => {
+    async ({ c, request, files }) => {
       const ledger = requireWorkflowLedger(c);
-      const statements = filesFromField(files, "files");
+      const inbox = await inboxFilesFromField(request.body);
+      if ("notInInbox" in inbox) return notInInbox(inbox.notInInbox);
+      const statements = [...filesFromField(files, "files"), ...inbox.files];
       if (statements.length === 0) return missingFiles();
       return withStagedUploads(statements, async (staged) => {
         const reading = await readStatements(
@@ -81,7 +87,9 @@ export default function addAccountApi(
     addAccountContract.addAccount,
     async ({ c, request, files }) => {
       const ledger = requireWorkflowLedger(c);
-      const statements = filesFromField(files, "files");
+      const inbox = await inboxFilesFromField(request.body);
+      if ("notInInbox" in inbox) return notInInbox(inbox.notInInbox);
+      const statements = [...filesFromField(files, "files"), ...inbox.files];
       if (statements.length === 0) return missingFiles();
       const fields = addAccountFieldsSchema.safeParse(formFields(request.body));
       if (!fields.success) {
@@ -105,8 +113,9 @@ export default function addAccountApi(
           );
           // The new drafts' comments, in the background.
           writeCommentsSoon();
-          if (done.ok) return { status: 200 as const, body: done.added };
-          return addRefusal(done);
+          if (!done.ok) return addRefusal(done);
+          await useUpInboxFiles(inbox.files);
+          return { status: 200 as const, body: done.added };
         });
       } finally {
         tracked?.finish();
@@ -132,14 +141,25 @@ function missingFiles() {
   return {
     status: 400 as const,
     body: {
-      error: "Drop the statements as `files`.",
+      error:
+        "Drop the statements as `files`, or name ones in the statement inbox as `inbox_files`.",
       code: "missing_multipart_field" as const,
     },
   };
 }
 
+function notInInbox(error: string) {
+  return {
+    status: 400 as const,
+    body: { error, code: "not_in_inbox" as const },
+  };
+}
+
 // The dropped files as they were staged, in the order they came.
-function dropped(files: readonly File[], staged: StagedUploads) {
+function dropped(
+  files: readonly (File | ProjectFile)[],
+  staged: StagedUploads,
+) {
   return files.map((file, index): DroppedStatement => ({
     name: file.name,
     path: staged.paths[index],

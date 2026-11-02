@@ -90,6 +90,15 @@ export function uploadStagingDir(): string {
   return join(projectRoot(), "tmp", "statement-uploads");
 }
 
+/**
+ * Where statements dropped for a coding agent's run wait, a folder per batch,
+ * until the run imports them (`npx dbu6 docs run`). Inside the project for
+ * the same reason as the upload staging; tmp/ is gitignored.
+ */
+export function statementInboxDir(): string {
+  return join(projectRoot(), "tmp", "statement-inbox");
+}
+
 /** The name `packageDir` looks for in package.json. */
 const PACKAGE_NAME = "@dbu6/app";
 

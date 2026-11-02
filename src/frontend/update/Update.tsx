@@ -17,12 +17,14 @@ import { accountLedgerHref } from "../reports/links";
 import { today } from "../reports/shared";
 import { BANKS_SETTINGS_ROUTE } from "../views/settings/routes";
 import { formatDate } from "../format";
+import { DoMyBooks } from "../run/DoMyBooks";
 import {
   accountStatus,
   ADD_BANK_OR_CARD,
   statementsHref,
   updateState,
   type UpdateCard,
+  type UpdateView,
 } from "./state";
 
 /**
@@ -66,22 +68,22 @@ export function Update() {
         </>
       }
     >
-      <div className="mt-5">
-        {error ? (
+      {error ? (
+        <div className="mt-5">
           <LoadError
             title="Couldn't load where your books stand"
             message={error}
             retry={() => void query.refetch()}
           />
-        ) : view ? (
-          <StepCard card={view.card} />
-        ) : (
-          <div
-            aria-hidden="true"
-            className="h-[104px] rounded-card bg-sap-nested"
-          />
-        )}
-      </div>
+        </div>
+      ) : view ? (
+        <NextStep card={view.card} />
+      ) : (
+        <div
+          aria-hidden="true"
+          className="mt-5 h-[104px] rounded-card bg-sap-nested"
+        />
+      )}
 
       {(view === null || view.listsAccounts) && (
         <section className="mt-10">
@@ -120,8 +122,32 @@ export function Update() {
   );
 }
 
-/** The one thing to do; Overview shows it too until anything is posted. */
-export function StepCard({ card }: { card: UpdateCard }) {
+/**
+ * The one thing to do; Overview shows it too until anything is posted. The
+ * first run's is "Do my books"; any other card has the drop below it, for
+ * more statements.
+ */
+export function NextStep({ card }: { card: UpdateView["card"] }) {
+  if ("kind" in card) {
+    return (
+      <div className="mt-5">
+        <DoMyBooks body={card.body} byHand={card.byHand} />
+      </div>
+    );
+  }
+  return (
+    <>
+      <div className="mt-5">
+        <StepCard card={card} />
+      </div>
+      <div className="mt-10">
+        <DoMyBooks />
+      </div>
+    </>
+  );
+}
+
+function StepCard({ card }: { card: UpdateCard }) {
   return (
     <NextStepCard
       count={card.count}

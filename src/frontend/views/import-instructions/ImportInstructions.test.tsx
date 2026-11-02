@@ -150,6 +150,7 @@ function respond(url: URL): unknown {
           duplicates: 0,
           balance_checks: 0,
           failing_checks: 0,
+          add_first: [],
           draft_span: null,
         },
       ],

@@ -39,6 +39,9 @@ describe("mounted app routes", () => {
     expect(paths["/api/setup/statement-accounts"]?.post).toBeDefined();
     expect(paths["/api/add-account/read"]?.post).toBeDefined();
     expect(paths["/api/add-account/add"]?.post).toBeDefined();
+    expect(paths["/api/statement-inbox"]?.get).toBeDefined();
+    expect(paths["/api/statement-inbox"]?.post).toBeDefined();
+    expect(paths["/api/statement-inbox/remove"]?.post).toBeDefined();
   });
 
   it("no longer publishes the retired statement upload routes", () => {

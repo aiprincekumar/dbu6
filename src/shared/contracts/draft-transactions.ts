@@ -21,6 +21,10 @@ const errorSchema = z
     uncategorized_count: z.number().optional(),
     failing_count: z.number().optional(),
     duplicate_count: z.number().optional(),
+    // ADD_OTHER_ACCOUNT_FIRST: the accounts whose drafts to add first.
+    add_first: z
+      .array(z.object({ account_id: z.number(), name: z.string() }))
+      .optional(),
   })
   .passthrough();
 
@@ -121,6 +125,30 @@ export const draftTransactionsContract = c.router({
       // The account, or one of the drafts, isn't in the books.
       404: errorSchema,
       // The account is one of the drafts' own base account.
+      422: errorSchema,
+    },
+  }),
+  settleTransfer: c.mutation({
+    method: "POST",
+    path: "/draft-transactions/settle-transfer",
+    summary:
+      "Settle a transfer both statements carry (a `draft-transfer` duplicate): the earlier draft stays, sent to the other account; the later is deleted, its day's balance moved onto that day's last draft; the later account's balances between the two dates are cleared",
+    body: z.object({
+      draft_ids: z.tuple([
+        z.number().int().positive(),
+        z.number().int().positive(),
+      ]),
+    }),
+    responses: {
+      200: z.object({
+        kept_draft_id: z.number(),
+        deleted_draft_id: z.number(),
+        cleared_balances: z.number(),
+      }),
+      403: errorSchema,
+      // One of the drafts isn't in the books.
+      404: errorSchema,
+      // The two aren't one transfer on two statements.
       422: errorSchema,
     },
   }),

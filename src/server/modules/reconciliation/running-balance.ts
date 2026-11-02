@@ -3,9 +3,27 @@ import { cents, OPENING_JOURNALS } from "../journals/index.js";
 import { allRows, type LedgerAuth } from "../ledger-sql/index.js";
 import { assertionFailsSql, draftOrderSql } from "./balance-check.js";
 
-// Shared SQL for draft assertion reporting and the posting gate. Journal rows
-// precede draft rows on the same date; journals go by id, and drafts in
-// `draftOrderSql`, numbered here so the window can order them.
+// Shared SQL for draft assertion reporting and the posting gate. An account's
+// running balance adds its posted entries, the drafts of other accounts'
+// statements categorized to it, and its own drafts. On the same date they go
+// in that order: journals by id, then the other accounts' drafts, then its
+// own in `draftOrderSql`, numbered here so the window can order them.
+//
+// Another account's draft counts on the side it will post to: its
+// withdrawal is a debit here. It sits where its journal will sit once that
+// account's drafts are added, ahead of this account's own drafts on its
+// date, so a check that passes now still passes after that post, and a
+// transfer both statements print fails here before either is posted.
+/**
+ * A draft of another account's statement that counts on the account it is
+ * categorized to (`dt.account_id`), as the running balance adds it.
+ */
+export function otherStatementDraftSql(alias: string): string {
+  return `${alias}.base_account_id IS NOT NULL
+    AND ${alias}.account_id IS NOT NULL
+    AND ${alias}.account_id <> ${alias}.base_account_id`;
+}
+
 export const BASE_ACCOUNT_ACTIVITY_ORDER =
   "activity_date, source_rank, ord_journal, ord_entry";
 
@@ -25,13 +43,28 @@ export const baseAccountRunningBalanceCtes = `
   JOIN scoped_journals j ON j.id = je.journal_id
   UNION ALL
   SELECT
+    dt.account_id AS account_id,
+    dt.date AS activity_date,
+    0 AS ord_journal,
+    ROW_NUMBER() OVER (
+      PARTITION BY dt.account_id ORDER BY ${draftOrderSql("dt")}
+    ) AS ord_entry,
+    1 AS source_rank,
+    'other_draft' AS source,
+    dt.withdrawal - dt.deposit AS delta,
+    dt.id AS draft_id,
+    NULL AS assertion
+  FROM scoped_draft_transactions dt
+  WHERE ${otherStatementDraftSql("dt")}
+  UNION ALL
+  SELECT
     dt.base_account_id AS account_id,
     dt.date AS activity_date,
     0 AS ord_journal,
     ROW_NUMBER() OVER (
       PARTITION BY dt.base_account_id ORDER BY ${draftOrderSql("dt")}
     ) AS ord_entry,
-    1 AS source_rank,
+    2 AS source_rank,
     'draft' AS source,
     dt.deposit - dt.withdrawal AS delta,
     dt.id AS draft_id,

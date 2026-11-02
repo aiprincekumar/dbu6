@@ -9,6 +9,13 @@ import { z } from "zod";
  *
  * Counts are the draft reports' rows: a draft that matches two others is two
  * possible duplicates.
+ *
+ * A balance check can rely on another account's drafts: a transfer or card
+ * payment drafted from that account's statement and categorized to this one
+ * counts in this account's running balance. Adding this account's drafts
+ * first would put balances in the books that miss until that account's are
+ * added, so it waits for them (`add_first`). Two accounts whose checks rely
+ * on each other can't both wait; neither names the other.
  */
 
 export const draftCountsSchema = z.object({
@@ -21,6 +28,18 @@ export const draftCountsSchema = z.object({
   failing_checks: z.number(),
 });
 export type DraftCounts = z.infer<typeof draftCountsSchema>;
+
+/** Accounts whose drafts the balance checks rely on, to add first, by name. */
+export const addFirstSchema = z.array(
+  z.object({ account_id: z.number(), name: z.string() }),
+);
+export type AddFirst = z.infer<typeof addFirstSchema>;
+
+/** What the checks are decided from: the counts, and the accounts to add first. */
+export const postingInputsSchema = draftCountsSchema.extend({
+  add_first: addFirstSchema,
+});
+export type PostingInputs = z.infer<typeof postingInputsSchema>;
 
 /** An account with no drafts. */
 export const NO_DRAFTS: DraftCounts = {
@@ -45,7 +64,8 @@ export type PostingCheckKind = (typeof POSTING_CHECK_KINDS)[number];
 /**
  * One check on an account's drafts: it passes, or it blocks posting with a
  * count. A block is a problem when the numbers don't add up (usually a wrong or
- * missing statement), and needs attention when drafts only need an account.
+ * missing statement), and needs attention when drafts only need an account,
+ * or only wait for another account's drafts to be added first.
  * Drafts that carry no balance check have none to pass, which doesn't block.
  */
 export type PostingCheck =
@@ -65,6 +85,12 @@ export type PostingCheck =
       state: "blocks";
       severity: "problem";
       count: number;
+    }
+  | {
+      kind: "balance-checks";
+      state: "blocks";
+      severity: "attention";
+      add_first: AddFirst;
     };
 
 export type PostingBlock = Extract<PostingCheck, { state: "blocks" }>;
@@ -72,7 +98,7 @@ export type ProblemBlock = Extract<PostingBlock, { severity: "problem" }>;
 
 const CHECKS: {
   [Kind in PostingCheckKind]: (
-    counts: DraftCounts,
+    counts: PostingInputs,
   ) => Extract<PostingCheck, { kind: Kind }>;
 } = {
   categorization: (counts) =>
@@ -102,6 +128,14 @@ const CHECKS: {
         count: counts.failing_checks,
       };
     }
+    if (counts.add_first.length > 0) {
+      return {
+        kind: "balance-checks",
+        state: "blocks",
+        severity: "attention",
+        add_first: counts.add_first,
+      };
+    }
     return counts.balance_checks === 0
       ? { kind: "balance-checks", state: "none" }
       : { kind: "balance-checks", state: "passes" };
@@ -110,19 +144,19 @@ const CHECKS: {
 
 /** One check on the drafts these counts describe. */
 export function postingCheck<Kind extends PostingCheckKind>(
-  counts: DraftCounts,
+  counts: PostingInputs,
   kind: Kind,
 ): Extract<PostingCheck, { kind: Kind }> {
   return CHECKS[kind](counts);
 }
 
 /** Every check, in tab order. */
-export function postingChecks(counts: DraftCounts): PostingCheck[] {
+export function postingChecks(counts: PostingInputs): PostingCheck[] {
   return POSTING_CHECK_KINDS.map((kind) => postingCheck(counts, kind));
 }
 
 /** The checks that block, in tab order; none when the drafts can be added. */
-export function postingBlocks(counts: DraftCounts): PostingBlock[] {
+export function postingBlocks(counts: PostingInputs): PostingBlock[] {
   return postingChecks(counts).filter(isBlock);
 }
 

@@ -14,8 +14,7 @@ import { agentPrompt, type AgentPrompt } from "../agent-prompt-rules";
 import { plural } from "../format";
 import {
   accountLine,
-  DELETE_ENCODED,
-  RULE_FACTS,
+  USER_RUNS_CATEGORIZER,
 } from "./categorization-rule-requests";
 import { IMPROVE_CATEGORIZATION_TAB, reviewHref } from "./routes";
 
@@ -44,20 +43,9 @@ export function categorizeWithAgentPrompt(
 \`npx sapporta rows list draft_transactions --where '{"base_account_id":{"eq":${id}},"account_id":{"is":"null"}}' --sort source_narration --limit 1000\``,
       ...requests,
     ].join("\n"),
-    how: [
-      RULE_FACTS,
-      `Group the drafts by what they share, and find each group's likely account
-(from where ones like it sit in my books) and its rule. Then:
-- Show every group you're sure of in one list, a line each: a few
-  descriptions and how many, the account, the rule. I'll say yes or name
-  the ones to change.
-- Ask about the rest, at most ${QUESTIONS_AT_A_TIME} at a time: a few descriptions with
-  dates and amounts, and 2–4 of my accounts as numbered options, likeliest
-  first, plus "something else" and "skip". If none fits, propose a new
-  account's name and parent.
-- A draft like no other gets its account set directly, no rule.`,
-      ...(ruleRequests.length === 0 ? [] : [DELETE_ENCODED]),
-    ].join("\n\n"),
+    playbook: "categorize",
+    how: `Ask about the groups you're not sure of at most ${QUESTIONS_AT_A_TIME} at a time.
+${USER_RUNS_CATEGORIZER}`,
     report: [
       {
         heading: "New rules",

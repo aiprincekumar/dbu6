@@ -29,7 +29,7 @@ import {
 } from "../reports/links";
 import { today } from "../reports/shared";
 import { UPDATE_ROUTE } from "../update/routes";
-import { StepCard } from "../update/Update";
+import { NextStep } from "../update/Update";
 import {
   FIRST_RUN_GREETING,
   updateState,
@@ -159,9 +159,7 @@ function FirstRun({ summary }: { summary: HomeSummary }) {
         </>
       }
     >
-      <div className="mt-5">
-        <StepCard card={view.card} />
-      </div>
+      <NextStep card={view.card} />
     </Screen>
   );
 }

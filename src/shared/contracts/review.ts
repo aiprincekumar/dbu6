@@ -4,7 +4,7 @@ import { errorBodySchema } from "@sapporta/shared/contracts";
 import { accountKindSchema } from "./account-kind.js";
 import { dateSpanSchema } from "./date-span.js";
 import { datedBalanceSchema } from "./dated-balance.js";
-import { draftCountsSchema } from "./posting-checks.js";
+import { postingInputsSchema } from "./posting-checks.js";
 
 const c = initContract();
 
@@ -20,7 +20,7 @@ export const reviewAccountSchema = z.object({
   // The preset account's name when a preset lists it, else the account's name.
   name: z.string(),
   kind: accountKindSchema,
-  ...draftCountsSchema.shape,
+  ...postingInputsSchema.shape,
   // The drafts' first and last dates; null when there are none.
   draft_span: dateSpanSchema.nullable(),
 });
@@ -36,14 +36,19 @@ export const reviewFailingCheckSchema = z.object({
 });
 export type ReviewFailingCheck = z.infer<typeof reviewFailingCheckSchema>;
 
-/** A draft that looks like another draft or an entry already posted. */
+/**
+ * A draft that looks like another draft or an entry already posted. A
+ * "draft-transfer" is a transfer also on another account's statement: that
+ * account's draft, categorized to this one, is `other_draft_id`, and
+ * `matched_account` is that account.
+ */
 export const reviewDuplicateSchema = z.object({
   date: z.string(),
   draft_id: z.number(),
   other_draft_id: z.number().nullable(),
   matched_journal_id: z.number().nullable(),
   matched_journal_entry_id: z.number().nullable(),
-  match_kind: z.enum(["draft-draft", "draft-journal"]),
+  match_kind: z.enum(["draft-draft", "draft-journal", "draft-transfer"]),
   match_type: z.string(),
   confidence: z.number(),
   direction: z.enum(["deposit", "withdrawal"]),
@@ -53,7 +58,8 @@ export const reviewDuplicateSchema = z.object({
   // entry, which has none, gives its comment.
   other_narration: z.string().nullable(),
   draft_account: z.string().nullable(),
-  // The other draft's account, or the matched entry's account.
+  // The other draft's account, or the matched entry's account; for a
+  // transfer, the account whose statement the other draft is from.
   matched_account: z.string().nullable(),
 });
 export type ReviewDuplicate = z.infer<typeof reviewDuplicateSchema>;

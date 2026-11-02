@@ -17,7 +17,7 @@ import {
   formatShortDate,
   plural,
 } from "../format";
-import { checkText, duplicatesText } from "./posting-checks";
+import { accountsText, checkText, duplicatesText } from "./posting-checks";
 import {
   checkTab,
   needsAccountHref,
@@ -210,12 +210,19 @@ export function arrivalNotice(
         action: row.link,
       };
     case "balance-checks":
-      return {
-        title,
-        facts,
-        next: "Next: find out why the balances don't add up.",
-        action: row.link,
-      };
+      return block.severity === "attention"
+        ? {
+            title,
+            facts,
+            next: `Next: add ${accountsText(block.add_first)} to your books first. These balance checks count ${block.add_first.length === 1 ? "its" : "their"} drafts.`,
+            action: row.link,
+          }
+        : {
+            title,
+            facts,
+            next: "Next: find out why the balances don't add up.",
+            action: row.link,
+          };
   }
 }
 
@@ -314,6 +321,20 @@ function checkRow(
         link: { label: "See the duplicates", to: tab },
       };
     case "balance-checks": {
+      if (check.severity === "attention") {
+        // The checks pass, counting drafts another account will add.
+        const [first] = check.add_first;
+        return {
+          check: check.kind,
+          tone: check.severity,
+          text: checkText(check),
+          note: `Balance checks pass, counting drafts from ${accountsText(check.add_first)}`,
+          link: {
+            label: `Review ${first.name}`,
+            to: reviewHref(first.account_id),
+          },
+        };
+      }
       // A failing check is one of the detail's failing rows, in date order.
       const day = formatShortDate(detail.failing[0].date);
       return {

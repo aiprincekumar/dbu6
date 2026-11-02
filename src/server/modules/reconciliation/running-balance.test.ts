@@ -15,11 +15,11 @@ describe("shared draft running-balance query", () => {
       CREATE TABLE accounts (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, name TEXT);
       CREATE TABLE journals (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, description TEXT);
       CREATE TABLE journal_entries (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, journal_id INTEGER, account_id INTEGER, debit REAL, credit REAL, account_balance_assertion REAL);
-      CREATE TABLE draft_transactions (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, base_account_id INTEGER, deposit REAL, withdrawal REAL, balance_assertion_base_account REAL);
+      CREATE TABLE draft_transactions (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, base_account_id INTEGER, deposit REAL, withdrawal REAL, balance_assertion_base_account REAL, account_id INTEGER);
       INSERT INTO accounts VALUES (1, 'workspace', 'user', 'Bank');
       INSERT INTO journals VALUES (1, 'workspace', 'user', '2026-05-07', 'Opening');
       INSERT INTO journal_entries VALUES (1, 'workspace', 'user', 1, 1, 100, 0, NULL);
-      INSERT INTO draft_transactions VALUES (9, 'workspace', 'user', '2026-05-07', 1, 50, 0, 140);
+      INSERT INTO draft_transactions VALUES (9, 'workspace', 'user', '2026-05-07', 1, 50, 0, 140, NULL);
     `);
     const rows = allRows(
       sqlite,
@@ -44,10 +44,10 @@ describe("shared draft running-balance query", () => {
     sqlite.exec(`
       CREATE TABLE journals (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT);
       CREATE TABLE journal_entries (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, journal_id INTEGER, account_id INTEGER, debit REAL, credit REAL, account_balance_assertion REAL);
-      CREATE TABLE draft_transactions (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, base_account_id INTEGER, deposit REAL, withdrawal REAL, balance_assertion_base_account REAL);
-      INSERT INTO draft_transactions VALUES (8, 'workspace', 'user', '2026-05-07', 1, 1000, 0, 1500);
-      INSERT INTO draft_transactions VALUES (4, 'workspace', 'user', '2026-05-07', 1, 500, 0, NULL);
-      INSERT INTO draft_transactions VALUES (6, 'workspace', 'user', '2026-05-08', 1, 0, 200, 1400);
+      CREATE TABLE draft_transactions (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, base_account_id INTEGER, deposit REAL, withdrawal REAL, balance_assertion_base_account REAL, account_id INTEGER);
+      INSERT INTO draft_transactions VALUES (8, 'workspace', 'user', '2026-05-07', 1, 1000, 0, 1500, NULL);
+      INSERT INTO draft_transactions VALUES (4, 'workspace', 'user', '2026-05-07', 1, 500, 0, NULL, NULL);
+      INSERT INTO draft_transactions VALUES (6, 'workspace', 'user', '2026-05-08', 1, 0, 200, 1400, NULL);
     `);
     const rows = allRows(
       sqlite,
@@ -64,6 +64,42 @@ describe("shared draft running-balance query", () => {
         assertion: 1400,
         diff: -100,
       },
+    ]);
+  });
+});
+
+describe("another account's drafts in the running balance", () => {
+  // Sample Savings (2) paid Sample Card (1) 300 on 7 May, drafted from its
+  // statement and categorized to the card. The card owed 1,000 and spent 50
+  // the same day: it owes 750.
+  function books(cardCopy: boolean) {
+    const sqlite = new Database(":memory:");
+    sqlite.exec(`
+      CREATE TABLE journals (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT);
+      CREATE TABLE journal_entries (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, journal_id INTEGER, account_id INTEGER, debit REAL, credit REAL, account_balance_assertion REAL);
+      CREATE TABLE draft_transactions (id INTEGER, workspace_id TEXT, scoped_to_user_id TEXT, date TEXT, base_account_id INTEGER, deposit REAL, withdrawal REAL, balance_assertion_base_account REAL, account_id INTEGER);
+      INSERT INTO journals VALUES (1, 'workspace', 'user', '2026-05-01');
+      INSERT INTO journal_entries VALUES (1, 'workspace', 'user', 1, 1, 0, 1000, -1000);
+      -- The card's own draft has a lower id than the bank's, and still comes after it.
+      INSERT INTO draft_transactions VALUES (5, 'workspace', 'user', '2026-05-07', 1, 0, 50, -750, 3);
+      INSERT INTO draft_transactions VALUES (9, 'workspace', 'user', '2026-05-07', 2, 0, 300, NULL, 1);
+      ${cardCopy ? "INSERT INTO draft_transactions VALUES (4, 'workspace', 'user', '2026-05-07', 1, 300, 0, NULL, 2);" : ""}
+    `);
+    return allRows(
+      sqlite,
+      testLedgerAuth(),
+      `${baseAccountRunningBalanceCtes}
+       SELECT * FROM (${failingDraftAssertionsSelect}) WHERE account_id = 1`,
+    );
+  }
+
+  it("counts it on the side it will post to, before the account's own drafts that day", () => {
+    expect(books(false)).toEqual([]);
+  });
+
+  it("fails the check by the transfer when the account's own statement repeats it", () => {
+    expect(books(true)).toEqual([
+      expect.objectContaining({ draft_id: 5, diff: 300 }),
     ]);
   });
 });

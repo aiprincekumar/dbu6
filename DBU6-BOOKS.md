@@ -67,6 +67,10 @@ so you can skip OpenAPI discovery. For anything not covered here, use the
 - Write through the CLI or API, never through SQLite.
 - Nothing from the user's data goes into a tracked file (see AGENTS.md on PII).
 
+Inside a run (`npx dbu6 docs run`), the run guide's permissions apply instead
+of the first rule: the user's go-ahead on the plan covers the work it lists,
+and the rest is asked in one round. The other rules hold.
+
 ## Everyday requests
 
 Run every command here from the project root
@@ -172,12 +176,21 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   A draft is compared with other drafts on the same account, and with
   transactions in the books on that account that don't say which statement row
   they came from (entered by hand, or an older import), or that came from this
-  same row. A transfer already added from
-  the other account's statement usually shows up as a failing balance check
-  instead (see below).
+  same row. It is also compared with the drafts of other accounts' statements
+  categorized to this account: a transfer or card payment drafted from both
+  statements is `match_kind` `draft-transfer` (same amount, the other way, a
+  few days apart; `matched_account` is the other statement's account). Settle
+  it into one draft: `npx dbu6 docs playbook cross-account-transfers`. One
+  already added to the books from the other account's statement shows up as a
+  failing balance check instead (see below).
 - **"Add them to my books."**
   `npx sapporta api post /api/draft-transactions/post-to-journal --body '{"base_account_id":<id>}'`.
-  A 422 names the first check that still blocks.
+  A 422 names the first check that still blocks. `ADD_OTHER_ACCOUNT_FIRST`
+  means every check passes, but counting drafts of the accounts in
+  `add_first`, which are categorized to this one: add those first. Two
+  accounts whose checks count each other's drafts never wait for each other;
+  the first one added has balances in the books that miss until the other is
+  added.
 - **"Remove this one."** `npx sapporta rows delete draft_transactions <id>`.
 
 ### "Always put this under X" — adding a mapping
@@ -262,6 +275,9 @@ Leave a rule request you couldn't encode.
 
 ### Accounts and imports
 
+- **"Here are all my statements; do my books."** Follow
+  `npx dbu6 docs run`: one session from a pile of statements to every
+  account ready to add, the user answering one round of questions.
 - **"I opened a new account or card."** Send the user to `/add` (Update's
   **+ Add** › Bank or card), where they drop its statements: dbu6 reads
   them, sets the account up with its opening balance, and imports them, in
@@ -422,6 +438,11 @@ Leave a rule request you couldn't encode.
 
   Without an opening balance, every balance check fails by the same amount.
 
+- **"Add an account."**
+  `npx sapporta rows create accounts --values '{"name":"…","account_type":"…","parent_id":<id>}'`,
+  with the name, type and parent in the one call; the parent's type must be
+  the same. A bank or card is not added this way: its import preset comes
+  with it at `/add`, or from Settings › Banks & cards (above).
 - **"Rename or move an account."**
   `npx sapporta rows update accounts <id> --values '{…}'`, with the name, type and
   parent in the one update: a trigger refuses a cell saved alone when it
@@ -478,9 +499,13 @@ Leave a rule request you couldn't encode.
 ## When a balance check fails
 
 The running total adds every transaction in the books on that account,
-including ones added from other accounts' statements. Then it adds the drafts,
-by date and then by id; on the same date, transactions in the books come
-first. Only a day's last draft carries the statement's balance, and a check
+including ones added from other accounts' statements, and the drafts of other
+accounts' statements categorized to it, on the side they will be added (a
+bank's withdrawal to a card is money in on the card). Then it adds the
+account's own drafts, by date and then by id. On the same date, transactions
+in the books come first, then the other accounts' drafts, then its own, so a
+check gives the same answer before and after the other account's drafts are
+added. Only a day's last draft carries the statement's balance, and a check
 passes when the two are less than 0.005 apart. `diff` is the running total
 minus the statement's balance.
 
@@ -491,8 +516,9 @@ Usual causes:
   (`/settings/balances?account=<name>`), which suggests the amount from
   that first check.
 - **A difference that starts on one day:** a transfer or card payment is
-  already in the books from the other account's statement, and a draft
-  repeats it. `diff` equals its amount.
+  already in the books, or in the drafts, from the other account's statement,
+  and a draft repeats it. `diff` equals its amount. When the other side is a
+  draft, Duplicates lists the pair as `draft-transfer`.
 - **A missing or extra draft:** the parser dropped or doubled a row.
 - **A statement between the last one in the books and this one** was never
   imported.
@@ -511,7 +537,12 @@ WITH activity AS (
   FROM journal_entries je JOIN journals j ON j.id = je.journal_id
   WHERE je.account_id = <id>
   UNION ALL
-  SELECT d.date, 1, 0, d.id, 'draft', d.id, d.deposit - d.withdrawal,
+  SELECT d.date, 1, 0, d.id, 'other draft', d.id, d.withdrawal - d.deposit,
+         NULL, d.source_narration
+  FROM draft_transactions d
+  WHERE d.account_id = <id> AND d.base_account_id <> <id>
+  UNION ALL
+  SELECT d.date, 2, 0, d.id, 'draft', d.id, d.deposit - d.withdrawal,
          d.balance_assertion_base_account, d.source_narration
   FROM draft_transactions d WHERE d.base_account_id = <id>
 ), running AS (

@@ -1,6 +1,6 @@
 // The tasks /import hands the user's coding agent when the importer can't go
 // further on its own: the outcome, the case's facts as the server sent them,
-// and only what the guides don't say. How to reach the app, upload a file,
+// the playbook that holds the method, and only what the guides don't say. How to reach the app, upload a file,
 // change the import presets and ask before changing the books are in
 // `npx dbu6 docs books`; how to write or fix a parser, and where it goes, in
 // the parser guides.
@@ -9,7 +9,11 @@
 // tmp/, so a prompt names each file by that path and the agent reads it, and
 // may upload it again, without asking the user to find it.
 
-import { guideCommand, type AutoImportPlanFile } from "../../../shared/index";
+import {
+  guideCommand,
+  type AutoImportPlanFile,
+  type PlaybookName,
+} from "../../../shared/index";
 import {
   agentPrompt,
   PII_RULE,
@@ -17,13 +21,10 @@ import {
   type ReportSection,
 } from "../../agent-prompt-rules";
 import {
-  FIX_PARSER,
   NEW_PARSER_REPORT,
-  PART_PARSERS,
   PARTED_PARSERS_REPORT,
   PRESETS_SECTION,
   triedParsers,
-  WRITE_PARSER,
 } from "../../parser-prompts";
 import type { AccountRefusal, RefusalOf } from "./outcome";
 
@@ -33,7 +34,6 @@ type PlanFile<Status extends AutoImportPlanFile["status"]> = Extract<
 >;
 
 const BOOKS_GUIDE = guideCommand("books");
-const PARSER_GUIDE = guideCommand("parser-guide");
 
 const REIMPORT = `Once it's fixed you may import the files again yourself ("Uploads" under
 "Reaching the app" in \`${BOOKS_GUIDE}\`).`;
@@ -79,12 +79,8 @@ export function unrecognizedPrompt(
     outcome: `Import ${file.file_name}, a statement format no saved parser recognises, by writing a parser for it.`,
     facts: `File: ${stagedAt(file)}
 ${triedParsers(file.candidate_parser_paths)}`,
-    how: `${WRITE_PARSER}
-Then tie it to my account in the import presets (${PRESETS_SECTION}):
-add_parser to the institution that covers this bank, or add_institution; and
-add_account with the identifier the parser emits if my account isn't listed.
-Ask me the bank, the account, its ledger account and whether it's a credit
-card when the file doesn't say.`,
+    playbook: "unrecognized-statement",
+    how: "It's for an account already in my books, which I import at /import.",
     report: [NEW_PARSER_REPORT, PRESETS_REPORT, REDROP_REPORT],
   });
 }
@@ -94,7 +90,7 @@ export function ambiguousPrompt(file: PlanFile<"ambiguous">): AgentPrompt {
     outcome: `Import ${file.file_name}, which more than one saved parser recognises, by making only one of them read it.`,
     facts: `File: ${stagedAt(file)}
 Parsers that read it: ${list(file.matching_parser_paths)}`,
-    how: PART_PARSERS,
+    playbook: "ambiguous-parsers",
     report: [
       PARTED_PARSERS_REPORT,
       PARSER_CHANGE("what changed in each parser."),
@@ -132,9 +128,8 @@ with parsers ["${file.parser_path}"]; then add_account to it`
     outcome: `Import ${file.file_name} by setting up the account it's for in the import presets.`,
     facts: `${unresolvedFacts(file)}
 Import presets: ${presets}`,
+    playbook: "unresolved-account",
     how: `In the import presets (${PRESETS_SECTION}): ${add}, ${identifiers}.
-Ask me its name, ledger account, whether it's a credit card and its
-custom_mappings_filenames when the other accounts don't show them.
 ${REIMPORT}`,
     report: [
       { heading: "Account", says: "the account the statement now goes to." },
@@ -153,10 +148,7 @@ export function identifierRequiredPrompt(
     facts: `${unresolvedFacts(file)}
 Accounts of "${institution}": ${list(file.candidate_account_names)}
 ${said(file.message)}`,
-    how: `Emit it as "Emitted account identifier" in \`${PARSER_GUIDE}\` says. ${FIX_PARSER}
-If the statement prints no identifier, stop and tell me: clearing an
-account's identifiers (update_account with account_identifiers []) works only
-for an institution with one account. Don't guess an identifier.`,
+    playbook: "identifier-required",
     report: [
       {
         heading: "Account number",
@@ -178,11 +170,7 @@ export function identifierMismatchPrompt(
     facts: `${unresolvedFacts(file)}
 Accounts of "${institution}": ${list(file.candidate_account_names)}
 ${said(file.message)}`,
-    how: `Ask me which account it is, then change the import presets (${PRESETS_SECTION}).
-A new account: add_account to "${institution}" with account_identifiers
-["${identifier}"], and ask me its name, ledger account and whether it's a
-credit card. One of those above, printed under another number: update_account
-with its whole account_identifiers list plus this one. Change no other account.`,
+    playbook: "identifier-mismatch",
     report: [
       { heading: "Account", says: "the account the statement now goes to." },
       PRESETS_REPORT,
@@ -222,7 +210,9 @@ interface RefusalTask {
    * server's message stands in; with them it would only repeat them.
    */
   facts?: string;
-  how: string;
+  /** The method; `how` adds only what this case needs beyond it. */
+  playbook?: PlaybookName;
+  how?: string;
   report: readonly ReportSection[];
 }
 
@@ -245,7 +235,8 @@ function refusalPrompt(
   return agentPrompt({
     outcome: `Import ${list(group.file_names)} into ${group.account_name}, which the importer refused because ${task.because}.`,
     facts,
-    how: `${task.how}\n${REIMPORT}`,
+    playbook: task.playbook,
+    how: task.how === undefined ? REIMPORT : `${task.how}\n${REIMPORT}`,
     report: task.report,
   });
 }
@@ -269,10 +260,7 @@ Difference: ${refusal.difference}`;
   return refusalPrompt(refusal, {
     because: "the statement's rows don't add up to its balances",
     facts: figures + hint,
-    how: `Compare the parser's output with the statement: opening, closing, every
-printed running balance, and whether the files cover the period with no gap.
-${FIX_PARSER}
-If a period is missing, change nothing and tell me its dates.`,
+    playbook: "balance-mismatch",
     report: [
       {
         heading: "What's wrong",
@@ -294,9 +282,7 @@ export function boundaryGapPrompt(
     facts: `${refusal.earlier_source} ends at: ${refusal.earlier_closing}
 ${refusal.later_source} starts at: ${refusal.later_opening}
 Difference: ${refusal.difference}`,
-    how: `Find the earlier file's last date and the later one's first, and whether rows
-at those edges explain the difference or a statement is missing.
-${FIX_PARSER}`,
+    playbook: "boundary-gap",
     report: [
       {
         heading: "What's wrong",
@@ -315,10 +301,7 @@ export function disagreementPrompt(
     because: `two of them disagree on ${refusal.date}`,
     facts: `Parts: ${list(refusal.parts)}
 First differing row: ${JSON.stringify(refusal.row)}`,
-    how: `Compare each file's rows on ${refusal.date} and find which is right. If both are,
-the importer should accept this, which is a change to dbu6 itself: tell me,
-don't patch it here.
-${FIX_PARSER}`,
+    playbook: "statement-disagreement",
     report: [
       {
         heading: "What's wrong",
@@ -337,9 +320,7 @@ export function partInvalidPrompt(
     because: `${refusal.part}'s own balances don't add up`,
     facts: `Part: ${refusal.part}
 Detail: ${refusal.detail}`,
-    how: `Compare the parser's opening, closing and running balances with the
-statement's, and decide whether the bank's export or the parser is wrong.
-${FIX_PARSER}`,
+    playbook: "part-invalid",
     report: [
       {
         heading: "What's wrong",
@@ -359,10 +340,7 @@ export function reconciliationPrompt(
     because: "they don't continue from the last statement balance in my books",
     facts: `Last statement balance in the books: ${refusal.checkpoint_balance} on ${date}
 ${said(refusal.message)}`,
-    how: `Compare my books and the statement around ${date}: the balance printed
-there, my transactions on and just before it, and the statement's rows that
-day. Find where they part: a missing or wrong transaction in my books, a
-statement in between that was never imported, or a statement problem.`,
+    playbook: "reconciliation",
     report: [
       {
         heading: "What's wrong",
@@ -380,14 +358,11 @@ statement in between that was never imported, or a statement problem.`,
 export function missingAccountPrompt(
   refusal: RefusalOf<"import_account_not_found">,
 ): AgentPrompt {
-  const { account_id, account_name } = refusal.failed_group;
+  const { account_id } = refusal.failed_group;
   return refusalPrompt(refusal, {
     because: "its import preset names a deleted ledger account",
     facts: `Deleted ledger account id: ${account_id}`,
-    how: `Ask me whether to recreate the ledger account (its name, type and parent)
-or import into another. Then point the preset at it in one batch:
-remove_account with account_id ${account_id}, and add_account with the new id
-and the same other fields (${PRESETS_SECTION}).`,
+    playbook: "missing-ledger-account",
     report: [
       { heading: "Account", says: "the ledger account it now imports into." },
       PRESETS_REPORT,
@@ -401,10 +376,7 @@ export function closingBalancePrompt(
 ): AgentPrompt {
   return refusalPrompt(refusal, {
     because: "the parser reads no closing balance from this card statement",
-    how: `If the statement prints a total amount due or closing balance, make the parser
-emit it as \`closing\` through abacus.ledger_balance (\`${PARSER_GUIDE}\`).
-${FIX_PARSER}
-If it prints none, stop and tell me what it prints about the amount owed.`,
+    playbook: "closing-balance",
     report: [
       {
         heading: "Closing balance",

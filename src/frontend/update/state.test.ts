@@ -10,6 +10,8 @@ import {
   updateState,
   statementsHref,
   waitingInUpdate,
+  type UpdateCard,
+  type UpdateView,
 } from "./state";
 
 function account(
@@ -30,6 +32,7 @@ function account(
     duplicates: 0,
     balance_checks: 0,
     failing_checks: 0,
+    add_first: [],
     ...overrides,
   };
 }
@@ -67,26 +70,32 @@ function sum(accounts: HomeLedgerAccount[], key: keyof DraftCounts): number {
   return accounts.reduce((total, a) => total + a[key], 0);
 }
 
+// The card of a state past the first run, which is a step to take.
+function stepCard(view: UpdateView): UpdateCard {
+  if ("kind" in view.card) throw new Error("expected a step card");
+  return view.card;
+}
+
 describe("updateState", () => {
-  it("starts setup with the chart when the books have none", () => {
+  it("offers Do my books, or the chart by hand, when the books have none", () => {
     const view = updateState(summary([], { has_chart: false }));
     expect(view.state).toBe("no-chart");
     expect(view.greeting).toBe("Let's set up your books");
     expect(view.card).toEqual({
-      title: "Start with a chart of accounts",
-      action: { label: "Start setup", to: "/setup" },
+      kind: "do-my-books",
+      byHand: { label: "Set up by hand", to: "/setup" },
     });
     // The card is the one thing to do: no empty list of accounts below it.
     expect(view.listsAccounts).toBe(false);
   });
 
-  it("asks for the first bank or card, on the first run, once there is a chart", () => {
+  it("offers Do my books, or the first bank or card by hand, once there is a chart", () => {
     const view = updateState(summary([]));
     expect(view.state).toBe("nothing-imported");
     expect(view.greeting).toBe("Let's set up your books");
     expect(view.card).toEqual({
-      title: "Add your first bank or card",
-      action: { label: "Add a bank or card", to: "/add?run=setup" },
+      kind: "do-my-books",
+      byHand: { label: "Add a bank or card", to: "/add?run=setup" },
     });
     expect(view.listsAccounts).toBe(false);
   });
@@ -109,10 +118,11 @@ describe("updateState", () => {
     expect(view.state).toBe("nothing-imported");
     expect(view.listsAccounts).toBe(true);
     // A preset whose account the books deleted isn't one to finish.
-    expect(view.card.body).toBe(
-      "Set up, no transactions yet: Sample Savings and Sample Card.",
-    );
-    expect(view.card.action.to).toBe("/add?run=setup");
+    expect(view.card).toEqual({
+      kind: "do-my-books",
+      body: "Set up, no transactions yet: Sample Savings and Sample Card.",
+      byHand: { label: "Add a bank or card", to: "/add?run=setup" },
+    });
   });
 
   it("says drafts are waiting, whatever they still need", () => {
@@ -140,7 +150,7 @@ describe("updateState", () => {
         }),
       ]),
     );
-    expect(view.card.action.to).toBe("/review");
+    expect(stepCard(view).action.to).toBe("/review");
   });
 
   it("sends drafts on unlisted accounts to the account picker", () => {
@@ -156,25 +166,22 @@ describe("updateState", () => {
       }),
     );
     expect(view.state).toBe("drafts");
-    expect(view.card.action.to).toBe("/review");
+    expect(stepCard(view).action.to).toBe("/review");
   });
 
   it("gives the only account with drafts its own Review", () => {
     // An account deleted from the ledger holds no drafts.
     const view = updateState(summary([account({ drafts: 21 }), deleted]));
-    expect(view.card.action.to).toBe("/review/2");
+    expect(stepCard(view).action.to).toBe("/review/2");
   });
 
   it("asks for new statements, without claiming up to date, when nothing is pending", () => {
     const view = updateState(summary([account()]));
     expect(view.state).toBe("import-new");
     expect(view.greeting).toBe("Update your books");
-    expect(view.card.count).toBeUndefined();
-    expect(view.card.title).toBe("Import new statements");
-    expect(view.card.body).toBeUndefined();
-    expect(view.card.action).toEqual({
-      label: "Import statements",
-      to: "/import",
+    expect(stepCard(view)).toEqual({
+      title: "Import new statements",
+      action: { label: "Import statements", to: "/import" },
     });
   });
 

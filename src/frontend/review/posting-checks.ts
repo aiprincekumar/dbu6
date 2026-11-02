@@ -1,4 +1,4 @@
-import type { PostingCheck } from "../../shared/index";
+import type { AddFirst, PostingCheck } from "../../shared/index";
 import { agree, plural } from "../format";
 
 /*
@@ -25,6 +25,19 @@ export function failingChecksText(count: number): string {
   return `${plural(count, "balance check")} ${agree(count, "fails", "fail")}`;
 }
 
+/** "Add HDFC Savings first", for balance checks that count its drafts. */
+export function addFirstText(addFirst: AddFirst): string {
+  return `Add ${accountsText(addFirst)} first`;
+}
+
+/** "HDFC Savings", "HDFC Savings and ICICI Card". */
+export function accountsText(accounts: AddFirst): string {
+  const names = accounts.map((account) => account.name);
+  return names.length === 1
+    ? names[0]
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /** A check in one line, whether it passes, blocks, or has nothing to check. */
 export function checkText(check: PostingCheck): string {
   switch (check.kind) {
@@ -44,7 +57,9 @@ export function checkText(check: PostingCheck): string {
         case "passes":
           return "Your books agree with the bank";
         case "blocks":
-          return failingChecksText(check.count);
+          return check.severity === "attention"
+            ? addFirstText(check.add_first)
+            : failingChecksText(check.count);
       }
   }
 }

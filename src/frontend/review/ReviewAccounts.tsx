@@ -17,6 +17,7 @@ import { Button } from "../components/ui/button";
 import { agree, formatDaySpan, plural } from "../format";
 import { reviewAccountsQuery } from "../queries";
 import { BooksSetUp, HandOffNote } from "./hand-off";
+import { checkText } from "./posting-checks";
 import { readReviewRun, reviewHref, withReviewRun } from "./routes";
 
 /**
@@ -168,6 +169,10 @@ function accountStatus(account: ReviewAccount): {
       tone: categorization.severity,
       label: `${categorization.count} ${agree(categorization.count, "needs", "need")} an account`,
     };
+  }
+  const balances = postingCheck(account, "balance-checks");
+  if (balances.state === "blocks") {
+    return { tone: balances.severity, label: checkText(balances) };
   }
   return { tone: "ok", label: "Ready to add" };
 }

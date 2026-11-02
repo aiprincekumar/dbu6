@@ -107,6 +107,7 @@ function homeSummary(waiting: number) {
       duplicates: 0,
       balance_checks: 0,
       failing_checks: 0,
+      add_first: [],
     })),
     totals: {
       drafts: waiting,

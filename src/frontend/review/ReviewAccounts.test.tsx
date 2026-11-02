@@ -63,6 +63,7 @@ function account(id: number, name: string): ReviewAccount {
     duplicates: 0,
     balance_checks: 0,
     failing_checks: 0,
+    add_first: [],
     draft_span: { first_date: "2026-09-01", last_date: "2026-09-15" },
   };
 }

@@ -63,18 +63,22 @@ export {
   type AccountKind,
 } from "./account-kind.js";
 export {
+  addFirstSchema,
   draftCountsSchema,
   NO_DRAFTS,
   POSTING_CHECK_KINDS,
   postingCheck,
   postingChecks,
   postingBlocks,
+  postingInputsSchema,
   isBlock,
   isProblem,
+  type AddFirst,
   type DraftCounts,
   type PostingCheck,
   type PostingCheckKind,
   type PostingBlock,
+  type PostingInputs,
   type ProblemBlock,
 } from "./posting-checks.js";
 export { datedBalanceSchema, type DatedBalance } from "./dated-balance.js";
@@ -180,6 +184,13 @@ export {
   type AgentHandoff,
   type AgentHandoffErrorBody,
 } from "./agent-handoff.js";
+export {
+  statementInboxContract,
+  statementInboxBatchSchema,
+  statementInboxFileSchema,
+  type StatementInboxBatch,
+  type StatementInboxFile,
+} from "./statement-inbox.js";
 export { journalsContract } from "./journals.js";
 export {
   hledgerExportContract,

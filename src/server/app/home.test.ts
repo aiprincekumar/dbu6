@@ -119,6 +119,7 @@ describe("Home summary", () => {
         duplicates: 1,
         balance_checks: 1,
         failing_checks: 1,
+        add_first: [],
       },
       {
         in_ledger: true,
@@ -135,6 +136,7 @@ describe("Home summary", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
+        add_first: [],
       },
     ]);
     // Drafts on the account no preset lists still count towards the totals.

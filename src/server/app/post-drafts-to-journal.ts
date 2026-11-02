@@ -5,9 +5,12 @@ import {
 } from "@sapporta/server";
 import {
   draftTransactionsContract,
+  type ImportInstitution,
   type PostingBlock,
 } from "../../shared/index.js";
 import type { Ledger } from "../modules/ledger-sql/index.js";
+import { loadImportPresets } from "../modules/import-presets/index.js";
+import { accountNames } from "./account-names.js";
 import { postDrafts } from "../workflows/posting.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
@@ -18,9 +21,11 @@ api.register(
   "postDraftsToJournal",
   draftTransactionsContract.postDraftsToJournal,
   async ({ c, request }) => {
+    const ledger = requireWorkflowLedger(c);
     return postDraftsToJournal(
-      requireWorkflowLedger(c),
+      ledger,
       request.body.base_account_id,
+      loadImportPresets(ledger.db, ledger.auth),
     );
   },
 );
@@ -32,12 +37,17 @@ type PostingResponse = ServerInferResponses<
   200 | 404 | 422
 >;
 
-/** Posts one account's drafts, answered in the contract's terms. */
+/**
+ * Posts one account's drafts, answered in the contract's terms, the accounts
+ * named as the presets' `institutions` name them.
+ */
 export function postDraftsToJournal(
   ledger: Ledger,
   base_account_id: number,
+  institutions: readonly ImportInstitution[],
 ): PostingResponse {
-  const outcome = postDrafts(ledger, base_account_id);
+  const names = accountNames(ledger.sqlite, ledger.auth, institutions);
+  const outcome = postDrafts(ledger, base_account_id, names);
   // Entries posted after the writer's last run get their comments now.
   if (outcome.kind === "posted") writeCommentsSoon();
   switch (outcome.kind) {
@@ -80,6 +90,17 @@ function refusal(block: PostingBlock, account: string): PostingResponse {
         },
       };
     case "balance-checks":
+      if (block.severity === "attention") {
+        const names = block.add_first.map((other) => other.name).join(", ");
+        return {
+          status: 422,
+          body: {
+            error: `${account}'s balance checks rely on drafts from ${names}. Add ${names} first.`,
+            code: "ADD_OTHER_ACCOUNT_FIRST",
+            add_first: block.add_first,
+          },
+        };
+      }
       return {
         status: 422,
         body: {

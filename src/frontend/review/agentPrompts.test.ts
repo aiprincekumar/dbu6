@@ -53,6 +53,7 @@ function detail(overrides: Partial<ReviewAccountDetail>): ReviewAccountDetail {
       duplicates: 0,
       balance_checks: 13,
       failing_checks: 0,
+      add_first: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
     },
     checkpoint: { date: "2026-08-31", balance: 250000 },
@@ -84,12 +85,34 @@ describe("duplicatesPrompt", () => {
     expect(prompt).toContain(
       '- 2026-09-05 · withdrawal 12000.00 · draft 812 "NOPII CARD PAYMENT" · journal 31 "NOPII payment received" (Sample Card) · base-account-payment, 80%',
     );
-    // How duplicates are found is the books guide's; the prompt names it.
-    expect(prompt).toMatch(/"Is this a duplicate\?" in\s`npx dbu6 docs books`/);
+    // How duplicates are settled is the playbook's; the prompt names it.
+    expect(prompt).toContain("Follow `npx dbu6 docs playbook duplicates`.");
     // A user's project holds none of dbu6's source, so no file of it is named.
     expect(prompt).not.toMatch(/packages\/|src\/|\.ts\b/);
     expect(prompt).toContain(PLAN_FIRST_RULE);
     expect(prompt).toMatch(/\n\*\*Next\*\*: ask whether to apply it\.$/);
+  });
+
+  it("names the other statement's account for a transfer both statements print", () => {
+    const prompt = duplicatesPrompt(
+      detail({
+        duplicates: [
+          {
+            ...duplicate(812),
+            other_draft_id: 640,
+            matched_journal_id: null,
+            matched_journal_entry_id: null,
+            match_kind: "draft-transfer",
+            match_type: "other-statement-transfer",
+            matched_account: "Sample Savings",
+          },
+        ],
+      }),
+    );
+
+    expect(prompt).toContain(
+      `· Sample Savings's draft 640 "NOPII payment received" (a transfer on both statements) · other-statement-transfer, 80%`,
+    );
   });
 
   it("lists at most 50 duplicates and leaves the rest to the app", () => {
@@ -116,9 +139,7 @@ describe("balanceChecksPrompt", () => {
     expect(prompt).toContain(
       "- 2026-09-05 · draft 901 · running 340000.00 · statement 330000.00 · difference 10000.00",
     );
-    expect(prompt).toMatch(
-      /"When a balance\scheck fails" in\s`npx dbu6 docs books`/,
-    );
+    expect(prompt).toContain("Follow `npx dbu6 docs playbook balance-checks`.");
     expect(prompt).not.toMatch(/packages\/|src\/|\.ts\b/);
     expect(prompt).not.toContain("more (read them");
     expect(prompt).toContain("**What's wrong**: why the running balance");

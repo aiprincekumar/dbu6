@@ -4,6 +4,7 @@ import {
   type DatedBalance,
   type DateSpan,
   type DraftCounts,
+  type PostingInputs,
 } from "../../../shared/index.js";
 import {
   duplicateDraftRowsSql,
@@ -13,6 +14,7 @@ import {
   type DuplicateDraftSourceRow,
   type DuplicateJournalEntrySourceRow,
   baseAccountRunningBalanceCtes,
+  otherStatementDraftSql,
   draftOrderSql,
   failingDraftAssertionsSelect,
 } from "../reconciliation/index.js";
@@ -52,6 +54,8 @@ export interface DraftAccountStatus {
   closing: DatedBalance | null;
   failing: FailingCheck[];
   duplicates: DuplicateDiagnostic[];
+  /** Accounts whose drafts its balance checks rely on, by id (`addFirst`). */
+  add_first: number[];
 }
 
 /** Narrows every query to one base account. */
@@ -123,6 +127,7 @@ export function loadDraftStatus(
     findDraftDuplicates(sqlite, auth, filter),
     (row) => row.base_account_id,
   );
+  const addFirstById = addFirst(sqlite, auth);
 
   return new Map(
     counts.map((row) => {
@@ -140,13 +145,17 @@ export function loadDraftStatus(
             : null,
           failing: failingById.get(row.account_id) ?? [],
           duplicates: duplicatesById.get(row.account_id) ?? [],
+          add_first: addFirstById.get(row.account_id) ?? [],
         },
       ];
     }),
   );
 }
 
-/** An account's counts, as the contracts carry them; none without drafts. */
+/**
+ * An account's counts, as the contracts carry them; none without drafts.
+ * The accounts it waits for are apart, in `postingInputs`.
+ */
 export function draftCounts(
   status: DraftAccountStatus | undefined,
 ): DraftCounts {
@@ -157,6 +166,24 @@ export function draftCounts(
     duplicates: status.duplicates.length,
     balance_checks: status.balance_checks,
     failing_checks: status.failing.length,
+  };
+}
+
+/**
+ * What the posting checks decide from: the counts, and the accounts to add
+ * first, named as `names` has them, the caller's names for the ledger's
+ * accounts.
+ */
+export function postingInputs(
+  status: DraftAccountStatus | undefined,
+  names: ReadonlyMap<number, string>,
+): PostingInputs {
+  return {
+    ...draftCounts(status),
+    add_first: (status?.add_first ?? []).map((accountId) => ({
+      account_id: accountId,
+      name: names.get(accountId) ?? `account ${accountId}`,
+    })),
   };
 }
 
@@ -179,9 +206,10 @@ export function findFailingChecks(
 }
 
 /**
- * Drafts that look like another draft or a posted entry. A draft only ever
- * matches drafts of its own account, and posted entries of any, so narrowing
- * the drafts to one account leaves that account's rows unchanged.
+ * Drafts that look like another draft or a posted entry. A draft matches
+ * drafts of its own account, posted entries of any, and the drafts of other
+ * accounts categorized to its own. Narrowing to one account loads its drafts
+ * and those, and keeps only its rows, which leaves them unchanged.
  */
 export function findDraftDuplicates(
   sqlite: Database.Database,
@@ -191,16 +219,83 @@ export function findDraftDuplicates(
   const drafts = allRows<DuplicateDraftSourceRow>(
     sqlite,
     auth,
-    `${duplicateDraftRowsSql}${accountCondition(filter, "dt.base_account_id")}`,
+    filter.accountId === undefined
+      ? duplicateDraftRowsSql
+      : `${duplicateDraftRowsSql}
+        AND (dt.base_account_id = @accountId OR dt.account_id = @accountId)`,
     accountParams(filter),
   );
-  if (drafts.length === 0) return [];
+  if (!drafts.some((draft) => inFilter(filter, draft.base_account_id))) {
+    return [];
+  }
   const journalEntries = allRows<DuplicateJournalEntrySourceRow>(
     sqlite,
     auth,
     duplicateJournalEntryRowsSql,
   );
-  return findDuplicateDiagnostics(drafts, journalEntries);
+  return findDuplicateDiagnostics(drafts, journalEntries).filter((row) =>
+    inFilter(filter, row.base_account_id),
+  );
+}
+
+function inFilter(filter: DraftStatusFilter, accountId: number): boolean {
+  return filter.accountId === undefined || filter.accountId === accountId;
+}
+
+type RelianceRow = { account_id: number; other_id: number };
+
+/**
+ * The accounts each account must wait for (`add_first` in the posting
+ * checks), by id: the other accounts with a draft categorized to it dated on
+ * or before its last draft balance check, which that check counts. An
+ * account that, through others, relies on this one back is left out, so two
+ * accounts never each wait for the other. Read over every account, since a
+ * reliance back can run through any.
+ */
+export function addFirst(
+  sqlite: Database.Database,
+  auth: LedgerAuth,
+): Map<number, number[]> {
+  const rows = allRows<RelianceRow>(
+    sqlite,
+    auth,
+    `
+    , last_check AS (
+      SELECT base_account_id AS account_id, MAX(date) AS date
+      FROM scoped_draft_transactions
+      WHERE base_account_id IS NOT NULL
+        AND balance_assertion_base_account IS NOT NULL
+      GROUP BY base_account_id
+    )
+    SELECT DISTINCT lc.account_id, dt.base_account_id AS other_id
+    FROM last_check lc
+    JOIN scoped_draft_transactions dt
+      ON ${otherStatementDraftSql("dt")}
+      AND dt.account_id = lc.account_id
+      AND dt.date <= lc.date`,
+  );
+  const reliesOn = groupBy(rows, (row) => row.account_id);
+  const reaches = (from: number, to: number): boolean => {
+    const seen = new Set<number>();
+    const stack = [from];
+    while (stack.length > 0) {
+      const id = stack.pop()!;
+      if (id === to) return true;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      for (const row of reliesOn.get(id) ?? []) stack.push(row.other_id);
+    }
+    return false;
+  };
+  const waits = new Map<number, number[]>();
+  for (const [accountId, others] of reliesOn) {
+    const first = others
+      .filter((row) => !reaches(row.other_id, accountId))
+      .map((row) => row.other_id)
+      .sort((a, b) => a - b);
+    if (first.length > 0) waits.set(accountId, first);
+  }
+  return waits;
 }
 
 function accountCondition(

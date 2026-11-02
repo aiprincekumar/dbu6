@@ -32,6 +32,7 @@ import {
   reviewContract,
   searchContract,
   setupContract,
+  statementInboxContract,
 } from "../shared/index";
 
 /**
@@ -118,6 +119,11 @@ export const setupApi = createApiClient(setupContract, {
 });
 
 export const commentWriterApi = createApiClient(commentWriterContract, {
+  baseUrl: getApiBase,
+});
+
+// Saving to the inbox is multipart, sent by run/inbox.ts; this lists it.
+export const statementInboxApi = createApiClient(statementInboxContract, {
   baseUrl: getApiBase,
 });
 

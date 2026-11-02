@@ -21,6 +21,7 @@ import {
 } from "@sapporta/server";
 import { printAppUrl } from "./app-url.js";
 import addAccountApi from "./app/add-account.js";
+import statementInboxApi from "./app/statement-inbox.js";
 import accountsApi from "./app/accounts.js";
 import agentHandoffApi from "./app/agent-handoff.js";
 import categorizationRuleRequestsApi from "./app/categorization-rule-requests.js";
@@ -121,6 +122,7 @@ export function loadDbu6App(
   mountApi(api, openingBalancesApi);
   mountApi(api, setupApi());
   mountApi(api, addAccountApi(loadCategorizer));
+  mountApi(api, statementInboxApi);
   mountApi(api, agentHandoffApi);
   mountApi(api, codingAgentApi);
   mountApi(api, commentWriterApi);

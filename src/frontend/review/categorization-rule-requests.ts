@@ -9,7 +9,6 @@
 // categorizer.
 
 import {
-  guideCommand,
   type CategorizationRuleRequest,
   type CategorizationRuleRequestTransaction,
   type ReviewAccountDetail,
@@ -54,8 +53,7 @@ export function amountsSeen(
 
 /**
  * The rule requests, as the user made them, handed to the coding agent to
- * encode. The books guide's mapping section says how; the prompt adds what
- * these drafts make easy to get wrong.
+ * encode, as the rule-requests playbook says.
  */
 export function ruleRequestsPrompt(
   detail: ReviewAccountDetail,
@@ -69,9 +67,8 @@ Screen: ${reviewHref(account.account_id, IMPROVE_CATEGORIZATION_TAB)}
 
 Rule requests (date · out or in, amount · description):
 ${ruleRequests.map((ruleRequest, index) => ruleRequestText(account.account_id, ruleRequest, index)).join("\n\n")}`,
-    how: `${RULE_FACTS}
-
-${DELETE_ENCODED}`,
+    playbook: "rule-requests",
+    how: USER_RUNS_CATEGORIZER,
     report: [
       {
         heading: "Rules added",
@@ -84,19 +81,11 @@ ${DELETE_ENCODED}`,
 }
 
 /**
- * What a prompt asking for rules needs beyond the books guide's mapping
- * section: the limits it sets out, put where these drafts trip on them.
+ * What a prompt asking for rules adds to its playbook: from Review, the user
+ * runs the categorizer, so the agent leaves it alone.
  */
-export const RULE_FACTS = `The categorizer sees a draft's description, direction and amount, never its
-date. How it was paid (UPI, NEFT, card) is not something drafts share. Round
-an amount range out (60–480 becomes 50–500). My user-config/ files may name
-payees and amounts. Don't run the categorizer: I run it from the app. The
-rest is under "Always put this under X — adding a mapping" in
-\`${guideCommand("books")}\`.`;
-
-/** Takes a rule request off the user's list once the agent is done with it. */
-export const DELETE_ENCODED = `Delete a rule request once it's encoded, or when I drop it:
-\`npx sapporta api delete /api/categorization-rule-requests/<rule request id>\`.`;
+export const USER_RUNS_CATEGORIZER =
+  "Don't run the categorizer: I run it from the app.";
 
 /** The account line both categorization prompts open their facts with. */
 export function accountLine(detail: ReviewAccountDetail): string {

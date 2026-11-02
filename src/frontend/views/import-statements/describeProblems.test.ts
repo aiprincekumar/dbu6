@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GUIDES,
   guideCommand,
+  playbookCommand,
   refusalPromptsAgent,
   type AutoImportGroupResult,
   type AutoImportPlanFile,
@@ -171,13 +172,9 @@ describe("plan rejections", () => {
     // repository it starts in, instead of describing the file.
     const prompt = problem.agent?.prompt;
     expect(prompt).toContain(staged("notes.txt"));
-    // The guides are inside the installed package, so the prompt names the
-    // commands that print them; the presets change through the app's route.
-    expect(prompt).toContain(guideCommand("parsers"));
-    expect(prompt).toContain(guideCommand("parser-guide"));
-    expect(prompt).toContain(guideCommand("books"));
-    expect(prompt).toContain('"Import presets"');
-    expect(prompt).toContain("add_parser");
+    // The method is inside the installed package, so the prompt names the
+    // command that prints its playbook.
+    expect(prompt).toContain(playbookCommand("unrecognized-statement"));
     expect(prompt).not.toContain("curl");
     expect(problem.technical).toContain("auto_import_files_unresolved");
 
@@ -350,12 +347,11 @@ describe("plan rejections", () => {
     });
     expect(factValues(problem)).toContain("Sample Savings");
     // A new account on the institution, or the identifier on an account it
-    // has.
+    // has: the playbook's choice, from these facts.
     const prompt = problem.agent?.prompt;
     expect(prompt).toContain("050505000099");
     expect(prompt).toContain("Sample Savings");
-    expect(prompt).toContain("add_account");
-    expect(prompt).toContain("update_account");
+    expect(prompt).toContain(playbookCommand("identifier-mismatch"));
   });
 
   it("asks the parser for the identifier the institution's accounts need", () => {
@@ -382,7 +378,7 @@ describe("plan rejections", () => {
     const prompt = problem.agent?.prompt;
     expect(prompt).toContain(BANK_PARSER);
     expect(prompt).toContain("Sample Savings");
-    expect(prompt).toContain(guideCommand("parser-guide"));
+    expect(prompt).toContain(playbookCommand("identifier-required"));
   });
 });
 
@@ -632,13 +628,10 @@ describe("account import failures", () => {
     expect(problem.actions).toEqual([
       expect.objectContaining({ kind: "link", to: "/accounts" }),
     ]);
-    // The dangling id is replaced by removing the preset account and adding
-    // it again with the new one.
+    // The dangling id is replaced as the playbook says.
     const prompt = problem.agent?.prompt;
-    expect(prompt).toContain("remove_account");
-    expect(prompt).toContain("add_account");
-    expect(prompt).toContain('"Import presets"');
-    expect(prompt).toContain(guideCommand("books"));
+    expect(prompt).toContain(playbookCommand("missing-ledger-account"));
+    expect(prompt).toContain("Deleted ledger account id:");
   });
 
   it("gives the codes without a problem of their own one shared problem and a full-payload prompt", () => {

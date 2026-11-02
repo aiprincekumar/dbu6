@@ -108,6 +108,7 @@ describe("loadDraftStatus", () => {
       closing: null,
       failing: [],
       duplicates: [],
+      add_first: [],
     });
   });
 
@@ -134,10 +135,72 @@ describe("loadDraftStatus", () => {
   });
 });
 
+describe("addFirst", () => {
+  /*
+   * Drafts of three statement accounts, Sample Savings (2), Sample Card (6)
+   * and Sample Wallet (7), each with a balance check on 10 Mar. The bank's
+   * draft paying the card is categorized to it, so the card waits for the
+   * bank.
+   */
+  function withTransfers(extra = ""): Database.Database {
+    const sqlite = ledger();
+    sqlite.exec(`
+      DELETE FROM draft_transactions;
+      INSERT INTO accounts VALUES
+        (6, 'workspace', 'user', 'Sample Card', NULL, 'Liability'),
+        (7, 'workspace', 'user', 'Sample Wallet', NULL, 'Asset');
+      INSERT INTO draft_transactions VALUES
+        (301, 'workspace', 'user', '2026-03-10', 'NOPII interest', 0, 10, 1, 2, 1510, NULL, 'k-301', NULL),
+        (302, 'workspace', 'user', '2026-03-10', 'NOPII shop', 10, 0, 3, 6, -10, NULL, 'k-302', NULL),
+        (303, 'workspace', 'user', '2026-03-10', 'NOPII top-up', 0, 10, 1, 7, 10, NULL, 'k-303', NULL),
+        (304, 'workspace', 'user', '2026-03-05', 'NOPII card payment', 10, 0, 6, 2, NULL, NULL, 'k-304', NULL);
+      ${extra}
+    `);
+    return sqlite;
+  }
+
+  const waits = (sqlite: Database.Database) =>
+    Object.fromEntries(
+      Array.from(loadDraftStatus(sqlite, auth)).map(([id, status]) => [
+        id,
+        status.add_first,
+      ]),
+    );
+
+  it("lists the account whose draft a balance check counts", () => {
+    expect(waits(withTransfers())).toEqual({
+      2: [],
+      6: [2],
+      7: [],
+    });
+  });
+
+  it("leaves out a draft dated after the last balance check", () => {
+    const sqlite = withTransfers(
+      `UPDATE draft_transactions SET date = '2026-03-11' WHERE id = 304`,
+    );
+    expect(waits(sqlite)[6]).toEqual([]);
+  });
+
+  it("never has accounts wait for each other, even through a third", () => {
+    const sqlite = withTransfers(`
+      INSERT INTO draft_transactions VALUES
+        (305, 'workspace', 'user', '2026-03-06', 'NOPII to wallet', 5, 0, 7, 6, NULL, NULL, 'k-305', NULL),
+        (306, 'workspace', 'user', '2026-03-07', 'NOPII to bank', 5, 0, 2, 7, NULL, NULL, 'k-306', NULL);
+    `);
+    expect(waits(sqlite)).toEqual({ 2: [], 6: [], 7: [] });
+  });
+});
+
 describe("postingChecks", () => {
   it("passes every check when the drafts are categorised and clean", () => {
     expect(
-      postingChecks({ ...NO_DRAFTS, drafts: 21, balance_checks: 13 }),
+      postingChecks({
+        ...NO_DRAFTS,
+        add_first: [],
+        drafts: 21,
+        balance_checks: 13,
+      }),
     ).toEqual([
       { kind: "categorization", state: "passes", drafts: 21 },
       { kind: "duplicates", state: "passes" },
@@ -146,7 +209,7 @@ describe("postingChecks", () => {
   });
 
   it("has no balance checks to pass when the drafts carry none, which doesn't block", () => {
-    const counts = { ...NO_DRAFTS, drafts: 21 };
+    const counts = { ...NO_DRAFTS, add_first: [], drafts: 21 };
     expect(postingCheck(counts, "balance-checks")).toEqual({
       kind: "balance-checks",
       state: "none",
@@ -157,6 +220,7 @@ describe("postingChecks", () => {
   it("lists every block in tab order, problems marked apart from categorization", () => {
     expect(
       postingBlocks({
+        add_first: [],
         drafts: 21,
         uncategorised: 12,
         duplicates: 2,

@@ -14,6 +14,11 @@ export const GUIDES = {
     file: "DBU6-BOOKS.md",
     title: "Working with the books through the HTTP API",
   },
+  run: {
+    file: "docs/run-guide.md",
+    title:
+      "Doing the books from a pile of statements in one session, up to adding them",
+  },
   parsers: {
     file: "custom-built-parsers/README.md",
     title: "Statement parsers: conventions and the Abacus JSON contract",
@@ -61,4 +66,45 @@ export type GuideName = keyof typeof GUIDES;
 /** The command that prints a guide, as a prompt tells the agent to run it. */
 export function guideCommand(name: GuideName): string {
   return `npx dbu6 docs ${name}`;
+}
+
+// The playbooks: one problem each, with its method, printed by
+// `npx dbu6 docs playbook <name>` from `docs/playbooks/<name>.md`. A per-step
+// prompt names its playbook through `playbookCommand` and keeps only what
+// the screen knows (the case's facts, the outcome, the report's headings);
+// the run guide sends the agent to the same files. They are a map of their
+// own so the GUIDES names, which prompts and AGENTS.md already use, stay put,
+// and `npx dbu6 docs` stays a short list. Like a guide's, a name is not
+// renamed once a release has shipped it. Each file's first line is its
+// title.
+export const PLAYBOOKS = [
+  "unrecognized-statement",
+  "ambiguous-parsers",
+  "unresolved-account",
+  "identifier-required",
+  "identifier-mismatch",
+  "balance-mismatch",
+  "boundary-gap",
+  "statement-disagreement",
+  "part-invalid",
+  "reconciliation",
+  "missing-ledger-account",
+  "closing-balance",
+  "categorize",
+  "rule-requests",
+  "duplicates",
+  "balance-checks",
+  "cross-account-transfers",
+] as const;
+
+export type PlaybookName = (typeof PLAYBOOKS)[number];
+
+/** A playbook's file, relative to the package directory. */
+export function playbookFile(name: PlaybookName): string {
+  return `docs/playbooks/${name}.md`;
+}
+
+/** The command that prints a playbook, as a prompt tells the agent to run it. */
+export function playbookCommand(name: PlaybookName): string {
+  return `npx dbu6 docs playbook ${name}`;
 }

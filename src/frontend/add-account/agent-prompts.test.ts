@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guideCommand } from "../../shared/index";
+import { playbookCommand } from "../../shared/index";
 import { addAmbiguousPrompt, addUnrecognizedPrompt } from "./agent-prompts";
 
 /*
@@ -27,11 +27,9 @@ describe("a file no parser reads", () => {
     expect(prompt).toMatch(/^Outcome: Add a bank account or card from /);
     expect(prompt).toContain(`File: ${UNRECOGNIZED.saved_path}`);
     expect(prompt).toContain("Parsers that rejected it: sample-bank-pdf");
-    expect(prompt).toContain(guideCommand("parser-guide"));
-    expect(prompt).toContain("add_parser");
-    expect(prompt).toContain("add_institution");
+    expect(prompt).toContain(playbookCommand("unrecognized-statement"));
     expect(prompt).not.toContain("add_account");
-    expect(prompt).toContain("Never add an account");
+    expect(prompt).toContain("add no account");
     expect(prompt).not.toContain("/import");
     expect(prompt).toContain("**Next**: drop the files at /add again.");
   });
@@ -44,6 +42,7 @@ describe("a file several parsers claim", () => {
       "Parsers that read it: sample-bank-pdf, sample-card-pdf",
     );
     expect(prompt).toContain(AMBIGUOUS.saved_path);
+    expect(prompt).toContain(playbookCommand("ambiguous-parsers"));
     expect(prompt).not.toContain("/import");
     expect(prompt).not.toContain("add_account");
     expect(prompt).toContain("**Next**: drop the files at /add again.");

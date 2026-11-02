@@ -41,6 +41,7 @@ const USAGE = `dbu6 <command>
   parser test [name]           run a parser's tests, or all of the project's
   parser run <name> <input>    run a parser on a statement file
   docs [name]                  print a guide for coding agents; lists them with no name
+  docs playbook [name]         print a playbook, one problem's method; lists them with no name
   agent env                    give this project's coding agents a Sapporta token (.env.agent)
   init <directory>             create a project: the template, npm install, setup, migrate, first commit
   --version                    print the installed dbu6 version
@@ -64,7 +65,7 @@ export async function main(args: string[]): Promise<number> {
       console.log(packageVersion());
       return 0;
     case "docs":
-      return printDocs(rest[0]);
+      return printDocs(rest);
     case "init":
       return initCommand(rest, runCommand);
     case undefined:

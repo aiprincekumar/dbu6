@@ -23,6 +23,7 @@ function detail(
       duplicates: 0,
       balance_checks: 13,
       failing_checks: 0,
+      add_first: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
       ...account,
     },
@@ -113,6 +114,22 @@ describe("overviewView", () => {
         "/review/2/balance-checks",
       ],
     ]);
+  });
+
+  it("waits for the account whose drafts the balance checks count, linking to it", () => {
+    const view = overviewView(
+      detail({ add_first: [{ account_id: 7, name: "Sample Bank" }] }),
+    );
+
+    expect(view.verdict).toBe("Not ready to add yet");
+    expect(view.waiting).toBe("Add Sample Bank first");
+    expect(view.checks[2]).toEqual({
+      check: "balance-checks",
+      tone: "attention",
+      text: "Add Sample Bank first",
+      note: "Balance checks pass, counting drafts from Sample Bank",
+      link: { label: "Review Sample Bank", to: "/review/7" },
+    });
   });
 
   it("doesn't block drafts that carry no balance checks", () => {

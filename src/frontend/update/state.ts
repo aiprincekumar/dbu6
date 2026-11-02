@@ -13,12 +13,13 @@ import { SETUP_ROUTE } from "../setup/routes";
 import { joinNames, plural } from "../format";
 
 /*
- * What Update says, as a pure function of the summary (PLAN.md "Home");
+ * What Update says, as a pure function of the summary;
  * Overview shows its card too until anything is posted. In
  * precedence order: no chart, then drafts waiting, then nothing imported
  * (no bank or card yet, or only ones set up with no transactions), then new
- * statements to import. The first two open the first run: /setup's chart,
- * then /add's cards. Update only says that drafts are waiting; what they
+ * statements to import. No chart and nothing imported are the first run,
+ * whose one card is "Do my books": drop every statement for a coding agent's
+ * run, or set up by hand, at /setup's chart or /add's cards. Update only says that drafts are waiting; what they
  * still need is Review's to say. An empty Review doesn't mean the books are
  * up to date: a statement may not have been imported yet, so Update never
  * says so.
@@ -55,11 +56,21 @@ export interface UpdateCard {
   action: UpdateLink;
 }
 
+/**
+ * The first run's card: drop every statement for a coding agent's run
+ * (`DoMyBooks`), or set up by hand.
+ */
+export interface RunCard {
+  kind: "do-my-books";
+  body?: string;
+  byHand: UpdateLink;
+}
+
 export interface UpdateView {
   state: UpdateStateId;
   /** The page heading: the first run's, else the page's own. */
   greeting: string;
-  card: UpdateCard;
+  card: UpdateCard | RunCard;
   /**
    * Whether the page lists the accounts under the card: not before there
    * are any, when the card's is the one thing to do.
@@ -81,8 +92,8 @@ export function updateState(summary: HomeSummary): UpdateView {
       state: "no-chart",
       greeting: FIRST_RUN_GREETING,
       card: {
-        title: "Start with a chart of accounts",
-        action: { label: "Start setup", to: SETUP_ROUTE },
+        kind: "do-my-books",
+        byHand: { label: "Set up by hand", to: SETUP_ROUTE },
       },
       listsAccounts: false,
     };
@@ -109,9 +120,9 @@ export function updateState(summary: HomeSummary): UpdateView {
       state: "nothing-imported",
       greeting: FIRST_RUN_GREETING,
       card: {
-        title: "Add your first bank or card",
+        kind: "do-my-books",
         body: waiting ? `Set up, no transactions yet: ${waiting}.` : undefined,
-        action: { label: "Add a bank or card", to: statementsHref(summary) },
+        byHand: { label: "Add a bank or card", to: statementsHref(summary) },
       },
       listsAccounts: accounts.length > 0,
     };

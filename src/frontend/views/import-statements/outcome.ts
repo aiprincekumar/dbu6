@@ -148,7 +148,8 @@ function readFailure(status: number, body: unknown): ImportFailure {
         files: refusal.files,
       };
     case "missing_multipart_field":
-      // The screen never sends a batch without files.
+    case "not_in_inbox":
+      // The screen never sends a batch without files, nor inbox files.
       return { kind: "unexpected", status, body };
   }
 }

@@ -4,7 +4,7 @@ import {
   deleteAccountDrafts,
   partitionByCategorization,
   loadCategorizedDrafts,
-  draftCounts,
+  postingInputs,
   loadDraftStatus,
 } from "../modules/drafts/index.js";
 import { planJournals } from "../modules/journal-plan/index.js";
@@ -26,11 +26,13 @@ export type PostingOutcome =
 
 /**
  * Adds one account's drafts to the books: a journal per draft, the drafts
- * deleted. Refuses while the draft status shows anything that blocks.
+ * deleted. Refuses while the draft status shows anything that blocks, with
+ * the accounts to add first named as `names` has them.
  */
 export function postDrafts(
   { db, sqlite, auth }: Ledger,
   baseAccountId: number,
+  names: ReadonlyMap<number, string>,
 ): PostingOutcome {
   const loaded = loadCategorizedDrafts(db, baseAccountId, auth);
   if (loaded === null) return { kind: "account-not-found" };
@@ -39,7 +41,7 @@ export function postDrafts(
   const status = loadDraftStatus(sqlite, auth, {
     accountId: baseAccountId,
   }).get(baseAccountId);
-  const [block] = postingBlocks(draftCounts(status));
+  const [block] = postingBlocks(postingInputs(status, names));
   if (block) {
     return { kind: "blocked", block, baseAccountName: loaded.baseAccountName };
   }

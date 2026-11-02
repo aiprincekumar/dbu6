@@ -29,8 +29,10 @@ import {
   loadCategorizationRuleRequest,
   loadDraftsById,
   saveReclassifiedDrafts,
+  settleTransferDrafts,
   type ReclassifiedDraft,
 } from "../modules/drafts/index.js";
+import { isTransferPair } from "../modules/reconciliation/index.js";
 import type { Ledger, LedgerAuth } from "../modules/ledger-sql/index.js";
 
 export interface ClassifiedDraftTransaction {
@@ -182,6 +184,75 @@ function checkDraftsAccount(
     return { kind: "own-account" };
   }
   return { kind: "valid", drafts };
+}
+
+export type SettleTransferOutcome =
+  | {
+      kind: "settled";
+      keptDraftId: number;
+      deletedDraftId: number;
+      clearedBalances: number;
+    }
+  | { kind: "drafts-not-found"; ids: number[] }
+  | { kind: "not-a-transfer" };
+
+/**
+ * One transfer on two statements, as two drafts of two accounts, settled into
+ * one: the earlier draft stays, sent to the other account, and dates the
+ * transfer on both; the later is deleted. Refused unless one of them is the
+ * other account's draft of the same transfer, as reconciliation matches them.
+ */
+export function settleTransfer(
+  ledger: Ledger,
+  ids: readonly [number, number],
+): SettleTransferOutcome {
+  const { db, auth } = ledger;
+  const drafts = loadDraftsById(db, [...new Set(ids)], auth);
+  if (drafts.length !== 2) {
+    const found = new Set(drafts.map((draft) => draft.id));
+    return {
+      kind: "drafts-not-found",
+      ids: ids.filter((id) => !found.has(id)),
+    };
+  }
+  const [a, b] = drafts;
+  if (a.base_account_id === null || b.base_account_id === null) {
+    return { kind: "not-a-transfer" };
+  }
+  const sideA = {
+    ...a,
+    base_account_id: a.base_account_id,
+    date: formatPlainDate(a.date),
+  };
+  const sideB = {
+    ...b,
+    base_account_id: b.base_account_id,
+    date: formatPlainDate(b.date),
+  };
+  if (!isTransferPair(sideA, sideB) && !isTransferPair(sideB, sideA)) {
+    return { kind: "not-a-transfer" };
+  }
+  // The earlier day dates the transfer; on a tie, the draft already sent to
+  // the other account stays.
+  const keepA =
+    sideA.date < sideB.date ||
+    (sideA.date === sideB.date && a.account_id === b.base_account_id);
+  const [keep, drop] = keepA ? [a, b] : [b, a];
+  const dropAccountId = (keepA ? sideB : sideA).base_account_id;
+  const clearedBalances = settleTransferDrafts(
+    db,
+    {
+      keep: { id: keep.id, date: keep.date, accountId: dropAccountId },
+      drop: { ...drop, base_account_id: dropAccountId },
+    },
+    auth,
+  );
+  return {
+    kind: "settled",
+    keptDraftId: keep.id,
+    deletedDraftId: drop.id,
+    clearedBalances,
+  };
 }
 
 export type RequestCategorizationRuleOutcome =

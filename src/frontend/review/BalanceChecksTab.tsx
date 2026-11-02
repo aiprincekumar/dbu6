@@ -6,7 +6,8 @@ import { balancesHref } from "../views/settings/routes";
 import { EmptyState } from "../components/empty-state";
 import { InfoButton } from "../views/import-statements/cards";
 import { balanceChecksPrompt } from "./agentPrompts";
-import { checkText } from "./posting-checks";
+import { accountsText, checkText } from "./posting-checks";
+import { reviewHref } from "./routes";
 import {
   AccountReport,
   AskYourAgent,
@@ -32,6 +33,30 @@ export function BalanceChecksTab() {
           title={checkText(check)}
           body="Balances here match the ones on your statement. We compare its opening balance, closing balance and per-transaction running balance against the balances we compute for your drafts — every one lines up. These entries are safe to import."
         />
+      </ReportTab>
+    );
+  }
+
+  if (check.state === "blocks" && check.severity === "attention") {
+    return (
+      <ReportTab>
+        <EmptyState
+          className="max-w-[760px]"
+          title={checkText(check)}
+          body={`The balance checks pass, counting drafts from ${accountsText(check.add_first)} that go to ${account.name}, such as transfers and card payments. Add those to your books first, and the checks keep passing when you add these.`}
+        />
+        <ul className="mt-3 space-y-1">
+          {check.add_first.map((other) => (
+            <li key={other.account_id}>
+              <Link
+                to={reviewHref(other.account_id)}
+                className="text-primary hover:underline"
+              >
+                Review {other.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </ReportTab>
     );
   }

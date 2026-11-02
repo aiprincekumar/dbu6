@@ -5,11 +5,19 @@
 // works, and to ask before changing the books), and last the two replies the
 // user reads: the plan, and the report.
 //
+// The method for each kind of problem lives once, in a playbook
+// (`npx dbu6 docs playbook <name>`), which the run guide follows too; a task
+// names its playbook and keeps for `how` only what the screen adds.
+//
 // The agent echoes what it is given. A prompt that opens with backstory gets
 // a plan that retells it, and a prompt with no shape for the report gets an
 // essay. So the outcome is one sentence we write, which the plan restates,
 // and each task names what its report holds, in the order the user needs it.
-import { guideCommand } from "../shared/index";
+import {
+  guideCommand,
+  playbookCommand,
+  type PlaybookName,
+} from "../shared/index";
 
 export interface AgentTask {
   /**
@@ -20,7 +28,9 @@ export interface AgentTask {
   outcome: string;
   /** What the app saw: the case's numbers, ids, files and messages. */
   facts: string;
-  /** How to go about it, only where the guides don't already say. */
+  /** The playbook that holds the method for this kind of problem. */
+  playbook?: PlaybookName;
+  /** How to go about it, only where the guides and playbook don't say. */
   how?: string;
   /** The final reply's sections, in the order the user reads them. */
   report: readonly ReportSection[];
@@ -59,10 +69,17 @@ export function agentPrompt(task: AgentTask): AgentPrompt {
   const report = task.report
     .map(({ heading, says }) => `**${heading}**: ${says}`)
     .join("\n");
+  const playbook =
+    task.playbook === undefined
+      ? undefined
+      : `Follow \`${playbookCommand(task.playbook)}\`.`;
+  const how = [playbook, task.how]
+    .filter((part) => part !== undefined && part !== "")
+    .join("\n");
   return [
     `Outcome: ${task.outcome}`,
     task.facts,
-    task.how,
+    how,
     PLAN_FIRST_RULE,
     `${REPORT_RULE}\n${report}`,
   ]
@@ -74,3 +91,25 @@ export function agentPrompt(task: AgentTask): AgentPrompt {
 // write a fixture or test. The parsers guide has the conventions.
 export const PII_RULE = `No real names, account numbers, references or amounts in any file you write:
 use the 050505 / NOPII / sample conventions in \`${guideCommand("parsers")}\`.`;
+
+/**
+ * The run's start prompt (`npx dbu6 docs run`): the outcome and where the
+ * statements are, and the guide. It is short on purpose: the method, the
+ * questions and the report are the guide's, so improving the run is a change
+ * to the guide. Its gate is the run's survey, not three lines: the agent has
+ * to read the statements before it can say what the work is.
+ */
+export function runPrompt(task: {
+  outcome: string;
+  facts: string;
+}): AgentPrompt {
+  return [
+    `Outcome: ${task.outcome}`,
+    task.facts,
+    `Follow \`${guideCommand("run")}\`.`,
+    RUN_PLAN_FIRST_RULE,
+  ].join("\n\n") as AgentPrompt;
+}
+
+export const RUN_PLAN_FIRST_RULE = `Your first reply is the survey and plan the guide describes: read the
+statements and the books, change nothing, and wait until I say go.`;

@@ -65,6 +65,43 @@ export function uploadName(name: string): string {
     : last;
 }
 
+/** A new batch folder's name: the time, then a few hex digits. */
+export function batchName(): string {
+  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
+  return `${stamp}-${randomBytes(2).toString("hex")}`;
+}
+
+/**
+ * An upload's name in its batch folder. The index keeps two uploads of one
+ * name apart; the name itself is kept because it is what the bank called the
+ * statement.
+ */
+export function batchFileName(file: File, index: number): string {
+  return `${index}-${uploadName(file.name)}`;
+}
+
+/** A `batchFileName` read back: its place in the batch, and the name. */
+export function readBatchFileName(saved: string): {
+  index: number;
+  name: string;
+} {
+  const match = /^(\d+)-(.*)$/.exec(saved);
+  return match
+    ? { index: Number(match[1]), name: match[2] }
+    : { index: 0, name: saved };
+}
+
+/**
+ * A statement already inside the project, such as one waiting in the
+ * statement inbox: staged where it is, never copied or removed by staging.
+ */
+export interface ProjectFile {
+  /** The name it was dropped with. */
+  name: string;
+  /** Where it is, absolute. */
+  path: string;
+}
+
 /** A batch of uploads written inside the project, and what became of them. */
 export interface StagedUploads {
   /** Where each upload was written, in the order the files came. */
@@ -84,35 +121,32 @@ export interface StagedUploads {
  * A coding agent the user hands a prompt to starts in the project root, so a
  * file staged under it is one the agent can open by the path the prompt
  * prints: it never has to search the disk or ask where the upload went. tmp/
- * is gitignored.
+ * is gitignored. A `ProjectFile` is already there, so it stays where it is.
  *
  * The batch is deleted when the handler returns unless it called `keep()`, so
  * only uploads a prompt points at leave a copy of the user's file behind.
  */
 export async function withStagedUploads<T>(
-  files: readonly File[],
+  files: readonly (File | ProjectFile)[],
   handler: (staged: StagedUploads) => Promise<T>,
 ): Promise<T> {
-  const stamp = new Date().toISOString().slice(0, 19).replaceAll(":", "-");
-  const dir = join(
-    uploadStagingDir(),
-    `${stamp}-${randomBytes(2).toString("hex")}`,
-  );
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-  // The index keeps two uploads of one name apart; the name itself is kept
-  // because it is what the bank called the statement.
+  const dir = join(uploadStagingDir(), batchName());
+  if (files.some((file) => file instanceof File)) {
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+  }
   const paths = files.map((file, index) =>
-    join(dir, `${index}-${uploadName(file.name)}`),
+    file instanceof File ? join(dir, batchFileName(file, index)) : file.path,
   );
   // What stays when the handler ends: none, all or some of the uploads.
   let keep = null as readonly number[] | "all" | null;
   try {
     await Promise.all(
-      files.map(async (file, index) =>
-        writeFile(paths[index], Buffer.from(await file.arrayBuffer()), {
+      files.map(async (file, index) => {
+        if (!(file instanceof File)) return;
+        await writeFile(paths[index], Buffer.from(await file.arrayBuffer()), {
           mode: 0o600,
-        }),
-      ),
+        });
+      }),
     );
     return await handler({
       paths,
@@ -127,7 +161,9 @@ export async function withStagedUploads<T>(
     } else if (keep !== "all") {
       const kept = new Set(keep);
       for (const [index, path] of paths.entries()) {
-        if (!kept.has(index)) await rm(path, { force: true }).catch(() => {});
+        if (files[index] instanceof File && !kept.has(index)) {
+          await rm(path, { force: true }).catch(() => {});
+        }
       }
     }
   }

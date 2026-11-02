@@ -1,0 +1,68 @@
+import { z } from "zod";
+import { initContract } from "@sapporta/rest-core";
+
+const c = initContract();
+
+const errorSchema = z.object({ error: z.string() }).passthrough();
+
+/*
+ * The statement inbox: statements the user drops for a run of their coding
+ * agent (`npx dbu6 docs run`), saved under the project's
+ * tmp/statement-inbox/<batch>/ and nothing more. Nothing reads or imports
+ * them until the agent sends them to an import by `saved_path`
+ * (`inbox_files`); the import that adds a file to the drafts removes it.
+ */
+
+export const statementInboxFileSchema = z.object({
+  /** The name the file was dropped with. */
+  file_name: z.string(),
+  /** Where it is saved, relative to the project root. */
+  saved_path: z.string(),
+  bytes: z.number().int().nonnegative(),
+});
+export type StatementInboxFile = z.infer<typeof statementInboxFileSchema>;
+
+export const statementInboxBatchSchema = z.object({
+  /** The batch's folder name: the time it was dropped, and a few hex digits. */
+  batch: z.string(),
+  files: z.array(statementInboxFileSchema),
+});
+export type StatementInboxBatch = z.infer<typeof statementInboxBatchSchema>;
+
+export const statementInboxContract = c.router({
+  listStatementInbox: c.query({
+    method: "GET",
+    path: "/statement-inbox",
+    summary:
+      "The batches of statements waiting in the inbox for a run (`npx dbu6 docs run`), oldest first, each with its files. Send a file to /add-account/read, /add-account/add or /import-draft/statements/auto as `inbox_files=<saved_path>`; an import that adds it to the drafts removes it",
+    responses: {
+      200: z.object({ batches: z.array(statementInboxBatchSchema) }),
+      403: errorSchema,
+    },
+  }),
+  saveToStatementInbox: c.mutation({
+    method: "POST",
+    path: "/statement-inbox",
+    summary:
+      "Save dropped statements (`files`, repeated) as one batch under tmp/statement-inbox/<batch>/ for a run. Nothing is read, parsed or written to the books",
+    contentType: "multipart/form-data",
+    body: z.any(),
+    responses: {
+      200: statementInboxBatchSchema,
+      400: errorSchema,
+      403: errorSchema,
+    },
+  }),
+  removeFromStatementInbox: c.mutation({
+    method: "POST",
+    path: "/statement-inbox/remove",
+    summary:
+      "Remove one dropped statement from the inbox, by its `saved_path`, without importing it",
+    body: z.object({ saved_path: z.string() }),
+    responses: {
+      200: z.object({ removed: z.string() }),
+      403: errorSchema,
+      404: errorSchema,
+    },
+  }),
+});
