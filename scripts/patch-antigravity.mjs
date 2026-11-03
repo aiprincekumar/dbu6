@@ -2,7 +2,7 @@
 /**
  * scripts/patch-antigravity.mjs
  * Deterministically patches @dbu6/app to support Antigravity as a first-class coding agent.
- * Handles client-side schema validation, contracts, server detection, and asset cache-busting.
+ * Handles client-side schema validation, contracts, server detection, UI/UX tab styling, and asset cache-busting.
  */
 
 import fs from 'node:fs';
@@ -109,6 +109,7 @@ for (const dts of dtsFiles) {
 // 4. Bundled Client Frontend: dist/app/assets/index-Cou-F-rz.js
 patchFile('dist/app/assets/index-Cou-F-rz.js', (content) => {
   let res = content;
+  // 4a. Client schema & labels
   if (!res.includes('`antigravity`')) {
     res = res.replace(
       'jh=K([`claude-code`,`codex`,`pi`])',
@@ -119,26 +120,136 @@ patchFile('dist/app/assets/index-Cou-F-rz.js', (content) => {
       'Mh={antigravity:{label:`Antigravity`,signInCommand:`antigravity`},"claude-code":{label:`Claude Code`'
     );
   }
+
+  // 4b. Container component qP: support custom coding-agent-tabs styling without forced max-w-[480px]
+  if (!res.includes('coding-agent-tabs`,e)')) {
+    res = res.replace(
+      'function qP({className:e,...t}){return(0,X.jsx)(eh,{...t,className:_(`flex max-w-full gap-1 rounded-control border border-sap-border bg-sap-sidebar p-1`,e)})}',
+      'function qP({className:e,...t}){let a=e?.includes(`coding-agent-tabs`);return(0,X.jsx)(eh,{...t,className:a?_(`coding-agent-tabs`,e):_(`flex max-w-full gap-1 rounded-control border border-sap-border bg-sap-sidebar p-1`,e)})}'
+    );
+  }
+
+  // 4c. Tab button component JP: support coding-agent-tab styling without flex-1 shrinking / text overlapping
+  if (!res.includes('coding-agent-tab`,e)')) {
+    res = res.replace(
+      'function JP({className:e,...t}){return(0,X.jsx)(Xm,{...t,nativeButton:!0,render:(0,X.jsx)(`button`,{type:`button`}),className:_(`inline-flex h-sap-ctl min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-[7px] px-4 text-row font-normal text-ink-soft outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 data-checked:bg-card data-checked:font-semibold data-checked:text-foreground data-checked:shadow-pill data-disabled:cursor-not-allowed`,e)})}',
+      'function JP({className:e,...t}){let a=e?.includes(`coding-agent-tab`);return(0,X.jsx)(Xm,{...t,nativeButton:!0,render:(0,X.jsx)(`button`,{type:`button`}),className:a?_(`coding-agent-tab`,e):_(`inline-flex h-sap-ctl min-w-0 flex-1 items-center justify-center whitespace-nowrap rounded-[7px] px-4 text-row font-normal text-ink-soft outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 data-checked:bg-card data-checked:font-semibold data-checked:text-foreground data-checked:shadow-pill data-disabled:cursor-not-allowed`,e)})}'
+    );
+  }
+
+  // 4d. Settings page tabs rendering: apply coding-agent-tabs & coding-agent-tab classes with styled (not installed) tag
+  const oldSettingsTabs = '(0,X.jsx)(qP,{"aria-labelledby":e,className:`max-w-[480px]`,value:n.data.chosen,disabled:r.isPending,onValueChange:e=>{e!==null&&r.mutate(e)},children:n.data.agents.map(({agent:e,installed:t})=>(0,X.jsxs)(JP,{value:e,disabled:!t,children:[Mh[e].label,!t&&` (not installed)`]},e))})';
+  const newSettingsTabs = '(0,X.jsx)(qP,{"aria-labelledby":e,className:`coding-agent-tabs`,value:n.data.chosen,disabled:r.isPending,onValueChange:e=>{e!==null&&r.mutate(e)},children:n.data.agents.map(({agent:e,installed:t})=>(0,X.jsxs)(JP,{className:`coding-agent-tab`,value:e,disabled:!t,children:[Mh[e].label,!t&&(0,X.jsx)(`span`,{className:`coding-agent-not-installed`,children:`(not installed)`})]},e))})';
+
+  if (res.includes(oldSettingsTabs)) {
+    res = res.replace(oldSettingsTabs, newSettingsTabs);
+  }
+
   return res;
 });
 
-// 5. Create cache-busting copy for client assets
-const srcAsset = path.join(appDir, 'dist', 'app', 'assets', 'index-Cou-F-rz.js');
-const dstAsset = path.join(appDir, 'dist', 'app', 'assets', 'index-Cou-F-rz-v2.js');
-if (fs.existsSync(srcAsset)) {
-  fs.copyFileSync(srcAsset, dstAsset);
-  console.log('[patch-antigravity] Synced index-Cou-F-rz-v2.js asset bundle.');
+// 5. CSS Styles: dist/app/assets/index-DG2rmt1t.css
+patchFile('dist/app/assets/index-DG2rmt1t.css', (content) => {
+  if (content.includes('.coding-agent-tabs')) {
+    return content;
+  }
+  const cssRules = `
+/* Antigravity UI/UX Fix: Coding Agent Tabs */
+.coding-agent-tabs {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px !important;
+  background-color: var(--sap-sidebar, #f3f4f6) !important;
+  border: 1px solid var(--sap-border, #e5e7eb) !important;
+  border-radius: 12px !important;
+  width: auto !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
-
-// 6. index.html cache-busting asset pointer
-patchFile('dist/app/index.html', (content) => {
-  return content.replace(
-    '/assets/index-Cou-F-rz.js',
-    '/assets/index-Cou-F-rz-v2.js'
-  );
+.coding-agent-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  min-width: fit-content !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 38px !important;
+  padding: 7px 16px !important;
+  gap: 6px !important;
+  border-radius: 8px !important;
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  line-height: 1.25 !important;
+  white-space: nowrap !important;
+  color: var(--ink-soft, #5b6262) !important;
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease-in-out !important;
+  box-shadow: none !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+}
+.coding-agent-tab:hover:not([disabled]):not([data-disabled]) {
+  color: var(--foreground, #111827) !important;
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+.coding-agent-tab[data-checked] {
+  background-color: var(--card, #ffffff) !important;
+  color: var(--foreground, #111827) !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(226, 228, 228, 0.9) !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04) !important;
+}
+.coding-agent-tab[disabled],
+.coding-agent-tab[data-disabled] {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
+.coding-agent-tab:focus-visible {
+  outline: 2px solid var(--ring, #2563eb) !important;
+  outline-offset: 2px !important;
+}
+.coding-agent-not-installed {
+  font-size: 11.5px !important;
+  opacity: 0.7 !important;
+  font-weight: 400 !important;
+  margin-left: 2px !important;
+}
+`;
+  return content + cssRules;
 });
 
-// 7. Mount.js asset cache-control: no-cache to prevent browser lock-in
+// 6. Create cache-busting copies for client assets (JS & CSS)
+const srcAssetJs = path.join(appDir, 'dist', 'app', 'assets', 'index-Cou-F-rz.js');
+const v2AssetJs = path.join(appDir, 'dist', 'app', 'assets', 'index-Cou-F-rz-v2.js');
+const v3AssetJs = path.join(appDir, 'dist', 'app', 'assets', 'index-Cou-F-rz-v3.js');
+if (fs.existsSync(srcAssetJs)) {
+  fs.copyFileSync(srcAssetJs, v2AssetJs);
+  fs.copyFileSync(srcAssetJs, v3AssetJs);
+  console.log('[patch-antigravity] Synced index-Cou-F-rz-v3.js asset bundle.');
+}
+
+const srcAssetCss = path.join(appDir, 'dist', 'app', 'assets', 'index-DG2rmt1t.css');
+const v3AssetCss = path.join(appDir, 'dist', 'app', 'assets', 'index-DG2rmt1t-v3.css');
+if (fs.existsSync(srcAssetCss)) {
+  fs.copyFileSync(srcAssetCss, v3AssetCss);
+  console.log('[patch-antigravity] Synced index-DG2rmt1t-v3.css asset bundle.');
+}
+
+// 7. index.html cache-busting asset pointer
+patchFile('dist/app/index.html', (content) => {
+  let res = content;
+  res = res.replace(/\/assets\/index-Cou-F-rz(-v\d+)?\.js/g, '/assets/index-Cou-F-rz-v3.js');
+  res = res.replace(/\/assets\/index-DG2rmt1t(-v\d+)?\.css/g, '/assets/index-DG2rmt1t-v3.css');
+  return res;
+});
+
+// 8. Mount.js asset cache-control: no-cache to prevent browser lock-in
 patchFile('dist/server/mount.js', (content) => {
   if (content.includes('max-age=31536000, immutable')) {
     return content.replace(
