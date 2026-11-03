@@ -17,7 +17,7 @@ Two things are optional:
 
 * **git** — with it, `init` makes your first commit.
 * **A coding agent** — Claude Code, Codex or Pi. It does your books from the
-  statements you drop: proposes a chart of accounts, writes a parser for a
+  statements you drop: fits a chart of accounts to them, writes a parser for a
   statement dbu6 cannot read yet, imports and categorizes. Without one, you
   keep the books by hand: imports still work and only your own mapping rules
   categorize. **Settings** names the agent dbu6 found and lets you switch.
@@ -74,14 +74,16 @@ your statements and one button that hands them to your coding agent.
    folder; nothing reads them yet.
 2. **Press Do my books.** Your coding agent starts in a terminal, in your
    books folder. Its first reply is a plan: the accounts it found in the
-   statements, the chart of accounts it proposes, and what it already knows
-   it must ask. It changes nothing until you say go.
+   statements, what it will do, and only what it needs before it starts,
+   such as what you owed on a card. It changes nothing until you say go.
 3. **Answer its questions, once.** It writes a parser for a statement dbu6
    can't read yet, sets up each bank and card with its opening balance,
    imports, categorizes, and settles duplicates and balance checks. What it
-   can't settle from the statements, it asks in one round in the terminal:
-   a payee it has never seen, a transfer with no other side, and what your
-   cash, deposits, investments and loans held when the books start.
+   can't settle from the statements, it asks in one round in the terminal,
+   after showing you what your money looks like (money in, money out, and
+   the categories it fitted to them): a payee it has never seen, a transfer
+   with no other side, and what your cash, deposits, investments and loans
+   held when the books start.
 4. **Add the entries on Review.** Nothing from your statements goes into
    your books until you add it there; the opening balances you give the
    agent are recorded when you answer. Review lists every account and adds

@@ -17,6 +17,48 @@ what the user's go-ahead covers, and how to ask. The method for each problem
 is in a playbook: `npx dbu6 docs playbook <name>`, listed by
 `npx dbu6 docs playbook`.
 
+## Talking to someone new
+
+On a first run the user knows nothing of how dbu6 works: not drafts, not
+the chart, not parsers or balance checks. All they see of the run is three
+messages from you, and each has to make sense on its own, from their own
+statements:
+
+| Message                       | Phase                 | What it gives them                                                                    |
+| ----------------------------- | --------------------- | ------------------------------------------------------------------------------------- |
+| 1. What you gave me           | 2, the plan gate      | what their statements are, what you will do, the little you need before starting     |
+| 2. What your money looks like | 8, the question round | what their transactions show, the categories fitted to that, what you couldn't settle |
+| 3. What to do now             | 9, the report         | where their books wait, what is left for them, everything you changed                 |
+
+Between them, only progress lines (see [Phases](#phases)).
+
+- **Explain a thing the first time it matters, in one sentence, with their
+  own data.** Never ahead of time, and never twice:
+
+  | When it first comes up                 | Say, once                                                                                                                        |
+  | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+  | Message 1 of a first run               | "Everything I import waits in Review. Your books change only when you add it there."                                            |
+  | Message 1 of a first run               | "Your statements stay on this computer, except what is sent to the AI model doing this work."                                   |
+  | a statement format no parser reads     | "dbu6 can't read Sample Bank's statements yet. I'll teach it once; later statements in that format read on their own."          |
+  | the chart                              | "Your categories, and what you own and owe, are the accounts in your books."                                                     |
+  | a card's opening balance               | "Your first card statement starts with what you already owed. It's 'Previous balance' at the top of the April statement."        |
+  | a failing balance check                | "On 14 Jul the statement says 52,000; the transactions add up to 47,000."                                                        |
+  | a transfer between their own accounts  | "50,000 left savings and reached your card on 3 Jun: that is paying the card bill, not spending."                               |
+  | accounts with no statements            | "Cash, deposits and loans have no statement, so their balance is what you tell me you held or owed when the books start."        |
+
+- **Leave out how dbu6 works inside:** parsers, presets, phases,
+  playbooks, refusal codes, endpoints, paths in the project. Say what it
+  means for them: "I taught dbu6 to read Sample Bank's statements", not
+  "I wrote a parser".
+- **Every question says why you ask, where to find the answer, and what
+  skipping it does.**
+- **Show evidence, not conclusions alone:** counts, totals and a few real
+  descriptions, so the user can catch a wrong guess.
+- **Keep each message to a screen** where it can be: Message 1 about 30
+  lines; Message 2 pages its questions, as [Questions](#questions) says.
+- Outside a first run the user has seen this before: drop the one-sentence
+  explanations, keep the shape.
+
 ## Entries
 
 A run starts from one of these. The prompt says which; a request in the
@@ -51,7 +93,10 @@ entries in the books.
 
 ## Phases
 
-Each phase ends with one line in the terminal: what it did, in counts.
+Between the three messages, say what you are doing in one plain line as a
+step starts or ends, in counts and the user's words: "Learning how Sample
+Bank lays out its statements", "Imported Sample savings: 412 transactions,
+380 already sorted". No phase numbers, playbook names or endpoints.
 Phases 0–2 only read; nothing is written before the user's go-ahead.
 
 ### 0. Preflight
@@ -77,8 +122,8 @@ Phases 0–2 only read; nothing is written before the user's go-ahead.
   chart, makes this a first run, whose question round also asks about the
   [accounts with no statements](#accounts-with-no-statements).
 
-Build one table, a row per account, the files no parser reads on a row of
-their own:
+Build one table for yourself, a row per account, the files no parser reads
+on a row of their own. The user sees it in their words, in Message 1:
 
 ```
 Account            Files  From        To          State      Needs
@@ -93,27 +138,81 @@ Note under it: files read by several parsers, files of two accounts, a
 statement already in the books (`already_in_books`), and a period with a gap
 between two files.
 
-### 2. Plan gate
+### 2. Plan gate: Message 1, what you gave me
 
-Your first reply is the plan, and you wait for go:
+Your first reply, and you wait for go:
 
-1. The table.
-2. The chart, when the books have none: the starter chart from
-   `npx sapporta api get /api/setup/chart-of-accounts`, adjusted to what the
-   statements' descriptions show, as an indented tree.
-3. The questions you already know you have, numbered: a bank's name when a
-   file doesn't say, a card's opening balance when the read says
-   `needs_opening`, a parent account when `default_parents` of
-   `npx sapporta api get /api/setup/statement-accounts` is `null`, and for
-   each text file to import freeform ([Text files](#text-files)) what it
-   doesn't say: which account, whether it is a card, and the opening and
-   closing balances.
-4. One line: "Go ahead?"
+```
+I read 13 files. They are these accounts:
+
+  Sample savings      savings account   Apr–Sep 2025   4 statements
+  Sample card         credit card       Apr–Oct 2025   6 statements
+  Sample current      current account   Jul–Aug 2025   2 statements
+  Sample wallet       rows you copied   Aug 2025       31 transactions
+  sample-export.pdf   a statement dbu6 can't read yet
+
+  Sample current has no June statement. Download it from net banking
+  and drop it on Update, now or later.
+
+How this works: I'll import every transaction, sort each into a
+category, and ask you about the ones I can't tell, all at once.
+Everything waits in Review; your books change only when you add it
+there. Your statements stay on this computer, except what is sent to
+the AI model doing this work.
+
+On your yes I'll
+  - start you on a standard set of categories, and fit it to your
+    spending once I've read it
+  - teach dbu6 to read sample-export.pdf's format, then see whose it is
+  - import all of it
+
+Before I start
+  1  Sample card: what did you owe on 5 Apr 2025? It's "Previous
+     balance" at the top of the April statement. Skip it, and the
+     card waits until you tell me.
+  2  Sample wallet: which account is it, and is it a card? What was
+     its balance on 2 Aug and on 29 Aug? Skip it, and I leave it out.
+
+This will take a while, most of it learning the new format. You can
+leave it running. Go ahead?
+```
+
+- **The accounts** by name, kind, months and what they hold, never by
+  dbu6's states (`new`, `in_books`). Under them, what the user can act
+  on: a missing month, with where to get it; a statement already in the
+  books; a file holding two accounts.
+- **"How this works"** only on a first run. On a later run, one line on
+  what is already in the books instead: "Sample savings is in your books
+  up to Sep 2025."
+- **"On your yes I'll"** is what the go-ahead covers, in their words, a
+  line per kind of work. When the books have no chart, say you start
+  them on a standard set and fit it once you have read their
+  transactions. Don't show the chart: a tree of categories means nothing
+  before they have seen their own transactions. Message 2 shows it,
+  fitted.
+- **"Before I start"** holds only what blocks an import, numbered, each
+  with where the answer is and what skipping does: a bank's name when a
+  file doesn't say; a card's opening balance when the read says
+  `needs_opening`; the group a new bank or card goes under when
+  `default_parents` of
+  `npx sapporta api get /api/setup/statement-accounts` is `null` and the
+  books have a chart (with none, phase 3 settles it); and for each text
+  file to import freeform ([Text files](#text-files)) what it doesn't
+  say: which account, whether it is a card, and the opening and closing
+  balances. Everything else waits for Message 2.
+- **How long,** roughly, from what is ahead: learning a format takes the
+  longest. Then "Go ahead?"
 
 ### 3. Chart
 
-When the books had none: `POST /api/setup/chart-of-accounts` with the chart
-the user approved.
+When the books had none: `npx sapporta api get /api/setup/chart-of-accounts`
+gives `starter` and `unticked` (accounts many households have no use for).
+`POST /api/setup/chart-of-accounts` with the starter less the unticked ones
+and everything under them. It is a starting point, there so the imports and
+the categorizer have accounts to sort into; you fit it to the user in
+phase 6, and they see it in Message 2. On this chart a new bank account
+goes under Bank Accounts and a card under Credit Cards: pass that
+`parent_id` in phase 5, and don't ask.
 
 ### 4. Parsers
 
@@ -193,6 +292,24 @@ The import already ran the rules and the AI. What is left has no account.
      clean-up, and look for it there;
    - group the rest by what they are, by judgment;
    - sort each group into "sure" and "needs your call".
+3. Read what the user's money looks like, over every draft of the run,
+   sorted or not, for the top of Message 2: money in by source, what
+   comes regularly (the same payee most months) with its usual amount;
+   money out by account, largest first; money moving between their own
+   accounts; and how much is still unsorted.
+4. Fit the chart, when this run created it (phase 3):
+   - a group no account fits gets a new account, proposed under
+     "Accounts I'll create";
+   - an unticked starter account the transactions call for (Stocks for
+     dividends, Children for school fees) is a new account like any
+     other;
+   - starter accounts nothing uses stay. The user may name ones to drop;
+     never propose removing one yourself: a category unused in these
+     months is often next year's.
+
+   On books whose chart the user already had, only add. Renaming,
+   merging or moving their accounts is the `chart-change` playbook, on
+   their word.
 
 Count and group with SQL (`sqlite3 -readonly`, as "Reading the database" in
 the books guide allows); never list every draft into your context. Read rows
@@ -203,6 +320,15 @@ SELECT a.name, COUNT(*) AS blank, ROUND(SUM(d.withdrawal + d.deposit)) AS total
 FROM draft_transactions d JOIN accounts a ON a.id = d.base_account_id
 WHERE d.account_id IS NULL
 GROUP BY a.name ORDER BY total DESC;
+```
+
+And where the money went, for Message 2:
+
+```sql
+SELECT a.name, a.account_type, COUNT(*) AS n,
+       ROUND(SUM(d.withdrawal)) AS money_out, ROUND(SUM(d.deposit)) AS money_in
+FROM draft_transactions d JOIN accounts a ON a.id = d.account_id
+GROUP BY a.id ORDER BY money_out + money_in DESC;
 ```
 
 ### 7. Clean-up
@@ -225,10 +351,10 @@ round.
 
 What clean-up doesn't settle joins the question round.
 
-### 8. Question round
+### 8. Question round: Message 2, what your money looks like
 
-One message, as [Questions](#questions) says, with the clean-up's questions
-in it. Then:
+One message, as [Questions](#questions) says: what the money looks like,
+the categories, then the questions, the clean-up's among them. Then:
 
 - each answer becomes a rule or a prompt line ("Always put this under X" in
   the books guide; count first what a rule would catch in other accounts);
@@ -244,7 +370,7 @@ in it. Then:
 There is no second round: what the answers left open goes in the report,
 under "Still open".
 
-### 9. Report
+### 9. Report: Message 3, what to do now
 
 [The report](#the-report), then stop. Files still in the inbox go under
 "Still open", each with why it didn't go in.
@@ -284,9 +410,10 @@ Your first reply is the plan, and you wait for go:
 1. One row per account with drafts, what is left on it:
 
    ```
-   Account          Drafts  Blank  Requests  Dups  Failing  Goes in with
-   Sample savings      412     34         2     2        0  -
-   Sample card         188     17         0     0        3  Sample savings
+                    Waiting  No category  Your rule   Possible    Days off the  Goes in with
+   Account                                requests    duplicates  statement
+   Sample savings       412           34          2           2             0  -
+   Sample card          188           17          0           0             3  Sample savings
    ```
 
 2. For each rule request, the rule or prompt line you propose, as the
@@ -331,7 +458,8 @@ earliest statement in the run.
 **Ask,** in the question round, after the other blocks:
 
 ```
-What you held or owed on 2025-03-31, the day your books start
+Cash, deposits and loans have no statement, so their balance is
+what you held or owed on 2025-03-31, the day your books start
   6  Cash in hand                held   amount?
   7  Fixed deposits              held   amount?
   8  Car loan                    owed   amount?
@@ -368,13 +496,52 @@ balance").
 
 ## Questions
 
+Message 2. It opens with what the user's money looks like, so they answer
+the questions knowing what you saw; then the questions.
+
 Ask only what you can't settle from the books, the rules and the
 descriptions: a group with two plausible accounts, a payee never seen, a
 transfer whose other side is in no statement, a new account you want. A
 group you are sure of is stated, not asked.
 
-One message, three blocks, numbered across the whole message, and on a
-first run a fourth: what the user held or owed ([Accounts with no
+On a first run it opens with two blocks that ask nothing:
+
+```
+Here's what your statements show, Apr–Sep 2025. None of it is in your
+books yet.
+
+Money in                                          Count      Total
+  Gross Pay, from Sample Employer   monthly 1,20,000   6   7,20,000
+  Savings Interest                  quarterly          2      1,600
+
+Money out, largest first
+  Rent                              monthly 30,000     6   1,80,000
+  Home loan (new)                   monthly 25,000     6   1,50,000
+  Groceries                                           58     48,000
+  Food Delivery                                       42     18,400
+  Other, 14 categories                               120     96,000
+  Not sorted yet, questions below                     26     77,000
+
+Between your own accounts
+  Card bills paid from Sample savings                  6   2,10,000
+
+Your categories
+  I started you on a standard set and fitted it to the above: added
+  Home loan under Loans (see 5). 64 more standard ones wait unused,
+  such as Insurance and Travel; they're there when you need them.
+  To rename, merge or drop any, say so.
+```
+
+- Money in and out by the accounts the drafts went to, as the run read
+  them (phase 6), largest first, with "monthly" and the usual amount
+  where a payee recurs. Past about 8 lines, the rest as one "Other" line.
+- Accounts the run created are named where they first show; the unused
+  standard ones get a count and a couple of names, never a tree.
+- On a later run, or [Starting from the drafts](#starting-from-the-drafts),
+  skip both blocks: the user knows their books.
+
+Then three blocks, numbered across the whole message, and on a first run a
+fourth: what the user held or owed ([Accounts with no
 statements](#accounts-with-no-statements)).
 
 ```
@@ -401,7 +568,11 @@ Accounts I'll create
   the rest. Past about 25 groups, say how many there are and offer them in
   pages of that size.
 - The user may reply in shorthand: `ok` accepts the first block; `3b 4a`;
-  `5 no`; `rest skip`. Free text is fine too.
+  `5 no`; `rest skip`. Free text is fine too. Say so in the message's
+  last line, in those words, so they know they can.
+- A rename, merge or drop of a category they ask for in their reply is
+  the `chart-change` playbook's, applied to drafts only, with no plan of
+  its own: their reply is the yes.
 
 ## The report
 
@@ -410,30 +581,47 @@ added: `SAPPORTA_PUBLIC_APP_URL` from `.env.development`, then `/review`,
 written out in full so the terminal makes it clickable. Name no other
 Review link; Review lists the accounts.
 
+Message 3. It says what to do now before what was done: the user reads
+the top and acts.
+
 ```
-Review your books: http://localhost:<port>/review
+Your books are ready to review: http://localhost:<port>/review
 
-Ready to add        Drafts  Rules   AI  You  Dups removed  Checks
-Sample savings         412    280   98   34             2   31/31
-Sample card            188    120   51   17             0     6/6
+What to do now
+  1  Open Review and add the ready accounts to your books.
+     Sample savings and Sample card go in together: the card bills
+     tie them.
+  2  Sample current: 7 transactions need a category. Set them in its
+     Drafts tab, then add it.
+  3  Download Sample current's June 2025 statement and drop it on
+     Update.
 
-Add them on Review.
+Ready to add        Transactions  Sorted by you  Matches the statement
+Sample savings               412             34  every day (31)
+Sample card                  188             17  every day (6)
 
 Not ready           Why
-Sample current      7 drafts without an account: set them in its Drafts grid
+Sample current      7 transactions with no category
 Sample wallet       goes in with Sample current (a transfer ties them)
 
-New accounts        Household help (under Household)
-New rules           contains "SAMPLEFOOD" → Eating out (42)
-New parsers         sample-bank-savings-csv
-Opening balances    Cash in hand 5,000 · Car loan, you owe 2,50,000
-Still open          Sample current: download June 2025, then drop it
-Skipped             Fixed deposits: no balance given
+What I changed
+  New categories      Household help (under Household)
+  New rules           contains "SAMPLEFOOD" → Eating out (42)
+  Formats learned     Sample Bank savings CSV
+  Duplicates removed  2 on Sample savings
+  Opening balances    Cash in hand 5,000 · Car loan, you owe 2,50,000
+Still open            Sample current: June 2025 missing
+Skipped               Fixed deposits: no balance given
 ```
 
-- Review's Add all adds the ready accounts in one go, so name no order and
-  no button. Say which accounts go in together, since their balance checks
-  count each other's drafts: Add on one of them alone is refused.
+- "What to do now" is numbered, the user's next steps in the order they
+  can take them, each in a line or two. It names no button.
+- "Ready to add" counts what the user may want to check: how many
+  transactions, how many they decided, whether every statement balance
+  matches. How each draft was sorted (rules, AI) stays out.
+- Review's Add all adds the ready accounts in one go, so name no order.
+  Say which accounts go in together, since their balance checks count
+  each other's drafts: Add on one of them alone is refused.
 - "Not ready" lists every account with drafts that isn't ready, each with
   why, in one line: drafts without an account (the user sets them in its
   Drafts grid), a possible duplicate or a failing check you couldn't
@@ -453,7 +641,7 @@ This replaces "Before changing anything" in the books guide for the run.
 
 | Covered by the plan's go-ahead | Asked in the question round | Asked on its own | Never |
 | --- | --- | --- | --- |
-| parsers and their tests; preset changes for accounts in the plan; adding the accounts in the plan and importing; opening balances the statements give; categorizing drafts; rules and prompt lines for "sure" groups; rules and prompt lines for the rule requests the plan lists; deleting a draft that duplicates the same statement row; deleting a transfer's second copy and blanking the balance checks the `double-counted-transfers` playbook allows | new accounts; rules for the user's answers; anything "needs your call"; opening balances of accounts with no statements | any change to a posted entry; deleting a draft for any other reason; changing an opening balance already recorded; a change to dbu6 itself (`statement_disagreement`) | adding drafts to the books (`post-to-journal`, `POST /api/draft-transactions/post-ready`); changing a statement balance; deleting to pass a check; editing `node_modules/@dbu6/app`; writing SQLite |
+| the starter chart, on books with none; parsers and their tests; preset changes for accounts in the plan; adding the accounts in the plan and importing; opening balances the statements give; categorizing drafts; rules and prompt lines for "sure" groups; rules and prompt lines for the rule requests the plan lists; deleting a draft that duplicates the same statement row; deleting a transfer's second copy and blanking the balance checks the `double-counted-transfers` playbook allows | new accounts; renaming, merging or dropping a category the user names; rules for the user's answers; anything "needs your call"; opening balances of accounts with no statements | any change to a posted entry; deleting a draft for any other reason; changing an opening balance already recorded; a change to dbu6 itself (`statement_disagreement`) | adding drafts to the books (`post-to-journal`, `POST /api/draft-transactions/post-ready`); changing a statement balance; deleting to pass a check; editing `node_modules/@dbu6/app`; writing SQLite |
 
 The rest of the books guide's rules hold: only a day's last draft carries
 its statement balance, so move it before deleting that draft; nothing from
@@ -466,7 +654,9 @@ their accounts, the rules in `user-config/`. A new session started with the
 same prompt runs the survey again and continues: an account `in_books` with
 drafts goes straight to categorizing, as [Starting from the
 drafts](#starting-from-the-drafts) does, and answers already given are rules or
-set accounts, so they aren't asked again. Every write is small and
+set accounts, so they aren't asked again. Message 1 then opens with what
+is already done ("Sample savings is imported and sorted; picking up at
+Sample card"), so the user isn't walked through it twice. Every write is small and
 self-contained (one account's add, one batch of set-account, one rules
 edit), so stopping between two leaves the books consistent. Keep no log of
 the run in the project: it would be another copy of the user's financial

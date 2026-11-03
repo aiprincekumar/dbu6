@@ -19,8 +19,9 @@ there, following `npx dbu6 docs run`:
 * It categorizes across all accounts at once, so a transfer between two of
   your accounts, or a card payment, is recognized from both statements. It
   settles duplicates and balance checks the statements explain.
-* What it can't settle, it asks in one round in the terminal. Your answers
-  become mapping rules, so the next import knows them.
+* What it can't settle, it asks in one round in the terminal, after showing
+  you what your money looks like and the categories it fitted to it. Your
+  answers become mapping rules, so the next import knows them.
 * Nothing from your statements goes into your books until you add it on
   Review, which lists every account and adds the ready ones together. The
   opening balances you give it are recorded when you answer.
