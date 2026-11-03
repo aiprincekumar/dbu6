@@ -6,12 +6,16 @@
 ' ==============================================================================
 
 Option Explicit
-Dim fso, WshShell, scriptDir, lockPath, isRunning, httpReq, i, ready, cmdStr, q, nodePath, logPath
+Dim fso, WshShell, scriptDir, projectDir, lockPath, isRunning, httpReq, i, ready, cmdStr, q, nodePath, logPath
 
 Set fso = CreateObject("Scripting.FileSystemObject")
+' scriptDir is the scripts folder
 scriptDir = fso.GetParentFolderName(WScript.ScriptFullName)
+' projectDir is the parent folder (the dynamic root of dbu6)
+projectDir = fso.GetParentFolderName(scriptDir)
+
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.CurrentDirectory = scriptDir
+WshShell.CurrentDirectory = projectDir
 q = Chr(34)
 
 ' 1. Check if dbu6 is ALREADY running on http://localhost:2345
@@ -33,7 +37,7 @@ If isRunning Then
 End If
 
 ' 2. Clean up stale lockfile if the process referenced in data\dbu6.lock is dead
-lockPath = scriptDir & "\data\dbu6.lock"
+lockPath = projectDir & "\data\dbu6.lock"
 If fso.FileExists(lockPath) Then
     On Error Resume Next
     Dim ts, pidStr, procAlive, colProcs
@@ -54,16 +58,16 @@ If fso.FileExists(lockPath) Then
 End If
 
 ' 3. Ensure data directory exists for log
-If Not fso.FolderExists(scriptDir & "\data") Then
+If Not fso.FolderExists(projectDir & "\data") Then
     On Error Resume Next
-    fso.CreateFolder(scriptDir & "\data")
+    fso.CreateFolder(projectDir & "\data")
     On Error GoTo 0
 End If
 
 ' 4. Launch node hidden with stdout/stderr redirected to data\dbu6.log
 ' Window Style 0 = SW_HIDE (Completely Invisible), bWaitOnReturn = False
-nodePath = scriptDir & "\node_modules\@dbu6\app\bin\dbu6.mjs"
-logPath = scriptDir & "\data\dbu6.log"
+nodePath = projectDir & "\node_modules\@dbu6\app\bin\dbu6.mjs"
+logPath = projectDir & "\data\dbu6.log"
 cmdStr = "cmd.exe /c " & q & "node " & q & nodePath & q & " start > " & q & logPath & q & " 2>&1" & q
 WshShell.Run cmdStr, 0, False
 
