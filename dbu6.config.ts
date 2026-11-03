@@ -13,26 +13,30 @@ try {
 }
 
 /**
- * Retrieve Gemini API key from process environment or local env files.
+ * Read an environment variable from process.env or fallback to .env.development / .env files.
  */
-function getGeminiApiKey(): string | null {
-  if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
-  if (process.env.GOOGLE_API_KEY) return process.env.GOOGLE_API_KEY;
+function readEnvVar(keys: string[]): string | null {
+  for (const key of keys) {
+    if (process.env[key]) return process.env[key]!;
+  }
 
   for (const envFile of [".env.development", ".env"]) {
     try {
       const p = join(import.meta.dirname, envFile);
       if (existsSync(p)) {
         const text = readFileSync(p, "utf-8");
-        for (const line of text.split("\n")) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith("GEMINI_API_KEY=")) {
-            const val = trimmed.slice("GEMINI_API_KEY=".length).trim();
-            if (val) return val;
-          }
-          if (trimmed.startsWith("GOOGLE_API_KEY=")) {
-            const val = trimmed.slice("GOOGLE_API_KEY=".length).trim();
-            if (val) return val;
+        for (const rawLine of text.split("\n")) {
+          const line = rawLine.trim();
+          if (line.startsWith("#") || !line.includes("=")) continue;
+          for (const key of keys) {
+            const prefix = `${key}=`;
+            if (line.startsWith(prefix)) {
+              let val = line.slice(prefix.length).trim();
+              if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+                val = val.slice(1, -1).trim();
+              }
+              if (val) return val;
+            }
           }
         }
       }
@@ -44,7 +48,26 @@ function getGeminiApiKey(): string | null {
 }
 
 /**
- * Call Google Gemini API (gemini-2.5-flash) with structured JSON output for categorizing transactions.
+ * Retrieve Gemini API key from process environment or local env files.
+ */
+export function getGeminiApiKey(): string | null {
+  return readEnvVar(["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
+}
+
+/**
+ * Dynamically resolve the Gemini model for a given task:
+ * - categorization: GEMINI_CATEGORIZATION_MODEL or GEMINI_MODEL (defaults to "gemini-2.5-flash")
+ * - session: GEMINI_SESSION_MODEL or GEMINI_MODEL (defaults to "gemini-2.5-pro")
+ */
+export function getGeminiModel(task: "categorization" | "session" = "categorization"): string {
+  if (task === "categorization") {
+    return readEnvVar(["GEMINI_CATEGORIZATION_MODEL", "GEMINI_MODEL"]) || "gemini-2.5-flash";
+  }
+  return readEnvVar(["GEMINI_SESSION_MODEL", "GEMINI_MODEL"]) || "gemini-2.5-pro";
+}
+
+/**
+ * Call Google Gemini API with structured JSON output for categorizing transactions.
  */
 async function callGeminiList<Name extends string>(
   request: {
@@ -61,11 +84,12 @@ async function callGeminiList<Name extends string>(
     };
   }
 
+  const model = getGeminiModel("categorization");
   const outputField = request.output.name;
   const userContent = `${request.prompt}\n\nPlease categorize each transaction below and return a JSON array of objects where each object has:\n- "id": string (the transaction ID)\n- "${outputField}": string (the exact matched account name from the accounts list, or empty string if uncertain/uncategorized)\n\nTransactions to categorize:\n${JSON.stringify(request.rows, null, 2)}`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     const payload = {
       contents: [
         {
@@ -268,6 +292,7 @@ function loadCustomMappings(customMappingsFilenames: readonly string[]): string 
 }
 
 const categorizerLoader: LoadCategorizer = async (settings) => {
+  const model = getGeminiModel("categorization");
   let classifierFn: (tx: any) => any;
   try {
     classifierFn = await loadClassifier();
@@ -277,7 +302,7 @@ const categorizerLoader: LoadCategorizer = async (settings) => {
       customMappings: { ok: false, error: err },
       llm: {
         agent: null,
-        name: "Google Gemini (gemini-2.5-flash)",
+        name: `Google Gemini (${model})`,
         caller: {
           ready: false,
           reason: "Failed to load transaction mappings",
@@ -293,7 +318,7 @@ const categorizerLoader: LoadCategorizer = async (settings) => {
     customMappings: { ok: true, value: customMappingsText },
     llm: {
       agent: null,
-      name: "Google Gemini (gemini-2.5-flash)",
+      name: `Google Gemini (${model})`,
       caller: {
         ready: true,
         maxRowsPerCall: 50,
