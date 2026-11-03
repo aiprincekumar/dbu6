@@ -11,7 +11,11 @@ import {
 import type { Ledger } from "../modules/ledger-sql/index.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
 import { accountNames } from "./account-names.js";
-import { postDrafts, postPress } from "../workflows/posting.js";
+import {
+  postDrafts,
+  postPress,
+  type BrokenCheck,
+} from "../workflows/posting.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
 
@@ -66,6 +70,8 @@ export function postDraftsToJournal(
   switch (outcome.kind) {
     case "account-not-found":
       return { status: 404, body: { error: "Base account not found" } };
+    case "breaks-posted-checks":
+      return brokenChecksRefusal(outcome.broken);
     case "blocked":
       return refusal(outcome.block, outcome.baseAccountName);
     case "posted":
@@ -84,7 +90,7 @@ export function postDraftsToJournal(
 
 type PostReadyResponse = ServerInferResponses<
   typeof draftTransactionsContract.postReadyDrafts,
-  200 | 404
+  200 | 404 | 422
 >;
 
 /**
@@ -105,6 +111,9 @@ export function postReadyDraftsToJournal(
       body: { error: `Accounts not found: ${outcome.accountIds.join(", ")}` },
     };
   }
+  if (outcome.kind === "breaks-posted-checks") {
+    return brokenChecksRefusal(outcome.broken);
+  }
   // One run of the writer for every account the batch posted.
   if (outcome.posted.length > 0) writeCommentsSoon();
   return {
@@ -121,6 +130,23 @@ export function postReadyDraftsToJournal(
         block,
       })),
       first_post: outcome.firstPost,
+    },
+  };
+}
+
+/**
+ * The 422 for a post the books' own balance checks would miss: nothing was
+ * added, and each account it would break is named.
+ */
+function brokenChecksRefusal(broken: readonly BrokenCheck[]) {
+  const failures = broken.reduce((sum, one) => sum + one.failures, 0);
+  const names = broken.map((one) => one.name).join(", ");
+  return {
+    status: 422 as const,
+    body: {
+      error: `Adding these would leave ${failures} balance check(s) in the books failing, on ${names}. Nothing was added.`,
+      code: "POSTED_CHECKS_WOULD_FAIL",
+      failing_count: failures,
     },
   };
 }

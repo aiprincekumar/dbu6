@@ -217,6 +217,31 @@ describe("postPress", () => {
     });
   });
 
+  it("adds nothing when no order of the journals holds the books' balance checks", () => {
+    // Bank and Savings each end 1 Mar on a transfer to the other, and each
+    // statement's balance counts the other's: any order of the two journals
+    // leaves the first one's balance missing the second.
+    const { sqlite, ledger: books } = ledger();
+    sqlite.exec(`
+      DELETE FROM draft_transactions;
+      INSERT INTO draft_transactions VALUES
+        (500, 'workspace', 'user', '2026-02-28', 'NOPII salary', 0, 1000, 9, 1, 1000, NULL, 'k-500', ${STAMP}, NULL),
+        (600, 'workspace', 'user', '2026-02-28', 'NOPII salary', 0, 1000, 9, 2, 1000, NULL, 'k-600', ${STAMP}, NULL),
+        (501, 'workspace', 'user', '2026-03-01', 'NOPII to savings', 100, 0, 2, 1, 950, NULL, 'k-501', ${STAMP}, NULL),
+        (601, 'workspace', 'user', '2026-03-01', 'NOPII to bank', 50, 0, 1, 2, 1050, NULL, 'k-601', ${STAMP}, NULL);
+    `);
+    expect(postPress(books, [1, 2], NAMES)).toEqual({
+      kind: "breaks-posted-checks",
+      broken: [{ accountId: 1, name: "Sample Bank", failures: 1 }],
+    });
+    expect(sqlite.prepare(`SELECT COUNT(*) AS n FROM journals`).get()).toEqual({
+      n: 0,
+    });
+    expect(
+      sqlite.prepare(`SELECT COUNT(*) AS n FROM draft_transactions`).get(),
+    ).toEqual({ n: 4 });
+  });
+
   it("refuses accounts it can't find", () => {
     expect(postPress(ledger().ledger, [1, 99], NAMES)).toEqual({
       kind: "accounts-not-found",
@@ -269,7 +294,7 @@ describe("postingOrder", () => {
     ).toEqual([a1, b1, a2, a3]);
   });
 
-  it("goes on when two accounts' asserting journals each wait for the other", () => {
+  it("puts the first account's journal first when two accounts' asserting journals each wait for the other", () => {
     const a = journal("2026-03-01", 1, 2, 100);
     const b = journal("2026-03-01", 2, 1, 50);
     expect(

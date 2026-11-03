@@ -27,6 +27,7 @@ import {
   insertJournalPlan,
 } from "../modules/journals/index.js";
 import type { Ledger, LedgerAuth } from "../modules/ledger-sql/index.js";
+import { countPostedAssertionFailures } from "../modules/reconciliation/index.js";
 
 /*
  * Adding drafts to the books. A press is the set of accounts the person
@@ -34,7 +35,10 @@ import type { Ledger, LedgerAuth } from "../modules/ledger-sql/index.js";
  * account Review lists with drafts. `decidePress` decides which of them go
  * in, and `postPress` adds those in one transaction, so accounts whose
  * balance checks count each other's drafts go in together or not at all,
- * and no order between them is needed.
+ * and no order between them is needed. The books' own balance checks are
+ * read again inside that transaction: a press that would leave one failing
+ * that passed before is rolled back, so the books never take entries that
+ * miss a statement balance.
  */
 
 /** What a press adds, and why each other account with drafts stays out. */
@@ -120,13 +124,7 @@ export function reliesOnAlone(
   const reliance = new Map<number, NamedAccount[]>();
   if (clear.length === 0) return reliance;
   const failing = failingByAccount(
-    findFailingChecks(
-      sqlite,
-      auth,
-      clear.length === 1
-        ? { otherDrafts: [], accountId: clear[0] }
-        : { otherDrafts: [] },
-    ),
+    findFailingChecks(sqlite, auth, { otherDrafts: [] }),
   );
   if (failing.size === 0) return reliance;
   const others = loadOtherStatementDrafts(sqlite, auth);
@@ -145,9 +143,20 @@ export function reliesOnAlone(
   return reliance;
 }
 
+/** An account whose posted balance checks a press would leave failing. */
+export interface BrokenCheck {
+  accountId: number;
+  name: string;
+  /** How many more of its posted checks would fail. */
+  failures: number;
+}
+
 export type PressOutcome =
   // Accounts not in the books; nothing was posted.
   | { kind: "accounts-not-found"; accountIds: number[] }
+  // Posted, the books would miss balance checks they meet now; nothing was
+  // posted.
+  | { kind: "breaks-posted-checks"; broken: BrokenCheck[] }
   | {
       kind: "done";
       posted: { accountId: number; name: string; draftsPosted: number }[];
@@ -162,6 +171,9 @@ export type PressOutcome =
  * Adds the accounts of `press` that `decidePress` lets in, all in one
  * transaction: a journal per draft, the drafts deleted. Only `press` is ever
  * posted; `names` names its accounts, and holds every account in the books.
+ * Refuses, writing nothing, when the books would then miss a posted balance
+ * check they meet now: the drafts' checks can pass in an order the books
+ * can't hold (`postingOrder`).
  */
 export function postPress(
   { db, sqlite, auth }: Ledger,
@@ -172,11 +184,7 @@ export function postPress(
   if (missing.length > 0) {
     return { kind: "accounts-not-found", accountIds: missing };
   }
-  const statuses = loadDraftStatus(
-    sqlite,
-    auth,
-    press.length === 1 ? { accountId: press[0] } : {},
-  );
+  const statuses = loadDraftStatus(sqlite, auth);
   const { adds, left } = decidePress(sqlite, auth, press, statuses, names);
 
   // The drafts and the statuses are read in one synchronous pass, so every
@@ -204,15 +212,28 @@ export function postPress(
   });
 
   const firstPost = !hasJournalsBesideOpenings(sqlite, auth);
-  const inserted =
-    plans.length === 0
-      ? { journals: 0, entries: 0 }
-      : db.transaction((tx: any) => {
-          const written = insertJournalPlan(tx, postingOrder(plans), auth);
-          for (const accountId of adds)
-            deleteAccountDrafts(tx, accountId, auth);
-          return written;
-        });
+  const failingBefore = countPostedAssertionFailures(sqlite, auth);
+  let broken: BrokenCheck[] = [];
+  let inserted = { journals: 0, entries: 0 };
+  if (plans.length > 0) {
+    try {
+      inserted = db.transaction((tx: any) => {
+        const written = insertJournalPlan(tx, postingOrder(plans), auth);
+        for (const accountId of adds) deleteAccountDrafts(tx, accountId, auth);
+        // The same connection, so the count sees the rows just written.
+        broken = newlyFailing(
+          failingBefore,
+          countPostedAssertionFailures(sqlite, auth),
+          names,
+        );
+        if (broken.length > 0) throw ROLLBACK;
+        return written;
+      });
+    } catch (error) {
+      if (error !== ROLLBACK) throw error;
+      return { kind: "breaks-posted-checks", broken };
+    }
+  }
 
   return {
     kind: "done",
@@ -234,6 +255,7 @@ export function postPress(
 
 export type PostingOutcome =
   | { kind: "account-not-found" }
+  | { kind: "breaks-posted-checks"; broken: BrokenCheck[] }
   // The first thing that keeps the drafts off the books; nothing was
   // written.
   | { kind: "blocked"; block: PostingBlock; baseAccountName: string }
@@ -263,6 +285,7 @@ export function postDrafts(
   if (outcome.kind === "accounts-not-found") {
     return { kind: "account-not-found" };
   }
+  if (outcome.kind === "breaks-posted-checks") return outcome;
   const [refused] = outcome.left;
   if (refused) {
     return {
@@ -288,7 +311,8 @@ export function postDrafts(
  * order, and before an account's first journal that asserts its balance,
  * every journal of the others that goes to it that day, as the draft
  * balance check counted them. When two accounts' asserting journals each
- * wait for the other, the first account's goes on regardless.
+ * wait for the other, no order holds both; the first account's goes on,
+ * and `postPress` refuses the press once the books' checks say so.
  */
 export function postingOrder(
   plans: readonly { accountId: number; plan: JournalPlan<number> }[],
@@ -364,6 +388,24 @@ function failingChecksBlock(
         name: names.get(row.other_id) ?? `account ${row.other_id}`,
       })),
   };
+}
+
+// Thrown inside the transaction to roll it back.
+const ROLLBACK = Symbol("rollback");
+
+// The accounts with more failing posted checks `after` than `before`.
+function newlyFailing(
+  before: ReadonlyMap<number, number>,
+  after: ReadonlyMap<number, number>,
+  names: ReadonlyMap<number, string>,
+): BrokenCheck[] {
+  return [...after]
+    .filter(([accountId, count]) => count > (before.get(accountId) ?? 0))
+    .map(([accountId, count]) => ({
+      accountId,
+      name: names.get(accountId) ?? `account ${accountId}`,
+      failures: count - (before.get(accountId) ?? 0),
+    }));
 }
 
 function failingByAccount(

@@ -195,7 +195,7 @@ export const draftTransactionsContract = c.router({
     method: "POST",
     path: "/draft-transactions/post-ready",
     summary:
-      "Add all: post the drafts of the accounts named that can go in together, all in one transaction: those nothing of their own blocks, whose balance checks pass counting the drafts of the others going in. The rest are left with the check that blocks them. Only the accounts named are ever posted. The person's own button, on Review",
+      "Add all: post the drafts of the accounts named that can go in together, all in one transaction: those nothing of their own blocks, whose balance checks pass counting the drafts of the others going in. The rest are left with the check that blocks them. Only the accounts named are ever posted. Refused with 422, nothing posted, when the books would then miss a balance check they meet now",
     body: z.object({
       base_account_ids: z.array(z.number().int().positive()).min(1),
     }),
@@ -204,6 +204,8 @@ export const draftTransactionsContract = c.router({
       403: errorSchema,
       // One of the accounts isn't in the books; nothing was posted.
       404: errorSchema,
+      // POSTED_CHECKS_WOULD_FAIL: nothing was posted.
+      422: errorSchema,
     },
   }),
 });

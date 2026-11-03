@@ -13,7 +13,9 @@ import { assertionFailsSql, draftOrderSql } from "./balance-check.js";
 // withdrawal is a debit here. It sits where its journal will sit once that
 // account's drafts are added, ahead of this account's own drafts on its
 // date, so a check that passes now still passes after that post, and a
-// transfer both statements print fails here before either is posted.
+// transfer both statements print fails here before either is posted. Two
+// accounts whose last journals of a day each go to the other can't both
+// sit there; the posting gate refuses that post rather than write it.
 //
 // The posting gate narrows the other accounts' drafts to those of the
 // accounts it adds together (`OtherDrafts`): a draft goes into the books only
