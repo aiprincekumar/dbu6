@@ -12,6 +12,7 @@
     "noEmit": true,
     // Node's own modules (node:test in a report's test). TypeScript 6 no
     // longer includes @types packages unless they are named here.
+    "typeRoots": ["node_modules/@types", "node_modules/@dbu6/app/node_modules/@types"],
     "types": ["node"],
     // These three keep what typechecks runnable under Node, which strips
     // types without compiling: import "./contract.ts" by its real name, mark
