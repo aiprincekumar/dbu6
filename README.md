@@ -21,8 +21,8 @@ Node.js 22.18 or newer, with `npm`. Statement imports also need `uv` and
 `pdftotext` (from poppler). git and a coding agent (Claude Code, Codex or Pi)
 are optional. A coding agent needs the
 [Sapporta](https://github.com/jasim/sapporta) agent skill, installed once per
-machine by the `npx skills add` line in [Getting
-started](https://github.com/jasim/dbu6/blob/main/docs/getting-started.md); the
+machine by the `npx skills add` line in
+[Install dbu6](https://dbu6.com/docs/install/); the
 `sapporta` command that skill's work runs through comes in the project with
 dbu6, and `npx dbu6 check` confirms it is wired up.
 
@@ -38,11 +38,11 @@ npx dbu6 dev
 database. `dev` serves the app: open <http://localhost:2345> and sign up.
 
 Then drop every statement you have on Update, from any bank or card, any
-period, and press **Do my books**. Your coding agent sets up each bank and
-card, imports and categorizes, fits a chart of accounts to your spending,
-settles duplicates and balance checks, and asks you only what it can't
-settle, in one round in the terminal. You add the entries to your books on
-Review.
+period, and press **Add N files to my books**. Your coding agent sets up
+each bank and card, imports and categorizes, fits a chart of accounts to
+your spending, settles duplicates and balance checks, and asks you only what
+it can't settle, in one round in the terminal. You add the entries to your
+books on Review.
 Once something is in your books, dbu6 opens on Overview: the month's income,
 spending and savings, net worth, and how far each account's books go.
 
@@ -63,8 +63,8 @@ npx sapporta api get /api/auth-context
 command answers with the user and workspace it acts as. `npx sapporta …` is
 dbu6's own copy of the Sapporta CLI — there is nothing else to install.
 
-[Getting started](https://github.com/jasim/dbu6/blob/main/docs/getting-started.md)
-has each step in full, everyday commands and backups.
+[Install dbu6](https://dbu6.com/docs/install/) has each step in full,
+everyday commands and backups.
 
 ## The packages
 
@@ -80,16 +80,27 @@ dbu6 is published on npm by the [`dbu6` organization](https://www.npmjs.com/org/
 
 ## Documentation
 
-* [Getting started](https://github.com/jasim/dbu6/blob/main/docs/getting-started.md) —
-  install, the first run, the setup steps, everyday commands, backups.
-* [Your books](https://github.com/jasim/dbu6/blob/main/docs/your-books.md) —
-  the folder, its accounts and journal entries, and what is yours to change.
-* [Importing statements](https://github.com/jasim/dbu6/blob/main/docs/statements.md) —
-  parsers, layouts dbu6 cannot read, freeform transactions, balance checks.
-* [Categorization](https://github.com/jasim/dbu6/blob/main/docs/categorization.md) —
-  your mapping rules and the LLM that handles the rest.
-* [Reports](https://github.com/jasim/dbu6/blob/main/docs/reports.md) — the
-  reports that ship, reports of your own, and the hledger export.
+The documentation is at <https://dbu6.com/docs/>:
+
+* [Bookkeeping basics](https://dbu6.com/docs/bookkeeping-basics/) — the
+  terms dbu6 uses, for anyone new to keeping books.
+* [Install dbu6](https://dbu6.com/docs/install/) — prerequisites, the books
+  folder, starting the app, connecting the coding agent, backups.
+* [Do your books from your statements](https://dbu6.com/docs/first-books/) —
+  the first run, from a pile of statements to books on Review.
+* [Keep your books up to date](https://dbu6.com/docs/keeping-up/) — the
+  monthly routine.
+* [Your books](https://dbu6.com/docs/your-books/) — the folder, its accounts
+  and journal entries, and what is yours to change.
+* [Importing statements](https://dbu6.com/docs/statements/) — parsers,
+  layouts dbu6 cannot read, freeform transactions, balance checks.
+* [Categorization](https://dbu6.com/docs/categorization/) — your mapping
+  rules and the LLM that handles the rest.
+* [Reports](https://dbu6.com/docs/reports/) — the reports that ship, reports
+  of your own, and the hledger export.
+
+In this repository:
+
 * [DBU6-BOOKS.md](https://github.com/jasim/dbu6/blob/main/DBU6-BOOKS.md) —
   the guide a coding agent reads, and the commands it runs.
 * [DEPLOYMENT.md](https://github.com/jasim/dbu6/blob/main/DEPLOYMENT.md) —
