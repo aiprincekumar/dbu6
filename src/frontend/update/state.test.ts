@@ -10,6 +10,7 @@ import {
   updateState,
   statementsNeededFrom,
   waitingInUpdate,
+  WHAT_TO_BRING,
   type UpdateCard,
   type UpdateView,
 } from "./state";
@@ -81,12 +82,16 @@ describe("updateState", () => {
   it("offers Do my books, or the chart by hand, when the books have none", () => {
     const view = updateState(summary([], { has_chart: false }));
     expect(view.state).toBe("no-chart");
-    expect(view.greeting).toBe("Let's set up your books");
+    expect(view.greeting).toBe("Set up your books");
     expect(view.card).toEqual({
       kind: "do-my-books",
-      body: "Your coding agent proposes your accounts for your OK before it imports anything.",
-      byHand: { label: "Set up by hand", to: "/setup" },
+      body: WHAT_TO_BRING,
+      byHand: {
+        label: "Or, Set up the chart of accounts manually",
+        to: "/setup",
+      },
     });
+    expect(view.firstRun).toBe(true);
     // The card is the one thing to do: no empty list of accounts below it.
     expect(view.listsAccounts).toBe(false);
   });
@@ -94,11 +99,13 @@ describe("updateState", () => {
   it("offers Do my books, or the first bank or card by hand, once there is a chart", () => {
     const view = updateState(summary([]));
     expect(view.state).toBe("nothing-imported");
-    expect(view.greeting).toBe("Let's set up your books");
+    expect(view.greeting).toBe("Set up your books");
     expect(view.card).toEqual({
       kind: "do-my-books",
+      body: WHAT_TO_BRING,
       byHand: { label: "Add a bank or card", to: "/add?run=setup" },
     });
+    expect(view.firstRun).toBe(true);
     expect(view.listsAccounts).toBe(false);
   });
 

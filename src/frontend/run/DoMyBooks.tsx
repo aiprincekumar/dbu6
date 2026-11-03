@@ -1,9 +1,17 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { StatementInboxBatch } from "../../shared/index";
+import {
+  ANY_CODING_AGENT,
+  codingAgentInUse,
+  noCodingAgentMessage,
+  type CodingAgentSettings,
+  type NoCodingAgent,
+  type StatementInboxBatch,
+} from "../../shared/index";
 import { apiErrorMessage, statementInboxApi } from "../api";
 import { AgentButton } from "../components/agent-prompt";
-import { FRESH_QUERY } from "../queries";
+import { CodingAgentSetupDialog } from "../components/coding-agent-setup";
+import { codingAgentSettingsQuery, FRESH_QUERY } from "../queries";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { DROP_ID } from "../update/routes";
@@ -11,6 +19,12 @@ import type { UpdateLink } from "../update/state";
 import { formatFileSize } from "../format";
 import { InfoButton } from "../views/import-statements/cards";
 import { Dropzone } from "../views/import-statements/files";
+import { StatusText } from "../views/settings/CodingAgent";
+import {
+  checkingModels,
+  summarizeCodingAgent,
+} from "../views/settings/describeCodingAgent";
+import { CODING_AGENT_SETTINGS_ROUTE } from "../views/settings/routes";
 import { doMyBooksPrompt, runLabel, saveToInbox } from "./inbox";
 
 export const STATEMENT_INBOX_KEY = ["statement-inbox"] as const;
@@ -28,13 +42,17 @@ export const STATEMENT_INBOX_KEY = ["statement-inbox"] as const;
  * `byHand`, doing it by hand instead, is a quiet link beside the run's
  * button; `body` is what to know before dropping, such as what is already
  * set up. The drop is `#drop`: arriving there, or following a link to it
- * from the same page, scrolls to it and focuses "Choose files".
+ * from the same page, scrolls to it and focuses "Choose files". On the first
+ * run (`firstRun`) the coding agent that will read the statements is named
+ * above the drop, and with none to use, setting one up comes first and the
+ * drop waits.
  */
 export function DoMyBooks({
   body,
   byHand,
   afterList = false,
   choosePrimary = true,
+  firstRun = false,
 }: {
   body?: string;
   byHand?: UpdateLink;
@@ -48,8 +66,19 @@ export function DoMyBooks({
    * uploaded: not under the drafts card, whose button is the screen's one.
    */
   choosePrimary?: boolean;
+  /** Nothing imported yet: the agent row above the drop, and the ⓘ. */
+  firstRun?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const agent = useQuery({
+    ...codingAgentSettingsQuery,
+    enabled: firstRun,
+    refetchInterval: (query) =>
+      query.state.data !== undefined && checkingModels(query.state.data)
+        ? CHECKING_POLL_MS
+        : false,
+  });
+  const agentState = firstRun && agent.data ? agentReadiness(agent.data) : null;
   const inbox = useQuery({
     queryKey: STATEMENT_INBOX_KEY,
     queryFn: () => statementInboxApi.listStatementInbox(),
@@ -91,14 +120,39 @@ export function DoMyBooks({
 
   return (
     <section>
-      {body && <p className="mb-3 text-body text-ink-soft">{body}</p>}
+      {firstRun && <AgentRow settings={agent.data} />}
+      {agentState?.ready === false ? (
+        <AgentSetup missing={agentState.missing} />
+      ) : (
+        body && (
+          <p className="mb-3 text-body text-ink-soft">
+            {body}
+            {firstRun && (
+              <span className="ml-1 inline-flex align-middle">
+                <HowItWorks />
+              </span>
+            )}
+          </p>
+        )
+      )}
       <div id={DROP_ID} ref={drop}>
         <Dropzone
-          disabled={save.isPending}
-          title={afterList ? "Drop them here" : undefined}
-          hint="PDF, Excel, CSV or text, from any bank or card, new ones too."
+          disabled={save.isPending || agentState?.missing != null}
+          title={
+            agentState?.missing
+              ? "Set up a coding agent first"
+              : afterList
+                ? "Drop them here"
+                : undefined
+          }
+          hint={
+            firstRun
+              ? "PDF, Excel, CSV or text, from any bank or card."
+              : "PDF, Excel, CSV or text, from any bank or card, new ones too."
+          }
           prominent
-          primary={choosePrimary && files === 0}
+          arrow={!firstRun}
+          primary={choosePrimary && files === 0 && agentState?.ready !== false}
           onFiles={(files) => {
             if (files.length > 0) save.mutate(files);
           }}
@@ -156,28 +210,98 @@ export function DoMyBooks({
           )}
         </div>
       )}
-      <div className="mt-2 flex items-center gap-1 text-meta text-ink-meta">
-        <p>
-          Your coding agent imports the files you add. You check its entries on
-          Review and add them to your books.
-        </p>
-        <InfoButton label="How the coding agent adds your statements">
-          <p>
-            Your coding agent imports each file and categorizes its
-            transactions. It asks you in the terminal about anything it can't
-            work out.
-          </p>
-          <p>
-            A bank or card new to your books goes in the same drop: your coding
-            agent sets it up from its statements.
-          </p>
-          <p>
-            Nothing from your statements goes into your books until you add it
-            on Review.
-          </p>
-        </InfoButton>
-      </div>
     </section>
+  );
+}
+
+const CHECKING_POLL_MS = 2000;
+
+/**
+ * Whether the run has a coding agent: `missing` when there is none to use,
+ * so the drop waits; `ready` false too when the one in use doesn't work yet.
+ * Null while dbu6 is still looking.
+ */
+function agentReadiness(
+  settings: CodingAgentSettings,
+): { ready: boolean; missing: NoCodingAgent | null } | null {
+  if (settings.picking) return null;
+  const inUse = codingAgentInUse(settings.agents, settings.chosen);
+  if (inUse.agent === null) return { ready: false, missing: inUse.why };
+  return {
+    ready: summarizeCodingAgent(settings).tone !== "attention",
+    missing: null,
+  };
+}
+
+/**
+ * The coding agent that will read the statements, as a labelled value:
+ * "✓ Claude Code", or what is wrong, as Settings' index says it.
+ */
+function AgentRow({ settings }: { settings: CodingAgentSettings | undefined }) {
+  return (
+    <dl className="mb-3 flex items-baseline gap-4">
+      <dt className="w-32 shrink-0 text-label uppercase text-ink-meta">
+        Coding agent
+      </dt>
+      <dd className="text-row font-semibold">
+        {settings && <StatusText cell={summarizeCodingAgent(settings)} />}
+      </dd>
+    </dl>
+  );
+}
+
+/**
+ * With no coding agent to use, or one that doesn't work yet: why, and the
+ * one step, filled blue. None to use opens the guide to installing one; one
+ * that doesn't work is fixed on Settings › Coding agent.
+ */
+function AgentSetup({ missing }: { missing: NoCodingAgent | null }) {
+  const [open, setOpen] = useState(false);
+  if (!missing) {
+    return (
+      <Button
+        variant="setup"
+        className="mb-5"
+        render={<Link to={CODING_AGENT_SETTINGS_ROUTE} />}
+        nativeButton={false}
+      >
+        Fix the coding agent in Settings
+      </Button>
+    );
+  }
+  return (
+    <div className="mb-5">
+      <p className="text-body text-ink-soft">
+        Your coding agent reads your statements and drafts the entries.{" "}
+        {missing.kind === "none_installed"
+          ? `Install ${ANY_CODING_AGENT} on the computer running dbu6.`
+          : noCodingAgentMessage(missing)}
+      </p>
+      <Button variant="setup" className="mt-3" onClick={() => setOpen(true)}>
+        Set up a coding agent
+      </Button>
+      <CodingAgentSetupDialog open={open} onClose={() => setOpen(false)} />
+    </div>
+  );
+}
+
+/** What happens to the statements, behind the first run's ⓘ. */
+function HowItWorks() {
+  return (
+    <InfoButton label="How your coding agent adds your statements">
+      <p>
+        Your coding agent imports each file and categorizes its transactions in
+        a terminal. It asks you there about anything it can't work out.
+      </p>
+      <p>
+        Nothing from your statements goes into your books until you add it on
+        Review.
+      </p>
+      <p>
+        Your statements stay on this computer. Only your coding agent's AI
+        provider reads them.
+      </p>
+    </InfoButton>
   );
 }
 

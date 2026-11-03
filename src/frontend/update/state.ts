@@ -80,11 +80,23 @@ export interface RunCard {
   byHand: UpdateLink;
 }
 
+/**
+ * What to drop on the first run, before any bank or card is set up: the one
+ * choice the user makes is how far back the books start.
+ */
+export const WHAT_TO_BRING =
+  "Add a statement for each bank account and card, going back to the month you want your books to start.";
+
 export interface UpdateView {
   state: UpdateStateId;
   /** The page heading: the first run's, else the page's own. */
   greeting: string;
   card: UpdateCard | RunCard;
+  /**
+   * Whether nothing is imported yet: the page shows only the greeting, and
+   * the drop says which coding agent will read the statements.
+   */
+  firstRun: boolean;
   /**
    * Whether the page lists the accounts under the card: not before there
    * are any, when the card's is the one thing to do.
@@ -93,7 +105,7 @@ export interface UpdateView {
 }
 
 /** The heading during the first run, on Update and on Overview. */
-export const FIRST_RUN_GREETING = "Let's set up your books";
+export const FIRST_RUN_GREETING = "Set up your books";
 
 /** The heading once the first run is over. */
 const UPDATE_HEADING = "Update your books";
@@ -107,9 +119,13 @@ export function updateState(summary: HomeSummary): UpdateView {
       greeting: FIRST_RUN_GREETING,
       card: {
         kind: "do-my-books",
-        body: "Your coding agent proposes your accounts for your OK before it imports anything.",
-        byHand: { label: "Set up by hand", to: SETUP_ROUTE },
+        body: WHAT_TO_BRING,
+        byHand: {
+          label: "Or, Set up the chart of accounts manually",
+          to: SETUP_ROUTE,
+        },
       },
+      firstRun: true,
       listsAccounts: false,
     };
   }
@@ -123,6 +139,7 @@ export function updateState(summary: HomeSummary): UpdateView {
         action: { label: "Review transactions", to: reviewTarget(summary) },
         byHand: summary.posted ? GUIDED_IMPORT : FIRST_RUN_BY_HAND,
       },
+      firstRun: false,
       listsAccounts: true,
     };
   }
@@ -136,9 +153,12 @@ export function updateState(summary: HomeSummary): UpdateView {
       greeting: FIRST_RUN_GREETING,
       card: {
         kind: "do-my-books",
-        body: waiting ? `Set up, no transactions yet: ${waiting}.` : undefined,
+        body: waiting
+          ? `Set up, no transactions yet: ${waiting}.`
+          : WHAT_TO_BRING,
         byHand: FIRST_RUN_BY_HAND,
       },
+      firstRun: true,
       listsAccounts: accounts.length > 0,
     };
   }
@@ -147,6 +167,7 @@ export function updateState(summary: HomeSummary): UpdateView {
     state: "import-new",
     greeting: UPDATE_HEADING,
     card: { kind: "do-my-books", byHand: GUIDED_IMPORT },
+    firstRun: false,
     listsAccounts: true,
   };
 }

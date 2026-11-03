@@ -45,6 +45,8 @@ export function carriedFiles(state: unknown): File[] {
  * server says which ones it can't read. `prominent` makes the zone the
  * screen's focus, tinted green and larger, as on Update; `primary` fills
  * "Choose files" while choosing files is the one thing to do there.
+ * `arrow` is the ↑ tile above the title, left out where the page is new and
+ * the zone needs no decoration.
  */
 export function Dropzone({
   disabled,
@@ -53,6 +55,7 @@ export function Dropzone({
   hint = "PDF, Excel or CSV. Add as many as you like.",
   prominent = false,
   primary = false,
+  arrow = true,
 }: {
   disabled: boolean;
   onFiles: (files: File[]) => void;
@@ -60,6 +63,7 @@ export function Dropzone({
   hint?: string;
   prominent?: boolean;
   primary?: boolean;
+  arrow?: boolean;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -106,21 +110,23 @@ export function Dropzone({
               : "cursor-pointer border-sap-border-strong bg-dropzone-bg hover:bg-muted",
       )}
     >
-      <div
-        aria-hidden="true"
-        className={cn(
-          "mx-auto flex items-center justify-center rounded-[12px]",
-          prominent
-            ? "size-13 bg-card text-[20px] text-primary"
-            : "size-11 bg-tile-bg text-[17px] text-ink-soft",
-        )}
-      >
-        ↑
-      </div>
+      {arrow && (
+        <div
+          aria-hidden="true"
+          className={cn(
+            "mx-auto flex items-center justify-center rounded-[12px]",
+            prominent
+              ? "mb-4 size-13 bg-card text-[20px] text-primary"
+              : "mb-3.5 size-11 bg-tile-bg text-[17px] text-ink-soft",
+          )}
+        >
+          ↑
+        </div>
+      )}
       <p
         className={cn(
           "font-semibold text-foreground",
-          prominent ? "mt-4 text-title" : "mt-3.5 text-[17px] leading-tight",
+          prominent ? "text-title" : "text-[17px] leading-tight",
         )}
       >
         {title}

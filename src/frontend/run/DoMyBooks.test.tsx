@@ -12,7 +12,10 @@ import {
   it,
   vi,
 } from "vitest";
-import type { StatementInboxBatch } from "../../shared/index";
+import type {
+  CodingAgentSettings,
+  StatementInboxBatch,
+} from "../../shared/index";
 import { RUN_PLAN_FIRST_RULE } from "../agent-prompt-rules";
 import { DoMyBooks } from "./DoMyBooks";
 import { doMyBooksPrompt } from "./inbox";
@@ -32,6 +35,38 @@ let saved: string[][];
 let removed: string[];
 let cleared: number;
 let alreadyUploaded: string[];
+let agentSettings: CodingAgentSettings;
+
+const CLAUDE_READY: CodingAgentSettings = {
+  agents: [
+    {
+      agent: "claude-code",
+      installed: true,
+      logged_in: true,
+      models: {
+        state: "ready",
+        session: { label: "Sample" },
+        categorization: { label: "Sample" },
+        unavailable: [],
+      },
+    },
+  ],
+  chosen: "claude-code",
+  picking: false,
+};
+
+const NONE_INSTALLED: CodingAgentSettings = {
+  agents: [
+    {
+      agent: "claude-code",
+      installed: false,
+      logged_in: false,
+      models: { state: "not_checked" },
+    },
+  ],
+  chosen: null,
+  picking: false,
+};
 
 const BATCH: StatementInboxBatch = {
   batch: "2026-11-02T10-00-00-0505",
@@ -60,6 +95,7 @@ beforeEach(() => {
   removed = [];
   cleared = 0;
   alreadyUploaded = [];
+  agentSettings = CLAUDE_READY;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -95,6 +131,9 @@ beforeEach(() => {
       }
       if (url.includes("/statement-inbox")) {
         return Response.json({ batches });
+      }
+      if (url.includes("/coding-agent")) {
+        return Response.json(agentSettings);
       }
       // No agent the server can start: the button copies the prompt.
       return Response.json({ mode: "none" });
@@ -217,6 +256,43 @@ describe("Do my books", () => {
         row.textContent?.includes("sample-savings-050505.pdf"),
       ),
     ).toHaveLength(1);
+  });
+});
+
+describe("the first run", () => {
+  it("names the coding agent above the drop, with no arrow and no “new ones too”", async () => {
+    await render({ firstRun: true, body: "What to bring." });
+    const text = host.textContent ?? "";
+    expect(text).toContain("Coding agent");
+    expect(text).toContain("✓ Claude Code");
+    expect(text).toContain("What to bring.");
+    expect(text).toContain("PDF, Excel, CSV or text, from any bank or card.");
+    expect(text).not.toContain("new ones too");
+    expect(text).not.toContain("↑");
+    expect(chooseFiles()?.disabled).toBe(false);
+  });
+
+  it("puts setting up a coding agent first, and the drop waits, with none installed", async () => {
+    agentSettings = NONE_INSTALLED;
+    await render({ firstRun: true, body: "What to bring." });
+    const text = host.textContent ?? "";
+    expect(text).toContain("None installed");
+    expect(text).toContain("Set up a coding agent first");
+    expect(text).not.toContain("What to bring.");
+    expect(
+      [...host.querySelectorAll("button")].some(
+        (button) => button.textContent === "Set up a coding agent",
+      ),
+    ).toBe(true);
+    expect(
+      host.querySelector("[data-dropzone]")?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(chooseFiles()?.disabled).toBe(true);
+  });
+
+  it("names no agent past the first run", async () => {
+    await render();
+    expect(host.textContent).not.toContain("Coding agent");
   });
 });
 

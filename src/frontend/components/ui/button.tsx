@@ -33,6 +33,12 @@ export const buttonVariants = cva(
          */
         attention:
           "border border-attention-border bg-attention-bg text-attention-ink hover:bg-attention-hover",
+        /**
+         * Setup: a screen's one step while something it needs is missing
+         * ("Set up a coding agent"), filled blue where a primary is green.
+         */
+        setup:
+          "bg-attention text-primary-foreground shadow-pill hover:bg-attention-ink",
         /** Rare: deleting a draft, removing an account. */
         destructive:
           "bg-destructive text-destructive-foreground hover:brightness-95",

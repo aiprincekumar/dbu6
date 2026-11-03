@@ -45,7 +45,12 @@ export function Update() {
   return (
     <Screen
       width="narrow"
-      header={<UpdateHeader greeting={view?.greeting ?? null} />}
+      header={
+        <UpdateHeader
+          greeting={view?.greeting ?? null}
+          firstRun={view?.firstRun}
+        />
+      }
     >
       {error ? (
         <div className="mt-5">
@@ -73,6 +78,7 @@ export function Update() {
                 body={view.card.body}
                 byHand={view.card.byHand}
                 afterList={view.listsAccounts}
+                firstRun={view.firstRun}
               />
             ) : (
               <DoMyBooks
@@ -95,10 +101,17 @@ export function Update() {
 
 /**
  * Update's heading: today, the greeting (a placeholder until it loads), and
- * the workspace. Overview's first run shows it too, so the two first-run
- * screens read the same.
+ * the workspace, both left out on the first run. Overview's first run shows
+ * it too, so the two first-run screens read the same.
  */
-export function UpdateHeader({ greeting }: { greeting: string | null }) {
+export function UpdateHeader({
+  greeting,
+  firstRun = false,
+}: {
+  greeting: string | null;
+  /** The first run shows the greeting alone. */
+  firstRun?: boolean;
+}) {
   const workspaceName = useAuthStore((s) =>
     s.session.kind === "authenticated"
       ? s.session.context.workspace.name
@@ -106,18 +119,22 @@ export function UpdateHeader({ greeting }: { greeting: string | null }) {
   );
   return (
     <>
-      <p className="text-label uppercase text-ink-meta">{dayLabel(today())}</p>
+      {!firstRun && (
+        <p className="mb-2 text-label uppercase text-ink-meta">
+          {dayLabel(today())}
+        </p>
+      )}
       {greeting ? (
-        <h1 className="mt-2 text-title text-foreground sm:text-display">
+        <h1 className="text-title text-foreground sm:text-display">
           {greeting}
         </h1>
       ) : (
         <div
           aria-hidden="true"
-          className="mt-3 h-sap-ctl w-[min(420px,100%)] rounded-control bg-sap-nested"
+          className="mt-1 h-sap-ctl w-[min(420px,100%)] rounded-control bg-sap-nested"
         />
       )}
-      {workspaceName && (
+      {workspaceName && !firstRun && (
         <p className="mt-2 text-body text-ink-meta">{workspaceName}</p>
       )}
     </>
@@ -130,11 +147,16 @@ export function UpdateHeader({ greeting }: { greeting: string | null }) {
  * puts its list of statements to download between the two. Spaced from the
  * header as Update spaces them.
  */
-export function NextStep({ card }: { card: UpdateView["card"] }) {
+export function NextStep({ view }: { view: UpdateView }) {
+  const { card } = view;
   if ("kind" in card) {
     return (
       <div className="mt-6">
-        <DoMyBooks body={card.body} byHand={card.byHand} />
+        <DoMyBooks
+          body={card.body}
+          byHand={card.byHand}
+          firstRun={view.firstRun}
+        />
       </div>
     );
   }

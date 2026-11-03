@@ -142,9 +142,9 @@ function FirstRun({ summary }: { summary: HomeSummary }) {
   return (
     <Screen
       width="narrow"
-      header={<UpdateHeader greeting={FIRST_RUN_GREETING} />}
+      header={<UpdateHeader greeting={FIRST_RUN_GREETING} firstRun />}
     >
-      <NextStep card={view.card} />
+      <NextStep view={view} />
     </Screen>
   );
 }
