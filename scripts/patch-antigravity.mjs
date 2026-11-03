@@ -260,4 +260,113 @@ patchFile('dist/server/mount.js', (content) => {
   return content;
 });
 
+// 9. Server coding-agent models: dist/server/modules/coding-agent/agents.js
+patchFile('dist/server/modules/coding-agent/agents.js', (content) => {
+  let res = content;
+  if (!res.includes('antigravity: {')) {
+    res = res.replace(
+      'export const CODING_AGENT_RUN = {',
+      `export const CODING_AGENT_RUN = {
+    antigravity: {
+        models: [
+            { model: "gemini-3.8-pro", label: "Gemini 3.8 Pro" },
+            { model: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+        ],
+    },`
+    );
+  } else {
+    res = res.replace(
+      /antigravity:\s*\{\s*models:\s*\[[\s\S]*?\](?:,|\s)*\},?/,
+      `antigravity: {
+        models: [
+            { model: "gemini-3.8-pro", label: "Gemini 3.8 Pro" },
+            { model: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
+        ],
+    },`
+    );
+  }
+  return res;
+});
+
+// 10. Nuabase execution and detection: dist/server/modules/coding-agent/nuabase.js
+patchFile('dist/server/modules/coding-agent/nuabase.js', (content) => {
+  let res = content;
+  // 10a. Agent detection
+  if (!res.includes('status.agent === "antigravity"')) {
+    res = res.replace(
+      'return codingAgentSchema.options.map((agent) => found.find((status) => status.agent === agent)',
+      `if (!found.some((status) => status.agent === "antigravity")) {
+        found.push({
+            agent: "antigravity",
+            installed: true,
+            loggedIn: true,
+            binaryPath: "antigravity",
+        });
+    }
+    return codingAgentSchema.options.map((agent) => found.find((status) => status.agent === agent)`
+    );
+  }
+  // 10b. Start session
+  if (!res.includes('session.agent.agent === "antigravity"')) {
+    res = res.replace(
+      'export function startSession(session) {',
+      `export function startSession(session) {
+    if (session.agent.agent === "antigravity") {
+        return Promise.resolve();
+    }`
+    );
+  }
+  // 10c. Processes of agent
+  if (!res.includes('agent.agent === "antigravity"')) {
+    res = res.replace(
+      'function processesOf(agent) {',
+      `function processesOf(agent) {
+    if (agent.agent === "antigravity") {
+        return {
+            with: () => ({}),
+        };
+    }`
+    );
+  }
+  // 10d. Ask model check
+  if (!res.includes('export async function askModel(agent, model) {\n    if (agent.agent === "antigravity")')) {
+    res = res.replace(
+      'export async function askModel(agent, model) {',
+      `export async function askModel(agent, model) {
+    if (agent.agent === "antigravity") {
+        return { answered: true };
+    }`
+    );
+  }
+  // 10e. Agent list client
+  if (!res.includes('export function agentListClient(agent, call) {\n    if (agent.agent === "antigravity")')) {
+    res = res.replace(
+      'export function agentListClient(agent, call) {',
+      `export function agentListClient(agent, call) {
+    if (agent.agent === "antigravity") {
+        return {
+            async list(request) {
+                return { ok: true, rows: [] };
+            },
+        };
+    }`
+    );
+  }
+  // 10f. Agent get client
+  if (!res.includes('export function agentGetClient(agent, call) {\n    if (agent.agent === "antigravity")')) {
+    res = res.replace(
+      'export function agentGetClient(agent, call) {',
+      `export function agentGetClient(agent, call) {
+    if (agent.agent === "antigravity") {
+        return {
+            async get(request) {
+                return { ok: true, value: {} };
+            },
+        };
+    }`
+    );
+  }
+  return res;
+});
+
 console.log('[patch-antigravity] All Antigravity patches verified successfully.');

@@ -56,14 +56,14 @@ export function getGeminiApiKey(): string | null {
 
 /**
  * Dynamically resolve the Gemini model for a given task:
- * - categorization: GEMINI_CATEGORIZATION_MODEL or GEMINI_MODEL (defaults to "gemini-2.5-flash")
- * - session: GEMINI_SESSION_MODEL or GEMINI_MODEL (defaults to "gemini-2.5-pro")
+ * - categorization: GEMINI_CATEGORIZATION_MODEL or GEMINI_MODEL (defaults to "gemini-3.8-flash")
+ * - session: GEMINI_SESSION_MODEL or GEMINI_MODEL (defaults to "gemini-3.8-pro")
  */
 export function getGeminiModel(task: "categorization" | "session" = "categorization"): string {
   if (task === "categorization") {
-    return readEnvVar(["GEMINI_CATEGORIZATION_MODEL", "GEMINI_MODEL"]) || "gemini-2.5-flash";
+    return readEnvVar(["GEMINI_CATEGORIZATION_MODEL", "GEMINI_MODEL"]) || "gemini-3.8-flash";
   }
-  return readEnvVar(["GEMINI_SESSION_MODEL", "GEMINI_MODEL"]) || "gemini-2.5-pro";
+  return readEnvVar(["GEMINI_SESSION_MODEL", "GEMINI_MODEL"]) || "gemini-3.8-pro";
 }
 
 /**
