@@ -50,6 +50,14 @@ either by accident. Guides, prompts and `template/AGENTS.md` are read from an
 installed package, so they name guides by `npx dbu6 docs <name>`, never by a
 path in this repository.
 
+## Agent-native workflows
+
+The person's coding agent runs the workflow, and the screens are for when
+the person asks for them. Before you design, audit or review a workflow,
+screen, agent prompt, playbook or guide, read
+[AGENT-NATIVE.md](AGENT-NATIVE.md): the idea, how a run works today, and the
+internals that decide a design.
+
 ## Immediate UI feedback
 
 dbu6 should feel like a DOS program: every hover, click and keypress shows
