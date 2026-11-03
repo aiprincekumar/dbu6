@@ -69,11 +69,11 @@ WshShell.Run cmdStr, 0, False
 
 ' 5. Wait for server to bind and respond on port 2345 (up to 15 seconds)
 ready = False
-For i = 1 To 30
-    WScript.Sleep 500
+For i = 1 To 50
+    WScript.Sleep 200
     On Error Resume Next
     Set httpReq = CreateObject("MSXML2.ServerXMLHTTP.6.0")
-    httpReq.setTimeouts 500, 500, 500, 1000
+    httpReq.setTimeouts 200, 200, 200, 600
     httpReq.Open "GET", "http://localhost:2345", False
     httpReq.Send
     If Err.Number = 0 Then
