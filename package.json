@@ -1,0 +1,14 @@
+{
+  "name": "dbu6",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dbu6 dev",
+    "start": "dbu6 start",
+    "check": "dbu6 check",
+    "upgrade": "dbu6 upgrade"
+  },
+  "dependencies": {
+    "@dbu6/app": "0.4.0"
+  }
+}
