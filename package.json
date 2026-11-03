@@ -1,7 +1,7 @@
 {
   "name": "@dbu6/app",
   "version": "0.5.1",
-  "description": "Self-hosted double-entry bookkeeping for personal finances: bank and credit card statements in, balanced journal entries out, categorized by an LLM on your own machine.",
+  "description": "Self-hosted double-entry bookkeeping for personal finances: your coding agent (Claude Code, Codex or Pi) turns bank and credit card statements into balanced, categorized journal entries.",
   "keywords": [
     "bookkeeping",
     "double-entry",
