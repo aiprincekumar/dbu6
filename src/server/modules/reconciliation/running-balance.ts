@@ -162,6 +162,114 @@ export function loadImpliedOpenings(
   return new Map(rows.map((row) => [row.account_id, cents(row.implied)]));
 }
 
+/**
+ * One row of an account's running balance, as the balance checks add it up:
+ * a posted entry, another statement's draft categorized to the account, or
+ * one of its own drafts.
+ */
+export interface AccountActivityRow {
+  date: string;
+  kind: "entry" | "other draft" | "draft";
+  /** The entry's or the draft's id. */
+  id: number;
+  /** The entry's journal; null for a draft. */
+  journal_id: number | null;
+  /** Whose statement another statement's draft came from; null otherwise. */
+  other_account_id: number | null;
+  /** What the row adds to the account's balance. */
+  amount: number;
+  /** The statement's balance the row carries, or null. */
+  statement_balance: number | null;
+  /** The running balance after the row. */
+  running: number;
+  /** Running balance minus the statement's; null without one. */
+  diff: number | null;
+  source_narration: string | null;
+  comment: string | null;
+  source_transaction_key: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * The account's running balance, a row per entry and draft in the order the
+ * checks add them up (`BASE_ACCOUNT_ACTIVITY_ORDER`), from `from` to `to`
+ * (both optional, inclusive). The running total starts from the account's
+ * first row whatever the dates. `postedOnly` counts posted entries alone,
+ * as the books' own checks do; otherwise every account's drafts count, as
+ * Review's do.
+ */
+export function loadAccountActivity(
+  sqlite: Database.Database,
+  auth: LedgerAuth,
+  accountId: number,
+  options: { from?: string; to?: string; postedOnly?: boolean } = {},
+): AccountActivityRow[] {
+  const rows = allRows<Omit<AccountActivityRow, "kind"> & { source: string }>(
+    sqlite,
+    auth,
+    `${baseAccountRunningBalanceCtes}
+    , account_activity AS (
+      SELECT
+        activity.*,
+        SUM(activity.delta) OVER (
+          ORDER BY ${BASE_ACCOUNT_ACTIVITY_ORDER}
+          ROWS UNBOUNDED PRECEDING
+        ) AS running
+      FROM base_account_activity activity
+      WHERE activity.account_id = @accountId
+        AND (@postedOnly = 0 OR activity.source = 'journal')
+    )
+    SELECT
+      a.activity_date AS date,
+      a.source,
+      COALESCE(je.id, d.id) AS id,
+      je.journal_id,
+      CASE WHEN a.source = 'other_draft' THEN d.base_account_id END
+        AS other_account_id,
+      a.delta AS amount,
+      a.assertion AS statement_balance,
+      a.running,
+      CASE WHEN a.assertion IS NOT NULL THEN a.running - a.assertion END
+        AS diff,
+      COALESCE(je.source_narration, d.source_narration) AS source_narration,
+      COALESCE(je.comment, d.comment) AS comment,
+      COALESCE(je.source_transaction_key, d.source_transaction_key)
+        AS source_transaction_key,
+      COALESCE(je.created_at, d.created_at) AS created_at,
+      COALESCE(je.updated_at, d.updated_at) AS updated_at
+    FROM account_activity a
+    LEFT JOIN scoped_journal_entries je
+      ON a.source = 'journal' AND je.id = a.ord_entry
+    LEFT JOIN scoped_draft_transactions d
+      ON a.source <> 'journal' AND d.id = a.draft_id
+    WHERE (@from IS NULL OR a.activity_date >= @from)
+      AND (@to IS NULL OR a.activity_date <= @to)
+    ORDER BY ${BASE_ACCOUNT_ACTIVITY_ORDER.split(", ")
+      .map((column) => `a.${column}`)
+      .join(", ")}`,
+    {
+      accountId,
+      postedOnly: options.postedOnly ? 1 : 0,
+      from: options.from ?? null,
+      to: options.to ?? null,
+    },
+  );
+  return rows.map(({ source, ...row }) => ({
+    ...row,
+    kind: ACTIVITY_KINDS[source],
+    amount: cents(row.amount),
+    running: cents(row.running),
+    diff: row.diff === null ? null : cents(row.diff),
+  }));
+}
+
+const ACTIVITY_KINDS: Record<string, AccountActivityRow["kind"]> = {
+  journal: "entry",
+  other_draft: "other draft",
+  draft: "draft",
+};
+
 export const failingDraftAssertionsSelect = `
 SELECT
   r.account_id,

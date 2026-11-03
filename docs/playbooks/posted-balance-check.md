@@ -25,24 +25,8 @@ importer refuses because it doesn't continue from the books is
 - The failing rows for the account, oldest first. Start from the first
   failing day; later ones usually follow from it.
 - The account's posted entries around that day, with the running total and
-  when each row was written. Replace `<id>`, `<from>` and `<to>`:
-
-  ```sql
-  SELECT * FROM (
-    SELECT j.date, j.id AS journal_id, je.id AS entry_id,
-           je.debit - je.credit AS delta,
-           je.account_balance_assertion AS assertion,
-           ROUND(SUM(je.debit - je.credit) OVER (
-             ORDER BY j.date, j.id, je.id ROWS UNBOUNDED PRECEDING), 2) AS running,
-           je.created_at, je.updated_at, je.source_transaction_key,
-           COALESCE(je.comment, je.source_narration, j.description) AS text
-    FROM journal_entries je JOIN journals j ON j.id = je.journal_id
-    WHERE je.account_id = <id>
-  ) WHERE date BETWEEN '<from>' AND '<to>';
-  ```
-
-  (`sqlite3 -readonly`, as "Reading the database" in `npx dbu6 docs books`
-  says, filtered by the owner when the file holds more than one user.)
+  when each row was written (`created_at`, `updated_at`):
+  `npx sapporta api get /api/accounts/<id>/activity --query '{"from":"<from>","to":"<to>","posted_only":"true"}'`.
 - The account's opening entry: `npx sapporta api get /api/opening-balances`,
   its `opening` and `implied_opening`.
 

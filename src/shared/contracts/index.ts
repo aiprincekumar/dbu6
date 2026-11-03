@@ -282,6 +282,8 @@ export {
 } from "./setup.js";
 export {
   accountsContract,
+  accountActivityRowSchema,
+  type AccountActivityRow,
   accountChangeSchema,
   accountChangeFieldSchema,
   accountChangeRefusalSchema,

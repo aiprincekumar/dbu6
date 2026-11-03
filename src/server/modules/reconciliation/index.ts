@@ -23,10 +23,12 @@ export {
   baseAccountRunningBalanceCtes,
   countPostedAssertionFailures,
   failingDraftAssertionsSelect,
+  loadAccountActivity,
   loadImpliedOpenings,
   otherStatementDraftSql,
   postedAssertionFailuresCtes,
   runningBalanceCtes,
+  type AccountActivityRow,
   type OtherDrafts,
 } from "./running-balance.js";
 export {

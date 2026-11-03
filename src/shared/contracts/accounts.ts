@@ -92,7 +92,58 @@ export const accountDeleteRefusalSchema = z.object({
 });
 export type AccountDeleteRefusal = z.infer<typeof accountDeleteRefusalSchema>;
 
+/**
+ * One row of an account's running balance, as its balance checks add it up:
+ * a posted entry, another statement's draft categorized to the account
+ * ("other draft"), or one of its own drafts.
+ */
+export const accountActivityRowSchema = z.object({
+  date: z.string(),
+  kind: z.enum(["entry", "other draft", "draft"]),
+  // The entry's or the draft's id.
+  id: z.number().int(),
+  journal_id: z.number().int().nullable(),
+  // Whose statement an "other draft" came from.
+  other_account_id: z.number().int().nullable(),
+  // What the row adds to the account's balance.
+  amount: z.number(),
+  // The statement's balance the row carries.
+  statement_balance: z.number().nullable(),
+  // The running balance after the row.
+  running: z.number(),
+  // Running balance minus the statement's.
+  diff: z.number().nullable(),
+  source_narration: z.string().nullable(),
+  comment: z.string().nullable(),
+  source_transaction_key: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type AccountActivityRow = z.infer<typeof accountActivityRowSchema>;
+
+const dayQuery = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .optional();
+
 export const accountsContract = c.router({
+  accountActivity: c.query({
+    method: "GET",
+    path: "/accounts/:id/activity",
+    summary:
+      "An account's running balance, a row per entry and draft in the order its balance checks add them up, with each statement balance and the difference: for finding why a check fails. `from` and `to` (YYYY-MM-DD) narrow the rows, not the running total. `posted_only=true` counts posted entries alone, as the books' checks do (Reconciliation Differences); without it, drafts count as Review's checks count them",
+    pathParams: z.object({ id: z.coerce.number().int().positive() }),
+    query: z.object({
+      from: dayQuery,
+      to: dayQuery,
+      posted_only: z.enum(["true", "false"]).optional(),
+    }),
+    responses: {
+      200: z.object({ rows: z.array(accountActivityRowSchema) }),
+      403: errorBodySchema,
+      404: errorBodySchema,
+    },
+  }),
   changeAccount: c.mutation({
     method: "PUT",
     path: "/accounts/:id",

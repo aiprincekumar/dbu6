@@ -11,9 +11,9 @@ nothing here starts from a guess that two rows match.
 
 - The account's failing checks, oldest first:
   `npx sapporta api get /api/review/accounts/<id>`, `failing` (date, draft,
-  running balance, statement balance, `diff`). The running balance counts
-  the account's posted entries, the drafts of other accounts' statements
-  categorized to it, and its own drafts, in that order within a day.
+  running balance, statement balance, `diff`), and how its running balance
+  adds up around them:
+  `npx sapporta api get /api/accounts/<id>/activity --query '{"from":"<from>","to":"<to>"}'`.
 - The other statements' records of a movement on this account near a date,
   for `diff`'s amount: their drafts categorized to it, and entries already
   in the books from their statements (on this account, an entry carrying a

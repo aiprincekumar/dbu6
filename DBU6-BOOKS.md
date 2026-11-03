@@ -528,15 +528,13 @@ Leave a rule request you couldn't encode.
 ## When a balance check fails
 
 The running total adds every transaction in the books on that account,
-including ones added from other accounts' statements, and the drafts of other
+including ones added from other accounts' statements, the drafts of other
 accounts' statements categorized to it, on the side they will be added (a
-bank's withdrawal to a card is money in on the card). Then it adds the
-account's own drafts, by date and then by id. On the same date, transactions
-in the books come first, then the other accounts' drafts, then its own, so a
-check gives the same answer before and after the other account's drafts are
-added. Only a day's last draft carries the statement's balance, and a check
-passes when the two are less than 0.005 apart. `diff` is the running total
-minus the statement's balance.
+bank's withdrawal to a card is money in on the card), and the account's own
+drafts. The activity below lists them in the order the check adds them up.
+Only a day's last draft carries the statement's balance, and a check passes
+when the two are less than 0.005 apart. `diff` is the running total minus
+the statement's balance.
 
 Usual causes:
 
@@ -562,33 +560,19 @@ report, is `npx dbu6 docs playbook posted-balance-check`.
 
 Find the first failing day. List the activity around it with the running
 total, and look for an amount equal to `diff`, or to the change in `diff`
-between two failing days. Replace `<id>`, `<from>` and `<to>`:
+between two failing days:
 
-```sql
-WITH activity AS (
-  SELECT j.date, 0 AS src, j.id AS o1, je.id AS o2, 'entry' AS kind, je.id AS row_id,
-         je.debit - je.credit AS delta, je.account_balance_assertion AS assertion,
-         COALESCE(je.source_narration, je.comment) AS text
-  FROM journal_entries je JOIN journals j ON j.id = je.journal_id
-  WHERE je.account_id = <id>
-  UNION ALL
-  SELECT d.date, 1, 0, d.id, 'other draft', d.id, d.withdrawal - d.deposit,
-         NULL, d.source_narration
-  FROM draft_transactions d
-  WHERE d.account_id = <id> AND d.base_account_id <> <id>
-  UNION ALL
-  SELECT d.date, 2, 0, d.id, 'draft', d.id, d.deposit - d.withdrawal,
-         d.balance_assertion_base_account, d.source_narration
-  FROM draft_transactions d WHERE d.base_account_id = <id>
-), running AS (
-  SELECT *, ROUND(SUM(delta) OVER (ORDER BY date, src, o1, o2
-                                   ROWS UNBOUNDED PRECEDING), 2) AS running
-  FROM activity
-)
-SELECT date, kind, row_id, delta, assertion, running,
-       ROUND(running - assertion, 2) AS diff, text
-FROM running WHERE date BETWEEN '<from>' AND '<to>';
+```bash
+npx sapporta api get /api/accounts/<id>/activity --query '{"from":"<from>","to":"<to>"}'
 ```
+
+Each row is a posted `entry`, an `other draft` (another statement's draft
+categorized here, `other_account_id` naming whose), or one of the account's
+own drafts, in the order the check adds them up, with its `amount`, the
+`running` balance after it, and the `statement_balance` and `diff` where the
+row carries one. `from` and `to` narrow the rows, not the running total.
+With `"posted_only":"true"` it counts posted entries alone, as the books'
+own checks do.
 
 ## Two texts: the bank's and the person's
 

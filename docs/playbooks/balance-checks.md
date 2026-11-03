@@ -12,8 +12,8 @@ These are drafts' checks; a posted check the books miss is
 ## Read
 
 - "When a balance check fails" in `npx dbu6 docs books`: how the running
-  total is added up, the usual causes, and the SQL that lists the activity
-  around a day.
+  total is added up, the usual causes, and the account's activity around a
+  day (`/api/accounts/<id>/activity`).
 - The account's last statement balance in the books (`checkpoint`), and its
   drafts' dates.
 
