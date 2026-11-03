@@ -260,7 +260,7 @@ describe("Do my books", () => {
 });
 
 describe("the first run", () => {
-  it("names the coding agent above the drop, with no arrow and no “new ones too”", async () => {
+  it("names the coding agent beside the run's button, with no arrow and no “new ones too”", async () => {
     await render({ firstRun: true, body: "What to bring." });
     const text = host.textContent ?? "";
     expect(text).toContain("Coding agent");

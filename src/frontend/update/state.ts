@@ -85,7 +85,7 @@ export interface RunCard {
  * choice the user makes is how far back the books start.
  */
 export const WHAT_TO_BRING =
-  "Add a statement for each bank account and card, going back to the month you want your books to start.";
+  "Add statements for each of your bank accounts and cards. Your books start from the earliest month you add, so go back as far as you want them to cover.";
 
 export interface UpdateView {
   state: UpdateStateId;

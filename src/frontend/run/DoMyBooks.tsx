@@ -13,6 +13,7 @@ import { AgentButton } from "../components/agent-prompt";
 import { CodingAgentSetupDialog } from "../components/coding-agent-setup";
 import { codingAgentSettingsQuery, FRESH_QUERY } from "../queries";
 import { Link, useLocation } from "react-router-dom";
+import { cn } from "@sapporta/ui/cn";
 import { Button } from "../components/ui/button";
 import { DROP_ID } from "../update/routes";
 import type { UpdateLink } from "../update/state";
@@ -44,8 +45,9 @@ export const STATEMENT_INBOX_KEY = ["statement-inbox"] as const;
  * set up. The drop is `#drop`: arriving there, or following a link to it
  * from the same page, scrolls to it and focuses "Choose files". On the first
  * run (`firstRun`) the coding agent that will read the statements is named
- * above the drop, and with none to use, setting one up comes first and the
- * drop waits.
+ * in a quiet chip beside the run's button. With none to use, or one that
+ * doesn't work yet, the chip and setting one up come first and the drop
+ * waits.
  */
 export function DoMyBooks({
   body,
@@ -66,7 +68,7 @@ export function DoMyBooks({
    * uploaded: not under the drafts card, whose button is the screen's one.
    */
   choosePrimary?: boolean;
-  /** Nothing imported yet: the agent row above the drop, and the ⓘ. */
+  /** Nothing imported yet: the agent chip, and the ⓘ. */
   firstRun?: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -117,15 +119,19 @@ export function DoMyBooks({
   const batches = inbox.data?.batches ?? [];
   const files = batches.reduce((sum, batch) => sum + batch.files.length, 0);
   const skipped = save.data?.already_uploaded ?? [];
+  const agentBesideRun =
+    firstRun && agent.data !== undefined && agentState?.ready !== false;
 
   return (
     <section>
-      {firstRun && <AgentRow settings={agent.data} />}
-      {agentState?.ready === false ? (
-        <AgentSetup missing={agentState.missing} />
+      {agentState?.ready === false && agent.data ? (
+        <>
+          <AgentChip settings={agent.data} className="mb-3" />
+          <AgentSetup missing={agentState.missing} />
+        </>
       ) : (
         body && (
-          <p className="mb-3 text-body text-ink-soft">
+          <p className="mb-5 text-[17px] leading-relaxed text-foreground">
             {body}
             {firstRun && (
               <span className="ml-1 inline-flex align-middle">
@@ -191,7 +197,7 @@ export function DoMyBooks({
           onClear={() => clear.mutate()}
         />
       )}
-      {(files > 0 || byHand) && (
+      {(files > 0 || byHand || agentBesideRun) && (
         <div className="mt-5 flex flex-wrap items-start gap-x-5 gap-y-2">
           {files > 0 && (
             <AgentButton
@@ -207,6 +213,9 @@ export function DoMyBooks({
             >
               {byHand.label}
             </Link>
+          )}
+          {agentBesideRun && agent.data && (
+            <AgentChip settings={agent.data} className="ml-auto" />
           )}
         </div>
       )}
@@ -234,17 +243,27 @@ function agentReadiness(
 }
 
 /**
- * The coding agent that will read the statements, as a labelled value:
- * "✓ Claude Code", or what is wrong, as Settings' index says it.
+ * The coding agent that will read the statements, as a labelled value in a
+ * quiet chip: "✓ Claude Code", or what is wrong, as Settings' index says it.
+ * As tall as the run's button, so the two sit on one line.
  */
-function AgentRow({ settings }: { settings: CodingAgentSettings | undefined }) {
+function AgentChip({
+  settings,
+  className,
+}: {
+  settings: CodingAgentSettings;
+  className?: string;
+}) {
   return (
-    <dl className="mb-3 flex items-baseline gap-4">
-      <dt className="w-32 shrink-0 text-label uppercase text-ink-meta">
-        Coding agent
-      </dt>
-      <dd className="text-row font-semibold">
-        {settings && <StatusText cell={summarizeCodingAgent(settings)} />}
+    <dl
+      className={cn(
+        "inline-flex h-[calc(var(--height-sap-ctl)+2px)] items-center gap-2 rounded-control border border-sap-border bg-sap-nested px-3 text-meta",
+        className,
+      )}
+    >
+      <dt className="text-ink-meta">Coding agent</dt>
+      <dd className="font-medium">
+        <StatusText cell={summarizeCodingAgent(settings)} />
       </dd>
     </dl>
   );
@@ -290,16 +309,22 @@ function HowItWorks() {
   return (
     <InfoButton label="How your coding agent adds your statements">
       <p>
-        Your coding agent imports each file and categorizes its transactions in
-        a terminal. It asks you there about anything it can't work out.
+        After you have added your bank statements, click the “Add files to my
+        books” button.
       </p>
       <p>
-        Nothing from your statements goes into your books until you add it on
-        Review.
+        It will start your coding agent in a terminal, and start importing your
+        statements. It'll automatically categorize each of the transactions,
+        but if something is ambiguous, then it will ask you about it in the
+        session.
       </p>
       <p>
-        Your statements stay on this computer. Only your coding agent's AI
-        provider reads them.
+        All the entries it creates will go into the drafts. You have to confirm
+        them on the Review page to post them into your actual books.
+      </p>
+      <p>
+        Note that your statements and your data all stay on this machine, but
+        your coding agent will send the required parts to its AI provider.
       </p>
     </InfoButton>
   );
@@ -324,7 +349,7 @@ function InboxFiles({
   const files = batches.flatMap((batch) => batch.files);
   return (
     <div className="mt-5">
-      <div className="flex items-end gap-3 border-b border-line-inner px-2 pb-2 text-meta text-ink-meta">
+      <div className="flex items-center gap-3 px-2 py-0.5 text-meta text-ink-meta">
         <span className="min-w-0 flex-1">Files to add</span>
         <span className="w-20 shrink-0 text-right">Size</span>
         <span className="w-20 shrink-0 text-right">
@@ -332,6 +357,7 @@ function InboxFiles({
             <Button
               variant="ghost"
               size="sm"
+              className="h-6"
               disabled={removing}
               onClick={onClear}
             >
@@ -340,11 +366,11 @@ function InboxFiles({
           )}
         </span>
       </div>
-      <ul className="divide-y divide-line-inner border-b border-line-inner">
+      <ul>
         {files.map((file) => (
           <li
             key={file.saved_path}
-            className="flex gap-3 px-2 py-2 text-row text-foreground"
+            className="flex items-center gap-3 px-2 py-0.5 text-row text-foreground"
           >
             <span className="min-w-0 flex-1 truncate">{file.file_name}</span>
             <span className="tnum w-20 shrink-0 text-right text-ink-meta">
@@ -354,6 +380,7 @@ function InboxFiles({
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-6"
                 disabled={removing}
                 onClick={() => onRemove(file.saved_path)}
               >
