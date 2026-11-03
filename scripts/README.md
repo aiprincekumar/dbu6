@@ -14,6 +14,7 @@ This directory contains standalone, 100% path-independent automation scripts for
 | `stop_server.ps1` | PowerShell stopper for dbu6 server |
 | `toggle_server.ps1` | PowerShell 1-click toggle runner |
 | `esm-loader.mjs` | Node.js ESM loader hook for Windows absolute paths |
+| `patch-antigravity.mjs` | Deterministic patcher ensuring Antigravity schema support across contracts, client bundle, and cache headers |
 
 ## 🚀 Dynamic Path Portability
 All batch and PowerShell scripts resolve the project root dynamically using `%~dp0..` and `$PSScriptRoot\..`. The project folder can be renamed or moved anywhere on your system without breaking these scripts.
