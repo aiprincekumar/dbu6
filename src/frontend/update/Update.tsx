@@ -37,11 +37,6 @@ import {
  */
 export function Update() {
   usePageTitle("Update");
-  const workspaceName = useAuthStore((s) =>
-    s.session.kind === "authenticated"
-      ? s.session.context.workspace.name
-      : null,
-  );
   const query = useQuery(homeSummaryQuery);
   const summary = query.data ?? null;
   const error = query.isError ? apiErrorMessage(query.error) : null;
@@ -50,26 +45,7 @@ export function Update() {
   return (
     <Screen
       width="narrow"
-      header={
-        <>
-          <p className="text-label uppercase text-ink-meta">
-            {dayLabel(today())}
-          </p>
-          {view ? (
-            <h1 className="mt-2 text-title text-foreground sm:text-display">
-              {view.greeting}
-            </h1>
-          ) : (
-            <div
-              aria-hidden="true"
-              className="mt-3 h-sap-ctl w-[min(420px,100%)] rounded-control bg-sap-nested"
-            />
-          )}
-          {workspaceName && (
-            <p className="mt-2 text-body text-ink-meta">{workspaceName}</p>
-          )}
-        </>
-      }
+      header={<UpdateHeader greeting={view?.greeting ?? null} />}
     >
       {error ? (
         <div className="mt-5">
@@ -118,17 +94,55 @@ export function Update() {
 }
 
 /**
+ * Update's heading: today, the greeting (a placeholder until it loads), and
+ * the workspace. Overview's first run shows it too, so the two first-run
+ * screens read the same.
+ */
+export function UpdateHeader({ greeting }: { greeting: string | null }) {
+  const workspaceName = useAuthStore((s) =>
+    s.session.kind === "authenticated"
+      ? s.session.context.workspace.name
+      : null,
+  );
+  return (
+    <>
+      <p className="text-label uppercase text-ink-meta">{dayLabel(today())}</p>
+      {greeting ? (
+        <h1 className="mt-2 text-title text-foreground sm:text-display">
+          {greeting}
+        </h1>
+      ) : (
+        <div
+          aria-hidden="true"
+          className="mt-3 h-sap-ctl w-[min(420px,100%)] rounded-control bg-sap-nested"
+        />
+      )}
+      {workspaceName && (
+        <p className="mt-2 text-body text-ink-meta">{workspaceName}</p>
+      )}
+    </>
+  );
+}
+
+/**
  * The one thing to do, as Overview shows it until anything is posted: "Do my
  * books", or drafts waiting with the drop below for more statements. Update
- * puts its list of statements to download between the two.
+ * puts its list of statements to download between the two. Spaced from the
+ * header as Update spaces them.
  */
 export function NextStep({ card }: { card: UpdateView["card"] }) {
   if ("kind" in card) {
-    return <DoMyBooks body={card.body} byHand={card.byHand} />;
+    return (
+      <div className="mt-6">
+        <DoMyBooks body={card.body} byHand={card.byHand} />
+      </div>
+    );
   }
   return (
     <>
-      <StepCard card={card} />
+      <div className="mt-5">
+        <StepCard card={card} />
+      </div>
       <div className="mt-10">
         <DoMyBooks byHand={card.byHand} choosePrimary={false} />
       </div>

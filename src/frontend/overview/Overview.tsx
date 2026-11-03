@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ChevronLeft, ChevronRight, CreditCard, Landmark } from "lucide-react";
 import { cn } from "@sapporta/ui/cn";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useAuthStore } from "@sapporta/frontend/auth";
 import { usePageTitle } from "@sapporta/frontend/shell";
 import type {
   HomeSummary,
@@ -29,7 +28,7 @@ import {
 } from "../reports/links";
 import { today } from "../reports/shared";
 import { UPDATE_ROUTE } from "../update/routes";
-import { NextStep } from "../update/Update";
+import { NextStep, UpdateHeader } from "../update/Update";
 import {
   FIRST_RUN_GREETING,
   updateState,
@@ -139,25 +138,11 @@ export function Overview() {
  * while the first drafts wait, where Update would say "Update your books".
  */
 function FirstRun({ summary }: { summary: HomeSummary }) {
-  const workspaceName = useAuthStore((s) =>
-    s.session.kind === "authenticated"
-      ? s.session.context.workspace.name
-      : null,
-  );
   const view = updateState(summary);
   return (
     <Screen
       width="narrow"
-      header={
-        <>
-          <h1 className="text-title text-foreground sm:text-display">
-            {FIRST_RUN_GREETING}
-          </h1>
-          {workspaceName && (
-            <p className="mt-2 text-body text-ink-meta">{workspaceName}</p>
-          )}
-        </>
-      }
+      header={<UpdateHeader greeting={FIRST_RUN_GREETING} />}
     >
       <NextStep card={view.card} />
     </Screen>
