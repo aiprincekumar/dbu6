@@ -30,7 +30,12 @@ export function dayClosings(
   return closings;
 }
 
-/** Drafts in the order the check adds them up: by date, then by id. */
+/**
+ * Drafts in the order the check adds them up: by date, then by id. The
+ * trigger that keeps a day's balance when its draft is deleted
+ * (migrations/0015_keep_draft_day_balance.sql) finds the day's last draft in
+ * this order too; a migration that changes it changes the trigger with it.
+ */
 export function draftOrderSql(
   alias: string,
   direction: "ASC" | "DESC" = "ASC",

@@ -106,6 +106,13 @@
       "when": 1793290761108,
       "tag": "0014_agent_token_purpose",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793702922841,
+      "tag": "0015_keep_draft_day_balance",
+      "breakpoints": true
     }
   ]
 }

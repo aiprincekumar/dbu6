@@ -125,7 +125,9 @@ describe("overviewView", () => {
     );
 
     expect(view.verdict).toBe("Waits on Sample Bank");
-    expect(view.waiting).toBe("Waits on Sample Bank: Review's Add all adds them together once it is ready");
+    expect(view.waiting).toBe(
+      "Waits on Sample Bank: Review's Add all adds them together once it is ready",
+    );
     // Adding them together is the person's; the agent has nothing to fix.
     expect(view.fix).toBe(false);
     expect(view.checks[2]).toEqual({

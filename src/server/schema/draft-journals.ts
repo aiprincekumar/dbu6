@@ -29,6 +29,9 @@ export const draftTransactionsTable = sqliteTable(
     base_account_id: integer("base_account_id").references(
       () => accountsTable.id,
     ),
+    // The statement's balance at the end of the day, on the day's last draft
+    // only. Deleting that draft moves it onto the day's new last one
+    // (migrations/0015_keep_draft_day_balance.sql).
     balance_assertion_base_account: money("balance_assertion_base_account"),
     source_reference: text("source_reference"),
     source_transaction_key: text("source_transaction_key"),

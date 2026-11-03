@@ -67,10 +67,11 @@ so you can skip OpenAPI discovery. For anything not covered here, use the
   transactions instead. The one exception is a transfer counted twice: the
   `double-counted-transfers` playbook says which checks between its two
   dates may be blanked.
-- Only a day's last draft carries that day's statement balance. Before deleting
-  it, move its balance onto the day's new last draft. A posted line that
-  carries one moves onto the day's previous journal ("Undo that" below).
-  The playbooks rely on this rule and don't repeat it.
+- Only a day's last draft carries that day's statement balance. Deleting that
+  draft moves the balance onto the day's new last draft by itself; a day left
+  with no draft loses it. A posted line that carries one is moved by hand,
+  onto the day's previous journal ("Undo that" below). The playbooks rely on
+  this and don't repeat it.
 - Adding drafts to the books deletes them, and the app has no undo.
 - Write through the CLI or API, never through SQLite.
 - Nothing from the user's data goes into a tracked file (see AGENTS.md on PII).

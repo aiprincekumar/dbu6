@@ -93,9 +93,10 @@ this account. Deleting the later-dated copy usually leaves the fewest
 checks to blank, unless it carries its statement's last balance. After each
 fix, read the account's checks again before the next.
 
-The commands: `npx sapporta rows delete draft_transactions <id>`; a balance
-moved or blanked with
-`npx sapporta rows update draft_transactions <id> --values '{"balance_assertion_base_account":<balance or null>}'`.
+The commands: `npx sapporta rows delete draft_transactions <id>`, which moves
+a balance the draft carries onto the day's new last draft; a balance
+blanked with
+`npx sapporta rows update draft_transactions <id> --values '{"balance_assertion_base_account":null}'`.
 
 Once the second copy is gone, the account whose copy was deleted counts the
 other account's draft (its `relies_on` names that account, which stays
