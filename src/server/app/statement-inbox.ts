@@ -81,6 +81,15 @@ api.register(
   },
 );
 
+api.register(
+  "clearStatementInbox",
+  statementInboxContract.clearStatementInbox,
+  async ({ c }) => {
+    requireOwner(c);
+    return { status: 200, body: { removed: await clearInbox() } };
+  },
+);
+
 export default api;
 
 /**
@@ -206,6 +215,18 @@ export async function useUpInboxFiles(
     // Only an empty folder goes; one with files left keeps them.
     await rmdir(dir).catch(() => {});
   }
+}
+
+/** Removes every file waiting, and its batch; returns how many went. */
+export async function clearInbox(): Promise<number> {
+  const batches = await listInbox();
+  for (const { batch } of batches) {
+    await rm(join(statementInboxDir(), batch), {
+      recursive: true,
+      force: true,
+    });
+  }
+  return batches.reduce((sum, batch) => sum + batch.files.length, 0);
 }
 
 // A `saved_path` that is a file in a batch of the inbox, or null.

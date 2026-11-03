@@ -75,4 +75,15 @@ export const statementInboxContract = c.router({
       404: errorSchema,
     },
   }),
+  clearStatementInbox: c.mutation({
+    method: "POST",
+    path: "/statement-inbox/clear",
+    summary:
+      "Remove every dropped statement from the inbox, every batch with it, without importing any. `removed` is how many files went",
+    body: z.object({}),
+    responses: {
+      200: z.object({ removed: z.number().int().nonnegative() }),
+      403: errorSchema,
+    },
+  }),
 });

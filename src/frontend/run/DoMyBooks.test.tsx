@@ -30,6 +30,7 @@ let root: Root;
 let batches: StatementInboxBatch[];
 let saved: string[][];
 let removed: string[];
+let cleared: number;
 let alreadyUploaded: string[];
 
 const BATCH: StatementInboxBatch = {
@@ -57,6 +58,7 @@ beforeEach(() => {
   batches = [];
   saved = [];
   removed = [];
+  cleared = 0;
   alreadyUploaded = [];
   vi.stubGlobal(
     "fetch",
@@ -71,6 +73,12 @@ beforeEach(() => {
         removed.push(saved_path);
         batches = [];
         return Response.json({ removed: saved_path });
+      }
+      if (url.includes("/statement-inbox/clear")) {
+        cleared += 1;
+        const files = batches.flatMap((batch) => batch.files).length;
+        batches = [];
+        return Response.json({ removed: files });
       }
       if (url.includes("/statement-inbox") && method === "POST") {
         const form = init?.body as FormData;
@@ -282,6 +290,46 @@ describe("removing a file", () => {
     expect(removed).toEqual([BATCH.files[0].saved_path]);
     expect(host.textContent).not.toContain("sample-savings-050505.pdf");
     expect(doMyBooksButton()).toBeUndefined();
+  });
+});
+
+describe("clearing the inbox", () => {
+  it("takes every file out at once", async () => {
+    batches = [
+      BATCH,
+      {
+        batch: "2026-11-02T11-00-00-0505",
+        files: [
+          {
+            file_name: "sample-card-050505.csv",
+            saved_path:
+              "tmp/statement-inbox/2026-11-02T11-00-00-0505/0-sample-card-050505.csv",
+            bytes: 1024,
+          },
+        ],
+      },
+    ];
+    await render();
+    const button = [...host.querySelectorAll("button")].find(
+      (one) => one.textContent === "Clear all",
+    );
+    if (!button) throw new Error("No Clear all button");
+    await act(async () => {
+      button.click();
+    });
+    await settle();
+
+    expect(cleared).toBe(1);
+    expect(removed).toEqual([]);
+    expect(host.textContent).not.toContain("sample-savings-050505.pdf");
+    expect(host.textContent).not.toContain("sample-card-050505.csv");
+    expect(doMyBooksButton()).toBeUndefined();
+  });
+
+  it("isn't offered for a single file", async () => {
+    batches = [BATCH];
+    await render();
+    expect(host.textContent).not.toContain("Clear all");
   });
 });
 

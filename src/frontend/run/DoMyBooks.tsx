@@ -68,6 +68,11 @@ export function DoMyBooks({
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: STATEMENT_INBOX_KEY }),
   });
+  const clear = useMutation({
+    mutationFn: () => statementInboxApi.clearStatementInbox({ body: {} }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: STATEMENT_INBOX_KEY }),
+  });
   const location = useLocation();
   const drop = useRef<HTMLDivElement>(null);
   // Each arrival at #drop is a new location, so a second click on the same
@@ -114,6 +119,11 @@ export function DoMyBooks({
           {apiErrorMessage(remove.error)}
         </p>
       )}
+      {clear.isError && (
+        <p role="alert" className="mt-3 text-row text-destructive">
+          {apiErrorMessage(clear.error)}
+        </p>
+      )}
       {inbox.isError && (
         <p role="alert" className="mt-3 text-row text-destructive">
           {apiErrorMessage(inbox.error)}
@@ -122,8 +132,9 @@ export function DoMyBooks({
       {files > 0 && (
         <InboxFiles
           batches={batches}
-          removing={remove.isPending}
+          removing={remove.isPending || clear.isPending}
           onRemove={(savedPath) => remove.mutate(savedPath)}
+          onClear={() => clear.mutate()}
         />
       )}
       {(files > 0 || byHand) && (
@@ -172,24 +183,38 @@ export function DoMyBooks({
 
 /**
  * The files uploaded, a row each: the name, its size in its own column, and
- * Remove, which takes a file out without importing it.
+ * Remove, which takes a file out without importing it. Clear all, above the
+ * Remove column, takes every file out at once.
  */
 function InboxFiles({
   batches,
   removing,
   onRemove,
+  onClear,
 }: {
   batches: readonly StatementInboxBatch[];
   removing: boolean;
   onRemove: (savedPath: string) => void;
+  onClear: () => void;
 }) {
   const files = batches.flatMap((batch) => batch.files);
   return (
     <div className="mt-5">
-      <div className="flex gap-3 border-b border-line-inner px-2 pb-2 text-meta text-ink-meta">
+      <div className="flex items-end gap-3 border-b border-line-inner px-2 pb-2 text-meta text-ink-meta">
         <span className="min-w-0 flex-1">Files to add</span>
         <span className="w-20 shrink-0 text-right">Size</span>
-        <span className="w-20 shrink-0" />
+        <span className="w-20 shrink-0 text-right">
+          {files.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={removing}
+              onClick={onClear}
+            >
+              Clear all
+            </Button>
+          )}
+        </span>
       </div>
       <ul className="divide-y divide-line-inner border-b border-line-inner">
         {files.map((file) => (

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearInbox,
   inboxFilesFromField,
   listInbox,
   saveToInbox,
@@ -139,5 +140,20 @@ describe("the statement inbox", () => {
       false,
     );
     expect(await listInbox()).toEqual([]);
+  });
+
+  it("clears every file and batch, and nothing from an empty inbox", async () => {
+    const first = await saveToInbox([
+      new File(["a"], "first.pdf"),
+      new File(["b"], "second.pdf"),
+    ]);
+    await saveToInbox([new File(["c"], "third.pdf")]);
+
+    expect(await clearInbox()).toBe(3);
+    expect(await listInbox()).toEqual([]);
+    expect(await exists(join(root, "tmp/statement-inbox", first.batch))).toBe(
+      false,
+    );
+    expect(await clearInbox()).toBe(0);
   });
 });
