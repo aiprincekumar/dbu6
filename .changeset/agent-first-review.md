@@ -21,8 +21,8 @@ new endpoint behind it, answering
 It posts only the accounts named, those nothing of their own blocks whose
 balance checks pass counting the drafts of the others going in, all in one
 transaction; an account with no drafts left is neither added nor left; an
-id not in the books is refused with 404 and nothing posted. It is the person's
-button: the agent never calls it. `GET /api/review/accounts` and
+id not in the books is refused with 404 and nothing posted. It is Review's
+button, and the agent's when the person asks it to add the drafts. `GET /api/review/accounts` and
 `/api/review/accounts/:accountId` now count each account's
 `rule_requests`, and `POST /api/draft-transactions/post-to-journal`
 answers `first_post`: whether the books held nothing but opening balances

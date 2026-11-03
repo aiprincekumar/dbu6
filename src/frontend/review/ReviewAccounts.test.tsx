@@ -278,9 +278,9 @@ describe("what is left across the accounts", () => {
     // Each row's text ends in its status, before the arrow.
     expect(rows().map((row) => row.replace(/^.*Sep/, ""))).toEqual([
       "Ready to add›",
-      "Goes in with Sample Savings›",
+      "Waits on Sample Savings›",
       "3 need an account›",
-      "Goes in with Sample Wallet›",
+      "Waits on Sample Wallet›",
     ]);
 
     expect(facts("Left to fix")).toEqual([

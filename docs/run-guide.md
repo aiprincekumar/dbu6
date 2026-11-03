@@ -9,7 +9,8 @@ you couldn't settle, in one round.
 
 **The only entries you write to the books are opening balances:** those
 the statements give, as you add their accounts, and those the user gives
-you for [accounts with no statements](#accounts-with-no-statements).
+you for [accounts with no statements](#accounts-with-no-statements). The
+drafts are the user's to add, as AGENTS.md says.
 
 Read `npx dbu6 docs books` first: how to reach the app, the words to use
 ("Talking to the user"), the endpoints. This guide orders the work, says
@@ -84,9 +85,10 @@ entries in the books.
   each file's `saved_path` and size. The files were only saved: nothing has
   read or imported them. Send them to the app by path, one
   `-F "inbox_files=<saved_path>"` each, in place of `-F "files=@<path>"`:
-  they are read where they are, and an import that adds one to the drafts
-  removes it from the inbox. What is left there afterwards is what didn't
-  go in.
+  they are read where they are, and stay in the inbox. Once a file's rows
+  are in the drafts, take it out:
+  `npx sapporta api post /api/statement-inbox/remove --body '{"saved_path":"<saved_path>"}'`.
+  What is left there afterwards is what didn't go in.
 - **From the user's words:** a folder they named ("my statements are in
   ~/Downloads/bank"). Read the files from there; don't copy them into the
   project.
@@ -234,20 +236,9 @@ Per account, oldest statement first:
 - `empty`: `POST /api/add-account/add`, with `opening_amount` when asked.
 - `in_books`: `POST /api/import-draft/statements/auto` with its files.
 
-A refusal sends you to its playbook:
-
-| Refusal                                   | Playbook                 |
-| ----------------------------------------- | ------------------------ |
-| file `unresolved`, no account set up      | `unresolved-account`     |
-| `statement_account_identifier_required`   | `identifier-required`    |
-| file `unresolved`, number matches none    | `identifier-mismatch`    |
-| `balance_mismatch`, `segment_balance_mismatch` | `balance-mismatch`  |
-| `statement_boundary_mismatch`             | `boundary-gap`           |
-| `statement_disagreement`                  | `statement-disagreement` |
-| `statement_part_invalid`                  | `part-invalid`           |
-| `reconciliation_match_failed`             | `reconciliation`         |
-| `import_account_not_found`                | `missing-ledger-account` |
-| `closing_balance_unavailable`             | `closing-balance`        |
+A refusal, or a file the import leaves `unresolved`, has a playbook:
+`npx dbu6 docs playbook` lists them by what went wrong, and each one's
+"When" names the codes it covers.
 
 A missing period goes on the "download" list, and the account is imported
 up to the gap, if its earlier files import on their own. Then move on to the
@@ -269,10 +260,8 @@ parser for it; import it freeform, as `npx dbu6 docs freeform-guide` says:
   a suggestion to confirm, never used on its own.
 - After go, create a new account with
   `npx sapporta rows create accounts`, then `POST /api/import-draft/abacus`
-  in the account's turn among the imports, oldest first. That import doesn't
-  take `inbox_files`, so once it puts the rows in the drafts, take the file
-  out of the inbox:
-  `npx sapporta api post /api/statement-inbox/remove --body '{"saved_path":"<saved_path>"}'`.
+  in the account's turn among the imports, oldest first. Once its rows are
+  in the drafts, take the file out of the inbox, as for any import.
 - A balance mismatch goes back to the user in the question round; never
   change rows or balances to make them agree.
 
@@ -410,7 +399,7 @@ Your first reply is the plan, and you wait for go:
 1. One row per account with drafts, what is left on it:
 
    ```
-                    Waiting  No category  Your rule   Possible    Days off the  Goes in with
+                    Waiting  No category  Your rule   Possible    Days off the  Waits on
    Account                                requests    duplicates  statement
    Sample savings       412           34          2           2             0  -
    Sample card          188           17          0           0             3  Sample savings
@@ -602,7 +591,7 @@ Sample card                  188             17  every day (6)
 
 Not ready           Why
 Sample current      7 transactions with no category
-Sample wallet       goes in with Sample current (a transfer ties them)
+Sample wallet       waits on Sample current (a transfer ties them)
 
 What I changed
   New categories      Household help (under Household)
@@ -625,7 +614,7 @@ Skipped               Fixed deposits: no balance given
 - "Not ready" lists every account with drafts that isn't ready, each with
   why, in one line: drafts without an account (the user sets them in its
   Drafts grid), a possible duplicate or a failing check you couldn't
-  settle (see "Still open"), or an account it goes in with that isn't
+  settle (see "Still open"), or an account it waits on that isn't
   ready. The user adds it from Review once it is.
 - Every change the go-ahead covered (the first column below) that happened
   is in the report: accounts, rules, parsers, preset changes, drafts
@@ -641,11 +630,11 @@ This replaces "Before changing anything" in the books guide for the run.
 
 | Covered by the plan's go-ahead | Asked in the question round | Asked on its own | Never |
 | --- | --- | --- | --- |
-| the starter chart, on books with none; parsers and their tests; preset changes for accounts in the plan; adding the accounts in the plan and importing; opening balances the statements give; categorizing drafts; rules and prompt lines for "sure" groups; rules and prompt lines for the rule requests the plan lists; deleting a draft that duplicates the same statement row; deleting a transfer's second copy and blanking the balance checks the `double-counted-transfers` playbook allows | new accounts; renaming, merging or dropping a category the user names; rules for the user's answers; anything "needs your call"; opening balances of accounts with no statements | any change to a posted entry; deleting a draft for any other reason; changing an opening balance already recorded; a change to dbu6 itself (`statement_disagreement`) | adding drafts to the books (`post-to-journal`, `POST /api/draft-transactions/post-ready`); changing a statement balance; deleting to pass a check; editing `node_modules/@dbu6/app`; writing SQLite |
+| the starter chart, on books with none; parsers and their tests; preset changes for accounts in the plan; adding the accounts in the plan and importing; opening balances the statements give; categorizing drafts; rules and prompt lines for "sure" groups; rules and prompt lines for the rule requests the plan lists; deleting a draft that duplicates the same statement row; deleting a transfer's second copy and blanking the balance checks the `double-counted-transfers` playbook allows | new accounts; renaming, merging or dropping a category the user names; rules for the user's answers; anything "needs your call"; opening balances of accounts with no statements | any change to a posted entry; deleting a draft for any other reason; changing an opening balance already recorded; a change to dbu6 itself (`statement_disagreement`) | changing a statement balance; deleting to pass a check; editing `node_modules/@dbu6/app`; writing SQLite |
 
-The rest of the books guide's rules hold: only a day's last draft carries
-its statement balance, so move it before deleting that draft; nothing from
-the user's data goes into a tracked file.
+The rest of the books guide's rules hold, deleting a draft that carries a
+statement balance among them, and nothing from the user's data goes into a
+tracked file.
 
 ## Stopping and starting again
 

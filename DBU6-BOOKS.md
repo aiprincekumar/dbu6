@@ -68,7 +68,9 @@ so you can skip OpenAPI discovery. For anything not covered here, use the
   `double-counted-transfers` playbook says which checks between its two
   dates may be blanked.
 - Only a day's last draft carries that day's statement balance. Before deleting
-  it, move its balance onto the day's new last draft.
+  it, move its balance onto the day's new last draft. A posted line that
+  carries one moves onto the day's previous journal ("Undo that" below).
+  The playbooks rely on this rule and don't repeat it.
 - Adding drafts to the books deletes them, and the app has no undo.
 - Write through the CLI or API, never through SQLite.
 - Nothing from the user's data goes into a tracked file (see AGENTS.md on PII).
@@ -185,12 +187,19 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   same row. A transfer or card payment that both statements carry is not a
   duplicate here: it shows up as a failing balance check (see below), and
   `npx dbu6 docs playbook double-counted-transfers` fixes it.
-- **"Add them to my books."** Say which accounts are ready, and give
-  Review's link: the user adds them there. `GET /api/review/accounts`
-  answers `add_all`, the accounts Review's Add all would add. An account's
-  `relies_on` means every check passes, but counting drafts of those
-  accounts, which are categorized to this one: it goes into the books with
-  them, in one go, and its own Add is refused naming them.
+- **"Add them to my books."** Unless the user asks you to add them, say
+  which accounts are ready and give Review's link: the user adds them there.
+  `GET /api/review/accounts` answers `add_all`, the accounts Review's Add all
+  would add. An account's `relies_on` means every check passes, but counting
+  drafts of those accounts, which are categorized to this one: it goes into
+  the books with them, in one go, and its own Add is refused naming them.
+  When the user asks, add them as Review does:
+  `npx sapporta api post /api/draft-transactions/post-ready --body '{"base_account_ids":[…]}'`
+  for several (it answers what it added, and what it left and why), or
+  `npx sapporta api post /api/draft-transactions/post-to-journal --body '{"base_account_id":<id>}'`
+  for one. A 422 names what still blocks; `POSTED_CHECKS_WOULD_FAIL` means
+  adding them would leave balance checks in the books failing, so nothing
+  was added.
 - **"Remove this one."** `npx sapporta rows delete draft_transactions <id>`.
 
 ### "Always put this under X" — adding a mapping
@@ -489,9 +498,9 @@ Leave a rule request you couldn't encode.
   preset names an account by id inside JSON with no foreign key, so a raw
   `rows delete` can leave a preset pointing at an account that is gone.
 - **"This statement won't import."**
-  Each refusal has a playbook: the table under "Accounts and imports" in
-  `npx dbu6 docs run` maps refusal codes to `npx dbu6 docs playbook <name>`,
-  the same method the Import screen's prompts send you to. Parser work
+  Each refusal has a playbook: `npx dbu6 docs playbook` lists them by what
+  went wrong, and each one's "When" names the codes it covers. It is the
+  same method the Import screen's prompts send you to. Parser work
   follows the parsers guide (`npx dbu6 docs parsers`), and failed uploads
   are kept in `tmp/statement-uploads/`. The common refusals:
   - `opening_balance_unavailable`: the account has no balance in the books

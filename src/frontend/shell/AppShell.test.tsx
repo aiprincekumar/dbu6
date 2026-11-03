@@ -117,6 +117,7 @@ function homeSummary(waiting: number) {
       failing_checks: 0,
     },
     any_imported: true,
+    posted: true,
   };
 }
 

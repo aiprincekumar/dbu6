@@ -19,7 +19,7 @@ import {
   plural,
 } from "../format";
 import { UPDATE_ROUTE } from "../update/routes";
-import { accountsText, checkText, goesInWithText } from "./posting-checks";
+import { accountsText, checkText, waitsOnText } from "./posting-checks";
 import {
   checkTab,
   needsAccountHref,
@@ -35,8 +35,9 @@ import {
  * post button waits, whether the coding agent has something to fix, and
  * what posting will do. The rows are the posting gate's own checks
  * (`postingChecks`), so the ticks and a refusal agree. Drafts whose checks
- * pass counting another account's drafts (`relies_on`) go in with that
- * account, on Review's Add all; their own button waits.
+ * pass counting another account's drafts (`relies_on`) wait on that
+ * account: Review's Add all adds them together once it is ready; their own
+ * button waits.
  */
 
 /** A figure inside a sentence, set in mono. */
@@ -116,7 +117,7 @@ export function overviewView(
   return {
     journey: journey(detail, clear ? "add" : "review"),
     verdict: together
-      ? goesInWithText(account.relies_on)
+      ? waitsOnText(account.relies_on)
       : clear
         ? "Ready to add to your books"
         : "Not ready to add yet",
@@ -124,7 +125,7 @@ export function overviewView(
       checkRow(check, detail, imported),
     ),
     waiting: together
-      ? `${goesInWithText(account.relies_on)}, on Review's Add all`
+      ? `${waitsOnText(account.relies_on)}: Review's Add all adds them together once ${account.relies_on.length === 1 ? "it is" : "they are"} ready`
       : clear
         ? undefined
         : blocks.map(waitingReason).join(" · "),
@@ -236,7 +237,7 @@ export function arrivalNotice(
   return {
     title,
     facts,
-    next: `Next: add them with ${accountsText(others)}, on Review's Add all. These balance checks count ${others.length === 1 ? "its" : "their"} drafts.`,
+    next: `Next: add them with ${accountsText(others)} on Review's Add all, once ${others.length === 1 ? "it is" : "they are"} ready. These balance checks count ${others.length === 1 ? "its" : "their"} drafts.`,
     action: { label: "Go to Review", to: REVIEW_ROUTE },
   };
 }

@@ -153,7 +153,7 @@ function StepCard({ card }: { card: UpdateCard }) {
 
 /**
  * Which statements to download: each bank and card, the month its next
- * statements start, and the last day its posted statements reached. A
+ * statements start, and the last day its statements reached. A
  * compact list above the drop, read before downloading: one line per
  * account, so the drop under it keeps the page's weight. Its heading leads
  * into the drop's "Drop them here", which takes a new bank or card's
@@ -191,7 +191,8 @@ function StatementsNeeded({ summary }: { summary: HomeSummary }) {
 /**
  * One account on one line: its name, opening its ledger, and its status when
  * something waits on it; the month its statements are needed from; and the
- * day its posted statements reached, from a phone's width up.
+ * day its statements reached, posted or in the drafts, from a phone's width
+ * up.
  */
 function AccountRow({ account }: { account: HomeAccount }) {
   const status = accountStatus(account);
@@ -258,12 +259,15 @@ function AccountRow({ account }: { account: HomeAccount }) {
   );
 }
 
-/** The date of the account's last posted balance assertion. */
+/**
+ * The last day its statements cover, posted or waiting in the drafts: the
+ * day "Download from" follows.
+ */
 function ImportedUntil({ account }: { account: HomeAccount }) {
-  if (!account.in_ledger || account.checkpoint === null) {
+  if (!account.in_ledger || account.statements_until === null) {
     return <span className="text-ink-meta">—</span>;
   }
-  return <span className="tnum">{formatDate(account.checkpoint.date)}</span>;
+  return <span className="tnum">{formatDate(account.statements_until)}</span>;
 }
 
 /**

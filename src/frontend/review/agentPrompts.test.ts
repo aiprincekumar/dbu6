@@ -93,7 +93,9 @@ describe("duplicatesPrompt", () => {
     // A user's project holds none of dbu6's source, so no file of it is named.
     expect(prompt).not.toMatch(/packages\/|src\/|\.ts\b/);
     expect(prompt).toContain(PLAN_FIRST_RULE);
-    expect(prompt).toMatch(/\n\*\*Next\*\*: ask whether to apply it\.$/);
+    expect(prompt).toMatch(
+      /in the playbook, then \*\*Next\*\*: ask whether to apply it\.$/,
+    );
   });
 
   it("lists at most 50 duplicates and leaves the rest to the app", () => {
@@ -123,7 +125,9 @@ describe("balanceChecksPrompt", () => {
     expect(prompt).toContain("Follow `npx dbu6 docs playbook balance-checks`.");
     expect(prompt).not.toMatch(/packages\/|src\/|\.ts\b/);
     expect(prompt).not.toContain("more (read them");
-    expect(prompt).toContain("**What's wrong**: why the running balance");
+    expect(prompt).toContain(
+      'The headings are the ones under "Report" in the playbook, then **Next**: ask whether to apply it.',
+    );
   });
 
   it("lists at most 50 failing checks", () => {

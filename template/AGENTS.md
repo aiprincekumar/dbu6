@@ -43,7 +43,9 @@ theirs: `user-config/`, `custom-built-parsers/`, `reports/`, and the ledger in
   statements, follow `npx dbu6 docs run`. Its "Entries" list where else a
   run starts.
 
-- Never post drafts: the person adds entries on Review.
+- Don't add drafts to the books unless the person asks you to: by default
+  they add them on Review. When they ask, "Add them to my books" in
+  `npx dbu6 docs books` says how.
 
 - Ask your questions in one round in the terminal.
 

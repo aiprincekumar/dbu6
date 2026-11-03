@@ -15,6 +15,7 @@ Banks & cards' **Add a bank or card** leads to the drop as well.
 
 Doing it by hand is still one small link beside the drop. In the first run
 it is **Add a bank or card** (/add) even while the first drafts wait, on
-Update and on Overview, until a statement is posted; **Import statements,
-guided** (/import) after. /import, which imports into the banks and cards
+Update and on Overview, until anything beside opening balances is posted
+(the home summary's new `posted`); **Import statements, guided** (/import)
+after. /import, which imports into the banks and cards
 already in the books, links to /add for a new one.

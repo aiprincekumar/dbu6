@@ -18,6 +18,7 @@ import {
   hasTransactions,
   loadStatementActivity,
 } from "../modules/drafts/index.js";
+import { hasJournalsBesideOpenings } from "../modules/journals/index.js";
 import { hasChart } from "../workflows/chart-of-accounts.js";
 import { requireWorkflowAuth } from "./workflow-auth.js";
 
@@ -104,6 +105,7 @@ export function loadHomeSummary(
       (account) =>
         account.in_ledger && hasTransactions(activity(account.account_id)),
     ),
+    posted: hasJournalsBesideOpenings(sqlite, auth),
   };
 }
 

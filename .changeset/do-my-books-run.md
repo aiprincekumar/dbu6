@@ -30,15 +30,15 @@ Adding drafts to the books counts other accounts' drafts only from the
 accounts added in the same press. Accounts whose checks count each other's
 drafts go in together on Review's Add all, in one transaction. Add on one of
 them alone is refused with `FAILING_ASSERTIONS`, whose new `relies_on` names
-the accounts it goes in with, and Review says "Goes in with <account>".
+the accounts it goes in with, and Review says "Waits on <account>".
 `GET /api/review/accounts` answers `add_all`, the accounts Add all would
 add, and each account's `relies_on`.
 
 `/add-account/read`, `/add-account/add` and `/import-draft/statements/auto`
 also take statements waiting in the inbox by path (`inbox_files`, repeated),
-read where they are rather than copied; an add or import that puts them in
-the drafts removes them from the inbox. A path outside the inbox is refused
-with `not_in_inbox`.
+read where they are rather than copied, and left in the inbox: the run
+takes each out (`POST /api/statement-inbox/remove`) once its rows are in the
+drafts. A path outside the inbox is refused with `not_in_inbox`.
 
 The first run's card, on Overview and Update while the books have no chart
 or nothing imported, is now **Do my books**. Setting up by hand is a link on

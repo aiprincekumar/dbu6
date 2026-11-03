@@ -5,7 +5,6 @@
 // (`unrecognized-statement`, `ambiguous-parsers`) and the parser guides; how
 // the presets change is in the books guide.
 import { guideCommand } from "../shared/index";
-import type { ReportSection } from "./agent-prompt-rules";
 
 /** Where a prompt sends the agent to change the import presets. */
 export const PRESETS_SECTION = `"Import presets" in \`${guideCommand("books")}\``;
@@ -16,15 +15,3 @@ export function triedParsers(candidateParserPaths: readonly string[]): string {
     ? "Parsers tried: none for this file type"
     : `Parsers that rejected it: ${candidateParserPaths.join(", ")}`;
 }
-
-/** What the agent reports once a parser reads the file. */
-export const NEW_PARSER_REPORT: ReportSection = {
-  heading: "The parser",
-  says: "what the statement is, and what the parser reads from it: date range, row count, opening and closing balance.",
-};
-
-/** What the agent reports once only one parser reads the file. */
-export const PARTED_PARSERS_REPORT: ReportSection = {
-  heading: "Which parser reads it",
-  says: "the parser that now reads the file, and what tells the two layouts apart.",
-};

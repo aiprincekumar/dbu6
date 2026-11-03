@@ -26,11 +26,11 @@ export function failingChecksText(count: number): string {
 }
 
 /**
- * "Goes in with HDFC Savings", for drafts whose balance checks count that
- * account's drafts: they are added with it, on Review's Add all.
+ * "Waits on HDFC Savings", for drafts whose balance checks count that
+ * account's drafts: Review's Add all adds them with it, once it is ready.
  */
-export function goesInWithText(accounts: readonly NamedAccount[]): string {
-  return `Goes in with ${accountsText(accounts)}`;
+export function waitsOnText(accounts: readonly NamedAccount[]): string {
+  return `Waits on ${accountsText(accounts)}`;
 }
 
 /** "HDFC Savings", "HDFC Savings and ICICI Card". */
@@ -62,7 +62,7 @@ export function checkText(check: PostingCheck): string {
         case "blocks":
           // Only the posting gate's refusal names the accounts.
           return check.relies_on.length > 0
-            ? goesInWithText(check.relies_on)
+            ? waitsOnText(check.relies_on)
             : failingChecksText(check.count);
       }
   }

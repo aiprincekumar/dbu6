@@ -9,9 +9,9 @@
 // The method for each kind of problem lives once, in a playbook
 // (`npx dbu6 docs playbook <name>`), which the run guide follows too; a task
 // names its playbook and keeps for `how` only what the screen adds. A
-// playbook's "Report" section is its report's headings; a task that names
-// one leaves `report` out, and older tasks that still pass one are moving
-// to that.
+// playbook's "Report" section is its report's headings, so a task that
+// names one passes none of its own: only `next`, the one step that is the
+// screen's, such as pressing Try again where the files were dropped.
 //
 // The agent echoes what it is given. A prompt that opens with backstory gets
 // a plan that retells it, and a prompt with no shape for the report gets an
@@ -30,10 +30,16 @@ export type AgentTask = TaskCase &
     | {
         /** The playbook that holds the method, and the report's headings. */
         playbook: PlaybookName;
-        report?: readonly ReportSection[];
+        /**
+         * What goes under a last **Next** heading, a sentence: the screen's
+         * own step.
+         */
+        next?: string;
+        report?: undefined;
       }
     | {
         playbook?: undefined;
+        next?: undefined;
         /** The final reply's sections, in the order the user reads them. */
         report: readonly ReportSection[];
       }
@@ -84,7 +90,7 @@ you worked it out, and any heading with nothing under it.`;
 export function agentPrompt(task: AgentTask): AgentPrompt {
   const report =
     task.report === undefined
-      ? `The headings are the ones under "Report" in the playbook.`
+      ? `The headings are the ones under "Report" in the playbook${task.next === undefined ? "." : `, then **Next**: ${task.next}`}`
       : task.report
           .map(({ heading, says }) => `**${heading}**: ${says}`)
           .join("\n");

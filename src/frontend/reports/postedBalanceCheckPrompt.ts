@@ -25,7 +25,8 @@ export interface PostedDifference {
 
 /**
  * The report's rows as differences. A row missing one of the columns the
- * server's report always sends is left out.
+ * server's report always sends is an error: left out, the prompt would
+ * count fewer checks than the report shows.
  */
 export function postedDifferences(
   result: GridDataset | null,
@@ -47,7 +48,9 @@ export function postedDifferences(
       typeof account !== "string" ||
       typeof date !== "string"
     ) {
-      return [];
+      throw new Error(
+        `A Reconciliation Differences row lacks a column the prompt needs: ${JSON.stringify(columns)}`,
+      );
     }
     return [
       { accountId, account, date, journalId, books, statement, difference },

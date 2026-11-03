@@ -414,7 +414,8 @@ describe("statements waiting in the inbox", () => {
       }),
     });
     expect(added.status, await added.clone().text()).toBe(200);
-    expect(await listInbox()).toEqual([]);
+    // The agent removes them once their rows are in the drafts.
+    expect(await listInbox()).toEqual([{ batch, files }]);
   });
 
   it("keeps them when the add is refused", async () => {

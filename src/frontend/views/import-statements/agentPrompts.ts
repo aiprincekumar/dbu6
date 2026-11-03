@@ -20,12 +20,7 @@ import {
   type AgentPrompt,
   type ReportSection,
 } from "../../agent-prompt-rules";
-import {
-  NEW_PARSER_REPORT,
-  PARTED_PARSERS_REPORT,
-  PRESETS_SECTION,
-  triedParsers,
-} from "../../parser-prompts";
+import { PRESETS_SECTION, triedParsers } from "../../parser-prompts";
 import type { AccountRefusal, RefusalOf } from "./outcome";
 
 type PlanFile<Status extends AutoImportPlanFile["status"]> = Extract<
@@ -38,22 +33,10 @@ const BOOKS_GUIDE = guideCommand("books");
 const REIMPORT = `Once it's fixed you may import the files again yourself ("Uploads" under
 "Reaching the app" in \`${BOOKS_GUIDE}\`).`;
 
-const PRESETS_REPORT: ReportSection = {
-  heading: "Import presets",
-  says: "what changed in them.",
-};
-const REDROP_REPORT: ReportSection = {
-  heading: "Next",
-  says: "press Try again beside the file at /import.",
-};
-const REIMPORT_REPORT: ReportSection = {
-  heading: "Next",
-  says: "the files imported again, with what that added to Review, or that I should drop them again.",
-};
-const PARSER_CHANGE = (says: string): ReportSection => ({
-  heading: "The fix",
-  says,
-});
+// What the user does once the agent is done, under its report's **Next**.
+const REDROP_NEXT = "press Try again beside the file at /import.";
+const REIMPORT_NEXT =
+  "the files imported again, with what that added to Review, or that I should drop them again.";
 
 // Where the agent will find an upload: the staged copy inside this
 // project, or the name the user dropped when the app kept none.
@@ -81,7 +64,7 @@ export function unrecognizedPrompt(
 ${triedParsers(file.candidate_parser_paths)}`,
     playbook: "unrecognized-statement",
     how: "It's for an account already in my books, which I import at /import.",
-    report: [NEW_PARSER_REPORT, PRESETS_REPORT, REDROP_REPORT],
+    next: REDROP_NEXT,
   });
 }
 
@@ -91,11 +74,7 @@ export function ambiguousPrompt(file: PlanFile<"ambiguous">): AgentPrompt {
     facts: `File: ${stagedAt(file)}
 Parsers that read it: ${list(file.matching_parser_paths)}`,
     playbook: "ambiguous-parsers",
-    report: [
-      PARTED_PARSERS_REPORT,
-      PARSER_CHANGE("what changed in each parser."),
-      REDROP_REPORT,
-    ],
+    next: REDROP_NEXT,
   });
 }
 
@@ -131,11 +110,7 @@ Import presets: ${presets}`,
     playbook: "unresolved-account",
     how: `In the import presets (${PRESETS_SECTION}): ${add}, ${identifiers}.
 ${REIMPORT}`,
-    report: [
-      { heading: "Account", says: "the account the statement now goes to." },
-      PRESETS_REPORT,
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -149,14 +124,7 @@ export function identifierRequiredPrompt(
 Accounts of "${institution}": ${list(file.candidate_account_names)}
 ${said(file.message)}`,
     playbook: "identifier-required",
-    report: [
-      {
-        heading: "Account number",
-        says: "the number the statement prints, and the account it goes to.",
-      },
-      PARSER_CHANGE("what changed in the parser."),
-      REDROP_REPORT,
-    ],
+    next: REDROP_NEXT,
   });
 }
 
@@ -171,11 +139,7 @@ export function identifierMismatchPrompt(
 Accounts of "${institution}": ${list(file.candidate_account_names)}
 ${said(file.message)}`,
     playbook: "identifier-mismatch",
-    report: [
-      { heading: "Account", says: "the account the statement now goes to." },
-      PRESETS_REPORT,
-      REDROP_REPORT,
-    ],
+    next: REDROP_NEXT,
   });
 }
 
@@ -202,7 +166,7 @@ function groupParsers(refusal: AccountRefusal): string[] {
   );
 }
 
-interface RefusalTask {
+type RefusalTask = {
   /** Why the importer refused, finishing "…, which the importer refused because". */
   because: string;
   /**
@@ -210,11 +174,15 @@ interface RefusalTask {
    * server's message stands in; with them it would only repeat them.
    */
   facts?: string;
-  /** The method; `how` adds only what this case needs beyond it. */
-  playbook?: PlaybookName;
   how?: string;
-  report: readonly ReportSection[];
-}
+} & (
+  | {
+      /** The method and the report's headings; `how` adds what this case needs. */
+      playbook: PlaybookName;
+      next?: string;
+    }
+  | { playbook?: undefined; report: readonly ReportSection[] }
+);
 
 // Every refusal is one account's statements turned away: the outcome is to
 // import them, and the facts open with the account, its files, parser and
@@ -235,9 +203,10 @@ function refusalPrompt(
   return agentPrompt({
     outcome: `Import ${list(group.file_names)} into ${group.account_name}, which the importer refused because ${task.because}.`,
     facts,
-    playbook: task.playbook,
     how: task.how === undefined ? REIMPORT : `${task.how}\n${REIMPORT}`,
-    report: task.report,
+    ...(task.playbook === undefined
+      ? { report: task.report }
+      : { playbook: task.playbook, next: task.next }),
   });
 }
 
@@ -261,16 +230,7 @@ Difference: ${refusal.difference}`;
     because: "the statement's rows don't add up to its balances",
     facts: figures + hint,
     playbook: "balance-mismatch",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "why the balances don't add up, in one sentence.",
-      },
-      PARSER_CHANGE(
-        "what changed in the parser, or the dates of the missing statement.",
-      ),
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -283,14 +243,7 @@ export function boundaryGapPrompt(
 ${refusal.later_source} starts at: ${refusal.later_opening}
 Difference: ${refusal.difference}`,
     playbook: "boundary-gap",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "why the two files don't meet: a missing statement, with the period to download, or a misread row.",
-      },
-      PARSER_CHANGE("what changed in the parser, if anything."),
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -302,14 +255,7 @@ export function disagreementPrompt(
     facts: `Parts: ${list(refusal.parts)}
 First differing row: ${JSON.stringify(refusal.row)}`,
     playbook: "statement-disagreement",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "which file is right, and why the other differs.",
-      },
-      PARSER_CHANGE("what changed in the parser, or which file to leave out."),
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -321,14 +267,7 @@ export function partInvalidPrompt(
     facts: `Part: ${refusal.part}
 Detail: ${refusal.detail}`,
     playbook: "part-invalid",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "whether the bank's export or the parser is wrong, and where.",
-      },
-      PARSER_CHANGE("what changed in the parser."),
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -341,17 +280,6 @@ export function reconciliationPrompt(
     facts: `Last statement balance in the books: ${refusal.checkpoint_balance} on ${date}
 ${said(refusal.message)}`,
     playbook: "reconciliation",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "where my books and the statement part, and why.",
-      },
-      {
-        heading: "The fix",
-        says: "each change to my books, or the statement period to download.",
-      },
-      { heading: "Next", says: "ask whether to apply it." },
-    ],
   });
 }
 
@@ -363,11 +291,7 @@ export function missingAccountPrompt(
     because: "its import preset names a deleted ledger account",
     facts: `Deleted ledger account id: ${account_id}`,
     playbook: "missing-ledger-account",
-    report: [
-      { heading: "Account", says: "the ledger account it now imports into." },
-      PRESETS_REPORT,
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -377,14 +301,7 @@ export function closingBalancePrompt(
   return refusalPrompt(refusal, {
     because: "the parser reads no closing balance from this card statement",
     playbook: "closing-balance",
-    report: [
-      {
-        heading: "Closing balance",
-        says: "the one the statement prints, or what it prints instead.",
-      },
-      PARSER_CHANGE("what changed in the parser."),
-      REIMPORT_REPORT,
-    ],
+    next: REIMPORT_NEXT,
   });
 }
 
@@ -396,8 +313,8 @@ export function genericFailurePrompt(refusal: AccountRefusal): AgentPrompt {
     how: `Start from the error and the files it names. ${PII_RULE}`,
     report: [
       { heading: "What's wrong", says: "in one sentence." },
-      PARSER_CHANGE("what changed."),
-      REIMPORT_REPORT,
+      { heading: "The fix", says: "what changed." },
+      { heading: "Next", says: REIMPORT_NEXT },
     ],
   });
 }

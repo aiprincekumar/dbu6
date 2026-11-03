@@ -29,8 +29,6 @@ One transaction counted twice: delete the extra draft.
 
 ## Never
 
-- Delete a day's last draft without first moving its balance onto the day's
-  new last draft.
 - Delete or change a transaction already in the books without the user's
   yes.
 

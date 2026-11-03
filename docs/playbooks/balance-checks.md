@@ -34,8 +34,6 @@ is its own task, after every statement is imported and categorized.
 - Change a statement balance (`balance_assertion_base_account`,
   `account_balance_assertion`).
 - Delete a draft just to make a check pass.
-- Delete a day's last draft without first moving its balance onto the day's
-  new last draft.
 
 ## Report
 

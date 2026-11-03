@@ -60,9 +60,9 @@ its account comes from the other account's statement: an entry in the
 books, or that account's draft categorized to this one. It is the same
 amount, the other way from the other side's point of view, a few days apart
 at most. And deleting the draft removes the failing check's difference, not
-just changes it. If the draft carries its day's balance, that balance moves
-to the day's new last draft first; when it is the day's only draft, the
-balance goes with it, which is fine as long as the choice below holds.
+just changes it. When it is the day's only draft and carries that day's
+balance, the balance goes with it, which is fine as long as the choice
+below holds.
 
 **When the two dates differ,** the copy that stays dates the movement on
 both accounts. The account whose copy was deleted printed balances, on the
@@ -110,7 +110,6 @@ other. Name no order.
   doesn't explain, or change a balance to another number.
 - Delete a draft when two records match it equally and the statements' own
   references don't decide between them: ask.
-- Add drafts to the books.
 
 ## Report
 

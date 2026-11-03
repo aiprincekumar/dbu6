@@ -24,7 +24,8 @@ import { UPDATE_DROP_HREF } from "./routes";
  * link to doing it by hand. Drafts waiting has its card, and the drop under
  * it with the same link. By hand is /setup's chart before there is one,
  * then /add's cards while nothing is imported, and /import after. Drafts
- * waiting keeps /add's until a statement is posted, since /import can't add
+ * waiting keeps /add's until anything beside opening balances is posted
+ * (`posted`), since /import can't add
  * the bank or card a first run may still be missing. An account that needs
  * its first statement leads to the drop on the page, `/update#drop`, since a
  * run sets up a format it hasn't read. Update only says that drafts are
@@ -120,9 +121,7 @@ export function updateState(summary: HomeSummary): UpdateView {
       card: {
         title: "There are draft entries waiting to be posted to your books",
         action: { label: "Review transactions", to: reviewTarget(summary) },
-        byHand: anyStatementPosted(accounts)
-          ? GUIDED_IMPORT
-          : FIRST_RUN_BY_HAND,
+        byHand: summary.posted ? GUIDED_IMPORT : FIRST_RUN_BY_HAND,
       },
       listsAccounts: true,
     };
@@ -231,15 +230,6 @@ function reviewTarget({ accounts, totals }: HomeSummary): string {
   return pending.length === 1 && only.drafts === totals.drafts
     ? reviewHref(only.account_id)
     : REVIEW_ROUTE;
-}
-
-/**
- * Whether any statement is in the books: a posted balance assertion on a
- * listed account, the day Update's "Imported until" shows. Until then the
- * first run goes on, and adding a bank or card by hand is its /add.
- */
-function anyStatementPosted(accounts: readonly HomeAccount[]): boolean {
-  return inLedger(accounts).some((account) => account.checkpoint !== null);
 }
 
 /** The listed accounts the ledger has; only they can hold drafts. */

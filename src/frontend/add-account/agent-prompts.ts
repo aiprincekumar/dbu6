@@ -1,13 +1,5 @@
-import {
-  agentPrompt,
-  type AgentPrompt,
-  type ReportSection,
-} from "../agent-prompt-rules";
-import {
-  NEW_PARSER_REPORT,
-  PARTED_PARSERS_REPORT,
-  triedParsers,
-} from "../parser-prompts";
+import { agentPrompt, type AgentPrompt } from "../agent-prompt-rules";
+import { triedParsers } from "../parser-prompts";
 import type { Unreadable } from "./state";
 
 /*
@@ -22,10 +14,8 @@ type UnreadableFile<Status extends Unreadable["status"]> = Extract<
   { status: Status }
 >;
 
-const REDROP_REPORT: ReportSection = {
-  heading: "Next",
-  says: "drop the files at /add again.",
-};
+// What the user does once the agent is done, under its report's **Next**.
+const REDROP_NEXT = "drop the files at /add again.";
 
 export function addUnrecognizedPrompt(
   file: UnreadableFile<"unrecognized">,
@@ -37,11 +27,7 @@ ${triedParsers(file.candidate_parser_paths)}`,
     playbook: "unrecognized-statement",
     how: `I'm adding this bank or card at /add, which sets the account up from the
 statements: add no account to the import presets.`,
-    report: [
-      NEW_PARSER_REPORT,
-      { heading: "Import presets", says: "what changed in them." },
-      REDROP_REPORT,
-    ],
+    next: REDROP_NEXT,
   });
 }
 
@@ -53,10 +39,6 @@ export function addAmbiguousPrompt(
     facts: `File: ${file.saved_path}
 Parsers that read it: ${file.matching_parser_paths.join(", ")}`,
     playbook: "ambiguous-parsers",
-    report: [
-      PARTED_PARSERS_REPORT,
-      { heading: "The fix", says: "what changed in each parser." },
-      REDROP_REPORT,
-    ],
+    next: REDROP_NEXT,
   });
 }

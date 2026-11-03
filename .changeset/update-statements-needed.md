@@ -5,7 +5,7 @@
 Update is laid out around finding the statements it needs, in the order
 you work. First, **Download these statements** lists each bank and card on
 one line, with its **Download from** month and the day it was imported
-until. The month is the one its statements stop in, posted or still in the
+until, posted or still in the drafts. The month is the one its statements stop in, posted or still in the
 drafts, so statements up to 13 October ask for October, and up to 30
 September ask for October too. The home summary (`/api/home`) carries each
 account's `statements_until` for it. Under the list, the drop says **Drop

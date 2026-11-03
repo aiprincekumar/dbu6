@@ -46,14 +46,6 @@ export function categorizeWithAgentPrompt(
     playbook: "categorize",
     how: `Ask about the groups you're not sure of at most ${QUESTIONS_AT_A_TIME} at a time.
 ${USER_RUNS_CATEGORIZER}`,
-    report: [
-      {
-        heading: "New rules",
-        says: "each rule or instruction line, and how many drafts it covers.",
-      },
-      { heading: "Set by hand", says: "how many drafts you set directly." },
-      { heading: "Still without an account", says: "how many drafts." },
-      { heading: "Next", says: "Run categorizer, on Review." },
-    ],
+    next: "Run categorizer, on Review.",
   });
 }

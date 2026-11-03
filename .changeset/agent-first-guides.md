@@ -42,5 +42,6 @@ Update first.
 
 A project made before this release can add the lines its new `AGENTS.md`
 has, under "Before you start": that the run's "Entries" list where else a
-run starts, "Never post drafts: the person adds entries on Review." and
+run starts, that drafts are added by the person on Review unless they ask
+the agent to add them, and
 "Ask your questions in one round in the terminal."

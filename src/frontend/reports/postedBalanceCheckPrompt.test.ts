@@ -69,12 +69,12 @@ describe("postedDifferences", () => {
     ]);
   });
 
-  it("is empty with no report, or no rows, and leaves out a row it can't read", () => {
+  it("is empty with no report, or no rows, and refuses a row it can't read", () => {
     expect(postedDifferences(null)).toEqual([]);
     expect(postedDifferences(report([]))).toEqual([]);
-    expect(
+    expect(() =>
       postedDifferences(report([{ ...savings, diff: null }, card])),
-    ).toHaveLength(1);
+    ).toThrow(/lacks a column/);
   });
 });
 

@@ -124,8 +124,8 @@ describe("overviewView", () => {
       detail({ relies_on: [{ account_id: 7, name: "Sample Bank" }] }),
     );
 
-    expect(view.verdict).toBe("Goes in with Sample Bank");
-    expect(view.waiting).toBe("Goes in with Sample Bank, on Review's Add all");
+    expect(view.verdict).toBe("Waits on Sample Bank");
+    expect(view.waiting).toBe("Waits on Sample Bank: Review's Add all adds them together once it is ready");
     // Adding them together is the person's; the agent has nothing to fix.
     expect(view.fix).toBe(false);
     expect(view.checks[2]).toEqual({
@@ -314,7 +314,7 @@ describe("the notice after an import", () => {
       { drafts: 21, categorized: 21 },
     );
     expect(notice.next).toBe(
-      "Next: add them with Sample Card, on Review's Add all. These balance checks count its drafts.",
+      "Next: add them with Sample Card on Review's Add all, once it is ready. These balance checks count its drafts.",
     );
     expect(notice.action).toEqual({ label: "Go to Review", to: "/review" });
   });

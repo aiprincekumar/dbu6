@@ -59,11 +59,14 @@ Find which of these it is, from the evidence:
   dated inside a statement's period: `created_at` after the entries around
   it, `diff` equal to its amount. When the statement already carries it,
   it is a duplicate (next).
-- **A duplicate in the books:** the same transaction twice, from two
-  imports or from both statements of a transfer. Two entries with one
-  `source_transaction_key`, or the same amount the other way a few days
-  apart on the other account. Propose removing the copy whose line carries
-  no statement balance, as "Undo that" in the books guide says.
+- **A duplicate in the books:** the same transaction twice. From two
+  imports of one statement: two entries with one `source_transaction_key`;
+  propose removing the copy whose line carries no statement balance, as
+  "Undo that" in the books guide says. From both statements of a transfer:
+  the same amount the other way a few days apart on the other account;
+  which copy goes is "Which copy to delete" in
+  `npx dbu6 docs playbook double-counted-transfers`, since each copy may
+  carry its own statement's balance.
 - **A statement missing between two checks:** `diff` appears on one check
   and stays the same after it, with no entry to explain it. Name the
   period; the user downloads it, and its transactions are entered by hand
@@ -83,8 +86,6 @@ again.
 - Change a statement balance (`account_balance_assertion`) to make a check
   pass.
 - Delete an entry just to make a check pass.
-- Delete a line that carries a day's statement balance without first moving
-  the balance onto that day's previous entry.
 - Write SQLite.
 
 ## Report

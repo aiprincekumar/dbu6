@@ -70,9 +70,9 @@ describe("balance checks that count another account's drafts", () => {
   it("say which accounts the drafts go in with, when the posting gate names them", () => {
     const savings = { account_id: 1, name: "Sample Savings" };
     const wallet = { account_id: 2, name: "Sample Wallet" };
-    expect(checkText(refusal([savings]))).toBe("Goes in with Sample Savings");
+    expect(checkText(refusal([savings]))).toBe("Waits on Sample Savings");
     expect(checkText(refusal([savings, wallet]))).toBe(
-      "Goes in with Sample Savings and Sample Wallet",
+      "Waits on Sample Savings and Sample Wallet",
     );
     expect(checkText(refusal([]))).toBe("1 balance check fails");
   });

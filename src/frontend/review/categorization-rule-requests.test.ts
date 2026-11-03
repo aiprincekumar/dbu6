@@ -135,7 +135,7 @@ describe("ruleRequestsPrompt", () => {
 
     expect(prompt).toContain(PLAN_FIRST_RULE);
     expect(prompt).toMatch(
-      /\n\*\*Rules added\*\*: .*\n\*\*Still on my list\*\*: .*\n\*\*Next\*\*: Run categorizer, on Review\.$/,
+      /in the playbook, then \*\*Next\*\*: Run categorizer, on Review\.$/,
     );
   });
 

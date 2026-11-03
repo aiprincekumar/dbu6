@@ -149,6 +149,7 @@ describe("Home summary", () => {
       failing_checks: 1,
     });
     expect(summary.any_imported).toBe(true);
+    expect(summary.posted).toBe(true);
     expect(summary.has_chart).toBe(true);
   });
 
@@ -213,6 +214,8 @@ describe("Home summary", () => {
     const summary = loadHomeSummary(sqlite, auth, institutions);
 
     expect(summary.any_imported).toBe(false);
+    // Nor does the first run end with it.
+    expect(summary.posted).toBe(false);
   });
 
   it("returns no accounts without presets, while the chart is there", () => {

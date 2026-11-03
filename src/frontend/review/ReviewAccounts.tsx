@@ -24,7 +24,7 @@ import { refreshDraftStatus, reviewAccountsQuery } from "../queries";
 import { fixReviewPrompt } from "./agentPrompts";
 import { agentFixes } from "./overview-state";
 import { BooksSetUp, HandOffNote, UpdateYourBooks } from "./hand-off";
-import { checkText, goesInWithText } from "./posting-checks";
+import { checkText, waitsOnText } from "./posting-checks";
 import {
   readReviewRun,
   REVIEW_ROUTE,
@@ -358,7 +358,7 @@ function accountStatus(account: ReviewAccount): {
     return { tone: balances.severity, label: checkText(balances) };
   }
   if (account.relies_on.length > 0) {
-    return { tone: "attention", label: goesInWithText(account.relies_on) };
+    return { tone: "attention", label: waitsOnText(account.relies_on) };
   }
   return { tone: "ok", label: "Ready to add" };
 }

@@ -73,7 +73,7 @@ describe("categorizeWithAgentPrompt", () => {
     expect(prompt).not.toContain("numbered options");
     expect(prompt).toContain(PLAN_FIRST_RULE);
     expect(prompt).toMatch(
-      /\n\*\*New rules\*\*: .*\n\*\*Set by hand\*\*: .*\n\*\*Still without an account\*\*: .*\n\*\*Next\*\*: Run categorizer, on Review\.$/,
+      /in the playbook, then \*\*Next\*\*: Run categorizer, on Review\.$/,
     );
   });
 

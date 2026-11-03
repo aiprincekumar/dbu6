@@ -35,7 +35,7 @@ import {
   type StagedUploads,
 } from "./upload-tmp.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
-import { inboxFilesFromField, useUpInboxFiles } from "./statement-inbox.js";
+import { inboxFilesFromField } from "./statement-inbox.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 
 // Automatic statement import: the user uploads statement files, and
@@ -330,27 +330,6 @@ export async function checkStatementUploads(
   });
 }
 
-// The inbox files whose statements are now in the drafts: every one when the
-// batch imported, else those of the accounts imported before the refusal,
-// found by the name each was dropped with. Two files of one name can't be
-// told apart there, so neither is taken.
-export function importedInboxFiles(
-  response: AutoImportRouteResponse,
-  files: readonly ProjectFile[],
-): ProjectFile[] {
-  if (response.status === 200) return [...files];
-  const groups =
-    "imported_groups" in response.body
-      ? (response.body.imported_groups ?? [])
-      : [];
-  const imported = new Set(groups.flatMap((group) => group.file_names));
-  return files.filter(
-    (file) =>
-      imported.has(file.name) &&
-      files.filter((other) => other.name === file.name).length === 1,
-  );
-}
-
 export default function importDraftStatementsAutoApi(
   loadCategorizer: LoadCategorizer,
 ): TsRestApi<SapportaEnv> {
@@ -389,15 +368,13 @@ export default function importDraftStatementsAutoApi(
 
       const tracked = running.start(formFields(request.body).progress_id);
       try {
-        const response = await importStatementsAutomatically(
+        return await importStatementsAutomatically(
           { statements, gpay: uploadedFile(uploadedFiles, "gpay") },
           loadImportPresets(ledger.db, ledger.auth),
           ledger,
           loadCategorizer,
           tracked?.onProgress,
         );
-        await useUpInboxFiles(importedInboxFiles(response, inbox.files));
-        return response;
       } finally {
         tracked?.finish();
       }

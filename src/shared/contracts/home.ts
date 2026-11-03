@@ -63,6 +63,9 @@ export const homeSummarySchema = z.object({
   // statements, entries or drafts (`hasTransactions`, as /add places an
   // account): an opening entry alone is not an import.
   any_imported: z.boolean(),
+  // Whether the books hold anything beside opening balances: the first run
+  // is over (`hasJournalsBesideOpenings`, as Overview and posting read it).
+  posted: z.boolean(),
 });
 export type HomeSummary = z.infer<typeof homeSummarySchema>;
 

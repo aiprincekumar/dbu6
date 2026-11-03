@@ -52,17 +52,7 @@ export function duplicatesPrompt(detail: ReviewAccountDetail): AgentPrompt {
 Possible duplicates (date · amount · draft · what it matched · how):
 ${rows(detail.duplicates, duplicateLine)}`,
     playbook: "duplicates",
-    report: [
-      {
-        heading: "Verdict",
-        says: "for each pair, one transaction or two, and why, in a few words.",
-      },
-      {
-        heading: "The fix",
-        says: "the drafts to delete, each by date, description and amount.",
-      },
-      { heading: "Next", says: "ask whether to apply it." },
-    ],
+    next: "ask whether to apply it.",
   });
 }
 
@@ -75,21 +65,7 @@ export function balanceChecksPrompt(detail: ReviewAccountDetail): AgentPrompt {
 Failing checks (running balance minus the statement's is the difference):
 ${rows(failing, failingLine)}`,
     playbook: "balance-checks",
-    report: [
-      {
-        heading: "What's wrong",
-        says: "why the running balance misses the statement's, in one sentence.",
-      },
-      {
-        heading: "The fix",
-        says: "each change as date, description, amount, and what it becomes.",
-      },
-      {
-        heading: "After the fix",
-        says: "which checks pass, and anything still unexplained.",
-      },
-      { heading: "Next", says: "ask whether to apply it." },
-    ],
+    next: "ask whether to apply it.",
   });
 }
 

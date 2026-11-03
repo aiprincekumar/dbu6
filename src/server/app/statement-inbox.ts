@@ -30,10 +30,10 @@ import { requireOwner } from "./workflow-auth.js";
  * saves them as one batch under tmp/statement-inbox/<batch>/, and hands their
  * coding agent a prompt that names the inbox. Nothing here reads a statement
  * or touches the books. The agent's run sends inbox files to the imports by
- * their `saved_path` (`inbox_files`); an import that adds a file to the
- * drafts removes it, and a batch with none left goes with it, so no copy of
- * the statements lingers. A file dropped again, the same bytes under any
- * name, is not saved twice. The owner's only, like every upload.
+ * their `saved_path` (`inbox_files`), and removes each once its rows are in
+ * the drafts; a batch with none left goes with it, so no copy of the
+ * statements lingers. A file dropped again, the same bytes under any name,
+ * is not saved twice. The owner's only, like every upload.
  */
 
 const api = new TsRestApi<SapportaEnv>();
@@ -197,7 +197,7 @@ export async function inboxFilesFromField(
   return { files };
 }
 
-/** Removes inbox files whose work is done, and each batch left empty. */
+/** Removes inbox files, and each batch left empty. */
 export async function useUpInboxFiles(
   files: readonly ProjectFile[],
 ): Promise<void> {

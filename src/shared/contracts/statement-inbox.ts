@@ -10,7 +10,7 @@ const errorSchema = z.object({ error: z.string() }).passthrough();
  * agent (`npx dbu6 docs run`), saved under the project's
  * tmp/statement-inbox/<batch>/ and nothing more. Nothing reads or imports
  * them until the agent sends them to an import by `saved_path`
- * (`inbox_files`); the import that adds a file to the drafts removes it.
+ * (`inbox_files`), and removes each once its rows are in the drafts.
  */
 
 export const statementInboxFileSchema = z.object({
@@ -44,7 +44,7 @@ export const statementInboxContract = c.router({
     method: "GET",
     path: "/statement-inbox",
     summary:
-      "The batches of statements waiting in the inbox for a run (`npx dbu6 docs run`), oldest first, each with its files. Send a file to /add-account/read, /add-account/add or /import-draft/statements/auto as `inbox_files=<saved_path>`; an import that adds it to the drafts removes it",
+      "The batches of statements waiting in the inbox for a run (`npx dbu6 docs run`), oldest first, each with its files. Send a file to /add-account/read, /add-account/add or /import-draft/statements/auto as `inbox_files=<saved_path>`; it stays in the inbox until /statement-inbox/remove takes it out",
     responses: {
       200: z.object({ batches: z.array(statementInboxBatchSchema) }),
       403: errorSchema,
@@ -67,7 +67,7 @@ export const statementInboxContract = c.router({
     method: "POST",
     path: "/statement-inbox/remove",
     summary:
-      "Remove one dropped statement from the inbox, by its `saved_path`, without importing it",
+      "Remove one dropped statement from the inbox, by its `saved_path`: once its rows are in the drafts, or to leave it out",
     body: z.object({ saved_path: z.string() }),
     responses: {
       200: z.object({ removed: z.string() }),

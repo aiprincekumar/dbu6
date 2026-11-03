@@ -62,6 +62,7 @@ function summary(
       failing_checks: sum(listed, "failing_checks"),
     },
     any_imported: listed.some((a) => a.checkpoint !== null),
+    posted: listed.some((a) => a.checkpoint !== null),
     ...overrides,
   };
 }
@@ -153,6 +154,27 @@ describe("updateState", () => {
       ]),
     );
     expect(view.state).toBe("drafts");
+    expect(stepCard(view).byHand).toEqual({
+      label: "Add a bank or card",
+      to: "/add?run=setup",
+    });
+  });
+
+  it("keeps adding a bank or card by hand while only opening balances are posted", () => {
+    // An opening balance carries a balance check, but the first run goes on
+    // until something beside opening balances is in the books.
+    const view = updateState(
+      summary(
+        [
+          account({
+            checkpoint: { date: "2026-07-31", balance: 1000 },
+            statements_until: "2026-08-31",
+            drafts: 12,
+          }),
+        ],
+        { posted: false },
+      ),
+    );
     expect(stepCard(view).byHand).toEqual({
       label: "Add a bank or card",
       to: "/add?run=setup",

@@ -46,7 +46,6 @@ vi.mock(
 import type { LoadCategorizer } from "../modules/categorization/index.js";
 import importDraftStatementsAutoApi, {
   checkStatementUploads,
-  importedInboxFiles,
   importStatementsAutomatically,
 } from "./import-draft-statements-auto.js";
 import { loadDbu6App } from "../mount.js";
@@ -558,37 +557,6 @@ describe("automatic statement import", () => {
       file_names: ["card-jan.xls"],
     });
     expect(body.files).toHaveLength(2);
-  }, 120_000);
-
-  it("takes from the inbox only the files of the accounts that imported", async () => {
-    runStatementImport
-      .mockResolvedValueOnce(importedNothing())
-      .mockRejectedValueOnce(new ClosingBalanceUnavailable());
-    const response = await importStatementsAutomatically(
-      {
-        statements: [
-          await fixtureFile("hdfc-bank-xls", "bank-jan.xls"),
-          await fixtureFile("hdfc-cc-xls", "card-jan.xls"),
-        ],
-        gpay: null,
-      },
-      [bankPreset, cardPreset],
-      ledger,
-      loadCategorizer,
-    );
-    const inbox = (...names: string[]) =>
-      names.map((name, index) => ({
-        name,
-        path: `/sample/tmp/statement-inbox/sample/${index}-${name}`,
-      }));
-
-    expect(
-      importedInboxFiles(response, inbox("bank-jan.xls", "card-jan.xls")),
-    ).toEqual(inbox("bank-jan.xls"));
-    // Two files of one name can't be told apart: neither is taken.
-    expect(
-      importedInboxFiles(response, inbox("bank-jan.xls", "bank-jan.xls")),
-    ).toEqual([]);
   }, 120_000);
 
   it("refuses an account whose ledger account was deleted, naming the preset calls", async () => {

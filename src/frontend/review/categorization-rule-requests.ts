@@ -69,14 +69,7 @@ Rule requests (date · out or in, amount · description):
 ${ruleRequests.map((ruleRequest, index) => ruleRequestText(account.account_id, ruleRequest, index)).join("\n\n")}`,
     playbook: "rule-requests",
     how: USER_RUNS_CATEGORIZER,
-    report: [
-      {
-        heading: "Rules added",
-        says: "for each rule request, the rule or line now in place and its file, or why none.",
-      },
-      { heading: "Still on my list", says: "the rule requests left." },
-      { heading: "Next", says: "Run categorizer, on Review." },
-    ],
+    next: "Run categorizer, on Review.",
   });
 }
 

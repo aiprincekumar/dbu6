@@ -92,7 +92,7 @@ const RECONCILIATION: RefusalOf<"reconciliation_match_failed"> = {
 };
 
 describe("every task", () => {
-  it("opens with the outcome and ends with the plan and the report", () => {
+  it("opens with the outcome and ends with the plan and the playbook's report", () => {
     const prompts = [
       unrecognizedPrompt(UNRECOGNIZED),
       ambiguousPrompt(AMBIGUOUS),
@@ -103,8 +103,8 @@ describe("every task", () => {
     for (const prompt of prompts) {
       expect(prompt).toMatch(/^Outcome: /);
       expect(prompt).toContain(PLAN_FIRST_RULE);
-      expect(prompt).toMatch(
-        /\n\*\*[^*]+\*\*: .*\n\*\*[^*]+\*\*: .*\n\*\*Next\*\*: /,
+      expect(prompt).toContain(
+        'The headings are the ones under "Report" in the playbook',
       );
     }
   });
@@ -120,9 +120,8 @@ describe("a file no parser reads", () => {
     expect(prompt).toContain("Parsers that rejected it: sample-bank-pdf");
     expect(prompt).toContain(playbookCommand("unrecognized-statement"));
     expect(prompt).toContain("an account already in my books");
-    expect(prompt).toContain("date range, row count, opening and closing");
     expect(prompt).toContain(
-      "**Next**: press Try again beside the file at /import.",
+      'The headings are the ones under "Report" in the playbook, then **Next**: press Try again beside the file at /import.',
     );
   });
 });
@@ -207,6 +206,7 @@ describe("an account's statements the importer refused", () => {
     expect(prompt).toContain(
       "Last statement balance in the books: 1000 on 2026-07-31",
     );
-    expect(prompt).toContain("**Next**: ask whether to apply it.");
+    // The playbook's own report ends with asking.
+    expect(prompt).toMatch(/in the playbook\.$/);
   });
 });

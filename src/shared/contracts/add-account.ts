@@ -310,7 +310,7 @@ export const addAccountContract = c.router({
     method: "POST",
     path: "/add-account/add",
     summary:
-      "Add a bank or card from its statements (`files`, or `inbox_files` as /add-account/read takes them, all one account's; fields per addAccountFieldsSchema, and an optional `progress_id` for addProgress): create the ledger account and its preset entry (or use the one named, or the empty one the files belong to), tie it to the parser and number, record its opening balance the day before the earliest row, then import the files as /import does, categorization included. Everything that doesn't depend on timing is checked before anything is written. Inbox files it adds are removed from the inbox",
+      "Add a bank or card from its statements (`files`, or `inbox_files` as /add-account/read takes them, all one account's; fields per addAccountFieldsSchema, and an optional `progress_id` for addProgress): create the ledger account and its preset entry (or use the one named, or the empty one the files belong to), tie it to the parser and number, record its opening balance the day before the earliest row, then import the files as /import does, categorization included. Everything that doesn't depend on timing is checked before anything is written. Inbox files stay in the inbox",
     contentType: "multipart/form-data",
     body: z.any(),
     responses: {
