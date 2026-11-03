@@ -4,13 +4,17 @@ import { errorBodySchema } from "@sapporta/shared/contracts";
 import { accountKindSchema } from "./account-kind.js";
 import { dateSpanSchema } from "./date-span.js";
 import { datedBalanceSchema } from "./dated-balance.js";
-import { postingInputsSchema } from "./posting-checks.js";
+import { draftCountsSchema, namedAccountSchema } from "./posting-checks.js";
 
 const c = initContract();
 
 /**
  * A ledger account as Review lists it: its drafts and what blocks adding
  * them to the books. The counts are the draft reports' rows.
+ *
+ * `relies_on`: when nothing of its own blocks it but its balance checks
+ * count other accounts' drafts, those accounts. Its own Add is refused
+ * naming them; Add all adds it with them. Empty otherwise.
  */
 export const reviewAccountSchema = z.object({
   account_id: z.number(),
@@ -20,7 +24,8 @@ export const reviewAccountSchema = z.object({
   // The preset account's name when a preset lists it, else the account's name.
   name: z.string(),
   kind: accountKindSchema,
-  ...postingInputsSchema.shape,
+  ...draftCountsSchema.shape,
+  relies_on: z.array(namedAccountSchema),
   // The drafts' first and last dates; null when there are none.
   draft_span: dateSpanSchema.nullable(),
   // Rule requests made from its drafts, waiting for the coding agent to turn
@@ -39,19 +44,14 @@ export const reviewFailingCheckSchema = z.object({
 });
 export type ReviewFailingCheck = z.infer<typeof reviewFailingCheckSchema>;
 
-/**
- * A draft that looks like another draft or an entry already posted. A
- * "draft-transfer" is a transfer also on another account's statement: that
- * account's draft, categorized to this one, is `other_draft_id`, and
- * `matched_account` is that account.
- */
+/** A draft that looks like another draft or an entry already posted. */
 export const reviewDuplicateSchema = z.object({
   date: z.string(),
   draft_id: z.number(),
   other_draft_id: z.number().nullable(),
   matched_journal_id: z.number().nullable(),
   matched_journal_entry_id: z.number().nullable(),
-  match_kind: z.enum(["draft-draft", "draft-journal", "draft-transfer"]),
+  match_kind: z.enum(["draft-draft", "draft-journal"]),
   match_type: z.string(),
   confidence: z.number(),
   direction: z.enum(["deposit", "withdrawal"]),
@@ -61,11 +61,20 @@ export const reviewDuplicateSchema = z.object({
   // entry, which has none, gives its comment.
   other_narration: z.string().nullable(),
   draft_account: z.string().nullable(),
-  // The other draft's account, or the matched entry's account; for a
-  // transfer, the account whose statement the other draft is from.
+  // The other draft's account, or the matched entry's account.
   matched_account: z.string().nullable(),
 });
 export type ReviewDuplicate = z.infer<typeof reviewDuplicateSchema>;
+
+/**
+ * Review's list: the accounts with drafts, and the ids of those Add all
+ * would add, the posting gate's own decision for a press of every one.
+ */
+export const reviewAccountsSchema = z.object({
+  accounts: z.array(reviewAccountSchema),
+  add_all: z.array(z.number()),
+});
+export type ReviewAccounts = z.infer<typeof reviewAccountsSchema>;
 
 export const reviewAccountDetailSchema = z.object({
   // `drafts` may be 0: everything imported is already in the books.
@@ -90,10 +99,11 @@ export const reviewContract = c.router({
   accounts: c.query({
     method: "GET",
     path: "/review/accounts",
-    summary: "The accounts with drafts to review, by name",
+    summary:
+      "The accounts with drafts to review, by name, and the ones Add all would add together",
     query: z.object({}),
     responses: {
-      200: z.object({ accounts: z.array(reviewAccountSchema) }),
+      200: reviewAccountsSchema,
       403: errorBodySchema,
     },
   }),

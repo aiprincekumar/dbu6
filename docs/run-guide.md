@@ -186,9 +186,11 @@ The import already ran the rules and the AI. What is left has no account.
    these" in the books guide).
 2. Read what is still blank across *all* accounts together, with the
    accounts already used, as the `categorize` playbook says, and:
-   - recognize transfers between the user's own accounts and card payments
-     from both statements, and settle them as the `cross-account-transfers`
-     playbook says;
+   - categorize a transfer between the user's own accounts, or a card
+     payment, to the other account like any other row. Nothing is settled
+     here. A row going to an account whose statement is in the same upload
+     is that statement's row too, so expect it to fail a balance check in
+     clean-up, and look for it there;
    - group the rest by what they are, by judgment;
    - sort each group into "sure" and "needs your call".
 
@@ -208,9 +210,20 @@ GROUP BY a.name ORDER BY total DESC;
 With the "sure" groups set, per account
 (`npx sapporta api get /api/review/accounts/<id>`): duplicates (`duplicates`
 playbook), then balance checks (`balance-checks` playbook). Fix what the
-evidence settles: an exact duplicate draft of the same statement row, a
-transfer both statements carry. What it doesn't settle joins the question
+evidence settles, such as an exact duplicate draft of the same statement
+row.
+
+Where checks fail by amounts that transfers or card payments between the
+user's accounts could explain, fixing that is its own bounded task, started
+only now that every statement is imported and categorized: the
+`double-counted-transfers` playbook, given to a subagent with a narrow
+brief (the accounts with failing checks, the playbook, and its Report
+headings), or done as its own step without one. It deletes second copies
+and blanks the checks the playbook allows, without asking, and asks only
+what the playbook says to. Its report and questions join the question
 round.
+
+What clean-up doesn't settle joins the question round.
 
 ### 8. Question round
 
@@ -243,7 +256,7 @@ Review. The prompt from Review starts here, or the user asked you to finish
 what is left there. The work is the second half of a run, across every
 account with drafts at once, or across the accounts the prompt names: then
 the survey, the plan and the work cover only those, and you read another
-account only to settle a transfer with it.
+account only to fix a transfer counted twice with it.
 
 ### 0. Preflight
 
@@ -253,8 +266,10 @@ As in [Phases](#phases).
 
 - `npx sapporta api get /api/review/accounts`: each account with drafts,
   with `drafts`, `uncategorised`, `duplicates`, `failing_checks`,
-  `add_first` (the accounts it waits for) and `rule_requests` (how many
-  rule requests the user left on it).
+  `relies_on` (the accounts whose drafts its balance checks count, so it
+  goes into the books with them) and `rule_requests` (how many rule
+  requests the user left on it); and `add_all`, the accounts Review's Add
+  all would add.
 - For each account with `rule_requests` above 0:
   `npx sapporta api get /api/categorization-rule-requests --query '{"base_account_id":<id>}'`.
 - `npx sapporta api get /api/statement-inbox`: files dropped and not yet
@@ -269,7 +284,7 @@ Your first reply is the plan, and you wait for go:
 1. One row per account with drafts, what is left on it:
 
    ```
-   Account          Drafts  Blank  Requests  Dups  Failing  Waits for
+   Account          Drafts  Blank  Requests  Dups  Failing  Goes in with
    Sample savings      412     34         2     2        0  -
    Sample card         188     17         0     0        3  Sample savings
    ```
@@ -406,7 +421,7 @@ Add them on Review.
 
 Not ready           Why
 Sample current      7 drafts without an account: set them in its Drafts grid
-Sample wallet       waits for Sample current (a transfer ties them)
+Sample wallet       goes in with Sample current (a transfer ties them)
 
 New accounts        Household help (under Household)
 New rules           contains "SAMPLEFOOD" → Eating out (42)
@@ -416,15 +431,18 @@ Still open          Sample current: download June 2025, then drop it
 Skipped             Fixed deposits: no balance given
 ```
 
-- Review adds the ready accounts together, in the order their transfers
-  need, so name no order and no button.
+- Review's Add all adds the ready accounts in one go, so name no order and
+  no button. Say which accounts go in together, since their balance checks
+  count each other's drafts: Add on one of them alone is refused.
 - "Not ready" lists every account with drafts that isn't ready, each with
   why, in one line: drafts without an account (the user sets them in its
   Drafts grid), a possible duplicate or a failing check you couldn't
-  settle (see "Still open"), or an account it waits for that isn't ready.
-  The user adds it on its own, from its Review, once it is.
+  settle (see "Still open"), or an account it goes in with that isn't
+  ready. The user adds it from Review once it is.
 - Every change the go-ahead covered (the first column below) that happened
-  is in the report: accounts, rules, parsers, preset changes, drafts deleted.
+  is in the report: accounts, rules, parsers, preset changes, drafts
+  deleted, balance checks blanked. A transfer no balance confirms yet goes
+  under "Still open", with the statement that will.
 - Opening balances you posted for [accounts with no
   statements](#accounts-with-no-statements) have their own line; those the
   user skipped go under "Skipped".
@@ -435,7 +453,7 @@ This replaces "Before changing anything" in the books guide for the run.
 
 | Covered by the plan's go-ahead | Asked in the question round | Asked on its own | Never |
 | --- | --- | --- | --- |
-| parsers and their tests; preset changes for accounts in the plan; adding the accounts in the plan and importing; opening balances the statements give; categorizing drafts; rules and prompt lines for "sure" groups; rules and prompt lines for the rule requests the plan lists; deleting a draft that duplicates the same statement row; settling a transfer both statements carry | new accounts; rules for the user's answers; anything "needs your call"; opening balances of accounts with no statements | any change to a posted entry; deleting a draft for any other reason; changing an opening balance already recorded; a change to dbu6 itself (`statement_disagreement`) | adding drafts to the books (`post-to-journal`, `POST /api/draft-transactions/post-ready`); changing a statement balance; deleting to pass a check; editing `node_modules/@dbu6/app`; writing SQLite |
+| parsers and their tests; preset changes for accounts in the plan; adding the accounts in the plan and importing; opening balances the statements give; categorizing drafts; rules and prompt lines for "sure" groups; rules and prompt lines for the rule requests the plan lists; deleting a draft that duplicates the same statement row; deleting a transfer's second copy and blanking the balance checks the `double-counted-transfers` playbook allows | new accounts; rules for the user's answers; anything "needs your call"; opening balances of accounts with no statements | any change to a posted entry; deleting a draft for any other reason; changing an opening balance already recorded; a change to dbu6 itself (`statement_disagreement`) | adding drafts to the books (`post-to-journal`, `POST /api/draft-transactions/post-ready`); changing a statement balance; deleting to pass a check; editing `node_modules/@dbu6/app`; writing SQLite |
 
 The rest of the books guide's rules hold: only a day's last draft carries
 its statement balance, so move it before deleting that draft; nothing from
@@ -458,4 +476,5 @@ data.
 
 The guide uses only what every coding agent can run: `npx sapporta`,
 `npx dbu6`, curl and `sqlite3 -readonly`. An agent with subagents may use
-them for parsers; nothing here needs them.
+them for parsers and for the transfers counted twice in clean-up; nothing
+here needs them.

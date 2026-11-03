@@ -8,7 +8,7 @@ import {
   importProgressIdSchema,
   importProgressSchema,
 } from "./import-progress.js";
-import { postingBlockSchema } from "./posting-checks.js";
+import { namedAccountSchema, postingBlockSchema } from "./posting-checks.js";
 
 const c = initContract();
 
@@ -22,10 +22,9 @@ const errorSchema = z
     uncategorized_count: z.number().optional(),
     failing_count: z.number().optional(),
     duplicate_count: z.number().optional(),
-    // ADD_OTHER_ACCOUNT_FIRST: the accounts whose drafts to add first.
-    add_first: z
-      .array(z.object({ account_id: z.number(), name: z.string() }))
-      .optional(),
+    // FAILING_ASSERTIONS: the accounts not being added whose drafts the
+    // failing checks count; Add all adds the account with them.
+    relies_on: z.array(namedAccountSchema).optional(),
   })
   .passthrough();
 
@@ -67,9 +66,8 @@ const repeatedFormIdSchema = z.preprocess(
 const firstPostSchema = z.boolean();
 
 /**
- * What Add all did: the accounts it added, in the order it added them, and
- * the ones it left, each with the first check that kept it out when it
- * stopped.
+ * What Add all did: the accounts it added, all in one transaction, and the
+ * ones it left, each with the first check that kept it out.
  */
 export const postReadyResultSchema = z.object({
   posted: z.array(
@@ -156,30 +154,6 @@ export const draftTransactionsContract = c.router({
       422: errorSchema,
     },
   }),
-  settleTransfer: c.mutation({
-    method: "POST",
-    path: "/draft-transactions/settle-transfer",
-    summary:
-      "Settle a transfer both statements carry (a `draft-transfer` duplicate): the earlier draft stays, sent to the other account; the later is deleted, its day's balance moved onto that day's last draft; the later account's balances between the two dates are cleared",
-    body: z.object({
-      draft_ids: z.tuple([
-        z.number().int().positive(),
-        z.number().int().positive(),
-      ]),
-    }),
-    responses: {
-      200: z.object({
-        kept_draft_id: z.number(),
-        deleted_draft_id: z.number(),
-        cleared_balances: z.number(),
-      }),
-      403: errorSchema,
-      // One of the drafts isn't in the books.
-      404: errorSchema,
-      // The two aren't one transfer on two statements.
-      422: errorSchema,
-    },
-  }),
   renderDraftHledger: c.query({
     method: "GET",
     path: "/draft-transactions/hledger",
@@ -221,7 +195,7 @@ export const draftTransactionsContract = c.router({
     method: "POST",
     path: "/draft-transactions/post-ready",
     summary:
-      "Add all: post the drafts of every account named that nothing blocks, each account on its own, in an order the accounts' add-first waits allow; the rest are left with the check that blocks them. Only the accounts named are ever posted. The person's own button, on Review",
+      "Add all: post the drafts of the accounts named that can go in together, all in one transaction: those nothing of their own blocks, whose balance checks pass counting the drafts of the others going in. The rest are left with the check that blocks them. Only the accounts named are ever posted. The person's own button, on Review",
     body: z.object({
       base_account_ids: z.array(z.number().int().positive()).min(1),
     }),

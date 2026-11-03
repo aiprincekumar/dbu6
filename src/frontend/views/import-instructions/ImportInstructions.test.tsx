@@ -150,11 +150,12 @@ function respond(url: URL): unknown {
           duplicates: 0,
           balance_checks: 0,
           failing_checks: 0,
-          add_first: [],
+          relies_on: [],
           rule_requests: 0,
           draft_span: null,
         },
       ],
+      add_all: [],
     };
   }
   const instructions = url.pathname.match(

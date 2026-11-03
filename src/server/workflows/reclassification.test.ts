@@ -20,7 +20,6 @@ import {
   forgetCategorizationRuleRequest,
   forgetCategorizationRuleRequests,
   setDraftsAccount,
-  settleTransfer,
   requestCategorizationRule,
 } from "./reclassification.js";
 
@@ -374,83 +373,6 @@ function makeTempDir(prefix: string): string {
   tempDirs.push(dir);
   return dir;
 }
-
-describe("settleTransfer", () => {
-  /*
-   * Federal Bank (1) paid Sample Card (4) 1000 on 25 Apr; the card's
-   * statement has it as money in on 27 Apr. The card printed balances on 26
-   * and 27 Apr, the 27th's on its last draft that day, the payment.
-   */
-  function withTransfer(bankDate = "2026-04-25"): Database.Database {
-    const { sqlite } = setupDatabase();
-    sqlite.exec(`
-      INSERT INTO draft_transactions
-        (id, workspace_id, scoped_to_user_id, date, source_narration,
-         withdrawal, deposit, account_id, base_account_id,
-         balance_assertion_base_account, created_at, updated_at)
-      VALUES
-        (10, 'workspace', 'user', '${bankDate}', 'NOPII card payment', 1000, 0, 4, 1, NULL, '2026-04-28T00:00:00Z', '2026-04-28T00:00:00Z'),
-        (20, 'workspace', 'user', '2026-04-26', 'NOPII shop', 100, 0, 2, 4, -2100, '2026-04-28T00:00:00Z', '2026-04-28T00:00:00Z'),
-        (21, 'workspace', 'user', '2026-04-27', 'NOPII shop', 50, 0, 2, 4, NULL, '2026-04-28T00:00:00Z', '2026-04-28T00:00:00Z'),
-        (22, 'workspace', 'user', '2026-04-27', 'NOPII payment received', 0, 1000, NULL, 4, -1150, '2026-04-28T00:00:00Z', '2026-04-28T00:00:00Z');
-    `);
-    return sqlite;
-  }
-  const drafts = (sqlite: Database.Database) =>
-    sqlite
-      .prepare(
-        `SELECT id, date, account_id, balance_assertion_base_account AS balance
-         FROM draft_transactions WHERE id >= 10 ORDER BY id`,
-      )
-      .all();
-
-  it("keeps the earlier draft and moves the later one's day balance", () => {
-    const sqlite = withTransfer();
-    expect(
-      settleTransfer({ db: drizzle(sqlite), sqlite, auth }, [22, 10]),
-    ).toEqual({
-      kind: "settled",
-      keptDraftId: 10,
-      deletedDraftId: 22,
-      clearedBalances: 1,
-    });
-    expect(drafts(sqlite)).toEqual([
-      { id: 10, date: "2026-04-25", account_id: 4, balance: null },
-      // The card's 26 Apr balance came before the money arrived.
-      { id: 20, date: "2026-04-26", account_id: 2, balance: null },
-      { id: 21, date: "2026-04-27", account_id: 2, balance: -1150 },
-    ]);
-  });
-
-  it("keeps the card's draft when it is the earlier, sent to the bank", () => {
-    const sqlite = withTransfer("2026-04-28");
-    expect(
-      settleTransfer({ db: drizzle(sqlite), sqlite, auth }, [10, 22]),
-    ).toMatchObject({ kind: "settled", keptDraftId: 22, deletedDraftId: 10 });
-    expect(drafts(sqlite)).toEqual([
-      { id: 20, date: "2026-04-26", account_id: 2, balance: -2100 },
-      { id: 21, date: "2026-04-27", account_id: 2, balance: null },
-      { id: 22, date: "2026-04-27", account_id: 1, balance: -1150 },
-    ]);
-  });
-
-  it("changes nothing for two drafts that aren't one transfer", () => {
-    const sqlite = withTransfer();
-    sqlite.exec(`UPDATE draft_transactions SET deposit = 999 WHERE id = 22`);
-    const before = drafts(sqlite);
-    expect(
-      settleTransfer({ db: drizzle(sqlite), sqlite, auth }, [10, 22]),
-    ).toEqual({ kind: "not-a-transfer" });
-    expect(drafts(sqlite)).toEqual(before);
-  });
-
-  it("names a draft that isn't there", () => {
-    const sqlite = withTransfer();
-    expect(
-      settleTransfer({ db: drizzle(sqlite), sqlite, auth }, [10, 99]),
-    ).toEqual({ kind: "drafts-not-found", ids: [99] });
-  });
-});
 
 function setupDatabase() {
   const sqlite = new Database(":memory:");

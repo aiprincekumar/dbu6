@@ -1,4 +1,4 @@
-import type { AddFirst, PostingCheck } from "../../shared/index";
+import type { NamedAccount, PostingCheck } from "../../shared/index";
 import { agree, plural } from "../format";
 
 /*
@@ -25,13 +25,16 @@ export function failingChecksText(count: number): string {
   return `${plural(count, "balance check")} ${agree(count, "fails", "fail")}`;
 }
 
-/** "Add HDFC Savings first", for balance checks that count its drafts. */
-export function addFirstText(addFirst: AddFirst): string {
-  return `Add ${accountsText(addFirst)} first`;
+/**
+ * "Goes in with HDFC Savings", for drafts whose balance checks count that
+ * account's drafts: they are added with it, on Review's Add all.
+ */
+export function goesInWithText(accounts: readonly NamedAccount[]): string {
+  return `Goes in with ${accountsText(accounts)}`;
 }
 
 /** "HDFC Savings", "HDFC Savings and ICICI Card". */
-export function accountsText(accounts: AddFirst): string {
+export function accountsText(accounts: readonly NamedAccount[]): string {
   const names = accounts.map((account) => account.name);
   return names.length === 1
     ? names[0]
@@ -57,8 +60,9 @@ export function checkText(check: PostingCheck): string {
         case "passes":
           return "Your books agree with the bank";
         case "blocks":
-          return check.severity === "attention"
-            ? addFirstText(check.add_first)
+          // Only the posting gate's refusal names the accounts.
+          return check.relies_on.length > 0
+            ? goesInWithText(check.relies_on)
             : failingChecksText(check.count);
       }
   }

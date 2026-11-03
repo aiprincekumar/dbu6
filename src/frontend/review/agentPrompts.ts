@@ -118,11 +118,9 @@ function rows<T>(items: readonly T[], line: (item: T) => string): string {
 
 function duplicateLine(row: ReviewDuplicate): string {
   const matched =
-    row.match_kind === "draft-transfer"
-      ? `${row.matched_account ?? "another account"}'s draft ${row.other_draft_id} "${row.other_narration ?? ""}" (a transfer on both statements)`
-      : row.other_draft_id !== null
-        ? `draft ${row.other_draft_id} "${row.other_narration ?? ""}"`
-        : `journal ${row.matched_journal_id} "${row.other_narration ?? ""}" (${row.matched_account ?? "no account"})`;
+    row.other_draft_id !== null
+      ? `draft ${row.other_draft_id} "${row.other_narration ?? ""}"`
+      : `journal ${row.matched_journal_id} "${row.other_narration ?? ""}" (${row.matched_account ?? "no account"})`;
   return `- ${row.date} · ${row.direction} ${amount(row.amount)} · draft ${row.draft_id} "${row.narration}" · ${matched} · ${row.match_type}, ${Math.round(row.confidence * 100)}%`;
 }
 

@@ -104,7 +104,7 @@ export const PLAYBOOKS = [
   "rule-requests",
   "duplicates",
   "balance-checks",
-  "cross-account-transfers",
+  "double-counted-transfers",
   "posted-balance-check",
   "chart-change",
 ] as const;

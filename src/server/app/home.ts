@@ -10,13 +10,12 @@ import {
   type ImportInstitution,
 } from "../../shared/index.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
-import { accountNames, importableAccounts } from "./account-names.js";
+import { importableAccounts } from "./account-names.js";
 import { loadAccountStandings } from "./account-standing.js";
 import type { LedgerAuth } from "../modules/ledger-sql/index.js";
 import {
   draftCounts,
   hasTransactions,
-  postingInputs,
   loadStatementActivity,
 } from "../modules/drafts/index.js";
 import { hasChart } from "../workflows/chart-of-accounts.js";
@@ -52,7 +51,6 @@ export function loadHomeSummary(
   institutions: readonly ImportInstitution[],
 ): HomeSummary {
   const standings = loadAccountStandings(sqlite, auth, institutions);
-  const names = accountNames(sqlite, auth, institutions);
   // /add's rule: an opening entry alone is not an import.
   const activity = loadStatementActivity({ sqlite, auth });
 
@@ -91,7 +89,7 @@ export function loadHomeSummary(
           standing.drafts?.closing?.date,
         ),
         statement_differences: standing.statement_differences,
-        ...postingInputs(standing.drafts, names),
+        ...draftCounts(standing.drafts),
       };
     })
     .sort(byLastAssertion);

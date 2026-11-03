@@ -1,6 +1,5 @@
 import {
   isBlock,
-  isWaitBlock,
   postingBlocks,
   postingChecks,
   type PostingBlock,
@@ -20,7 +19,7 @@ import {
   plural,
 } from "../format";
 import { UPDATE_ROUTE } from "../update/routes";
-import { accountsText, checkText } from "./posting-checks";
+import { accountsText, checkText, goesInWithText } from "./posting-checks";
 import {
   checkTab,
   needsAccountHref,
@@ -35,7 +34,9 @@ import {
  * (PLAN.md §11 P3): the verdict, one row per check in tab order, why the
  * post button waits, whether the coding agent has something to fix, and
  * what posting will do. The rows are the posting gate's own checks
- * (`postingChecks`), so the ticks and a refusal agree.
+ * (`postingChecks`), so the ticks and a refusal agree. Drafts whose checks
+ * pass counting another account's drafts (`relies_on`) go in with that
+ * account, on Review's Add all; their own button waits.
  */
 
 /** A figure inside a sentence, set in mono. */
@@ -109,16 +110,25 @@ export function overviewView(
 ): OverviewView {
   const { account } = detail;
   const blocks = postingBlocks(account);
-  const ready = blocks.length === 0;
+  const clear = blocks.length === 0;
+  const together = clear && account.relies_on.length > 0;
 
   return {
-    journey: journey(detail, ready ? "add" : "review"),
-    verdict: ready ? "Ready to add to your books" : "Not ready to add yet",
+    journey: journey(detail, clear ? "add" : "review"),
+    verdict: together
+      ? goesInWithText(account.relies_on)
+      : clear
+        ? "Ready to add to your books"
+        : "Not ready to add yet",
     checks: postingChecks(account).map((check) =>
       checkRow(check, detail, imported),
     ),
-    waiting: ready ? undefined : blocks.map(waitingReason).join(" · "),
-    posting: ready ? postingFacts(detail) : undefined,
+    waiting: together
+      ? `${goesInWithText(account.relies_on)}, on Review's Add all`
+      : clear
+        ? undefined
+        : blocks.map(waitingReason).join(" · "),
+    posting: clear ? postingFacts(detail) : undefined,
     button: "Add to my books",
     fix: agentFixes(account),
   };
@@ -126,15 +136,11 @@ export function overviewView(
 
 /**
  * Whether the coding agent has something to fix in an account's drafts: a
- * check that blocks, but for waiting for another account, which the person
- * settles by adding that one; or rule requests waiting to be turned into
- * rules.
+ * check that blocks, or rule requests waiting to be turned into rules.
+ * Drafts that go in with another account's leave it nothing.
  */
 export function agentFixes(account: ReviewAccount): boolean {
-  return (
-    account.rule_requests > 0 ||
-    postingBlocks(account).some((block) => !isWaitBlock(block))
-  );
+  return account.rule_requests > 0 || postingBlocks(account).length > 0;
 }
 
 /**
@@ -191,7 +197,8 @@ export interface ArrivalNotice {
 /**
  * The notice over the Overview a later add lands on: what it imported, how
  * much came categorized, and the one thing to do next: hand what is left to
- * the coding agent, or add another account first, or add these.
+ * the coding agent, or add these with the accounts they go in with, or add
+ * these.
  */
 export function arrivalNotice(
   detail: ReviewAccountDetail,
@@ -222,18 +229,15 @@ export function arrivalNotice(
       action: "fix",
     };
   }
-  const [block] = postingBlocks(account);
-  if (block === undefined) {
+  const others = account.relies_on;
+  if (others.length === 0) {
     return { title, facts, next: "Next: add them to your books." };
   }
-  // All that blocks is waiting for another account's drafts.
-  const row = checkRow(block, detail, null);
-  const waitsFor = isWaitBlock(block) ? block.add_first : [];
   return {
     title,
     facts,
-    next: `Next: add ${accountsText(waitsFor)} to your books first. These balance checks count ${waitsFor.length === 1 ? "its" : "their"} drafts.`,
-    action: row.link,
+    next: `Next: add them with ${accountsText(others)}, on Review's Add all. These balance checks count ${others.length === 1 ? "its" : "their"} drafts.`,
+    action: { label: "Go to Review", to: REVIEW_ROUTE },
   };
 }
 
@@ -350,20 +354,6 @@ function checkRow(
         link: { label: "See the duplicates", to: tab },
       };
     case "balance-checks": {
-      if (check.severity === "attention") {
-        // The checks pass, counting drafts another account will add.
-        const [first] = check.add_first;
-        return {
-          check: check.kind,
-          tone: check.severity,
-          text: checkText(check),
-          note: `Balance checks pass, counting drafts from ${accountsText(check.add_first)}`,
-          link: {
-            label: `Review ${first.name}`,
-            to: reviewHref(first.account_id),
-          },
-        };
-      }
       // A failing check is one of the detail's failing rows, in date order.
       const day = formatShortDate(detail.failing[0].date);
       return {

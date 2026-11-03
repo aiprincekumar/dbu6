@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@sapporta/ui/cn";
-import { readyToAdd, type ReviewAccount } from "../../shared/index";
+import type { ReviewAccount, ReviewAccounts } from "../../shared/index";
 import { apiErrorMessage, draftTransactionsApi } from "../api";
 import {
   Dialog,
@@ -162,16 +162,15 @@ export function Overview() {
 }
 
 /**
- * How many accounts but `posted` Review's list has ready to add, from the
- * list as last read; none before it is read.
+ * How many accounts but `posted` Add all would add, from Review's list as
+ * last read; none before it is read.
  */
 function readyOthers(
-  accounts: readonly ReviewAccount[] | undefined,
+  review: ReviewAccounts | undefined,
   posted: number,
 ): number {
-  if (accounts === undefined) return 0;
-  return readyToAdd(accounts.filter((account) => account.account_id !== posted))
-    .length;
+  if (review === undefined) return 0;
+  return review.add_all.filter((accountId) => accountId !== posted).length;
 }
 
 /**

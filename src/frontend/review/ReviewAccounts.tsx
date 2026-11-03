@@ -4,10 +4,8 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   isProblem,
-  isWaitBlock,
   postingBlocks,
   postingCheck,
-  readyToAdd,
   type PostReadyResult,
   type ReviewAccount,
 } from "../../shared/index";
@@ -26,7 +24,7 @@ import { refreshDraftStatus, reviewAccountsQuery } from "../queries";
 import { fixReviewPrompt } from "./agentPrompts";
 import { agentFixes } from "./overview-state";
 import { BooksSetUp, HandOffNote, UpdateYourBooks } from "./hand-off";
-import { checkText } from "./posting-checks";
+import { checkText, goesInWithText } from "./posting-checks";
 import {
   readReviewRun,
   REVIEW_ROUTE,
@@ -38,12 +36,13 @@ import {
  * `/review` (PLAN.md §11 P3): the drafts waiting for the books, by account.
  * Its top says what is left across every account, with one button that
  * hands all of it to the coding agent, and one that adds every account
- * nothing blocks (Add all), each on its own, in an order the accounts'
- * add-first waits allow; what it added and what it left, and why, show
- * under it. Each account opens on its own Overview, where it can be added
- * alone. With one account holding drafts there is nothing to list, so it
- * goes straight to that account's Overview, with what /add handed over, as
- * a later add lands. An account opened here keeps the first run
+ * that can go in (Add all): those nothing blocks, together with the accounts
+ * whose drafts their balance checks count, in one transaction, as the
+ * server decides; what it added and what it left, and why, show under it.
+ * Each account opens on its own Overview, where it can be added alone.
+ * With one account holding drafts there is nothing to list, so it goes
+ * straight to that account's Overview, with what /add handed over, as a
+ * later add lands. An account opened here keeps the first run
  * (`?run=setup`).
  *
  * The first run's end, "Your books are set up.", is the list emptied on the
@@ -58,7 +57,7 @@ export function ReviewAccounts() {
   const run = readReviewRun(new URLSearchParams(search));
   const queryClient = useQueryClient();
   const query = useQuery(reviewAccountsQuery);
-  const accounts = query.data ?? null;
+  const accounts = query.data?.accounts ?? null;
   const error = query.isError ? apiErrorMessage(query.error) : null;
   const [added, setAdded] = useState<PostReadyResult | null>(null);
   const [adding, setAdding] = useState(false);
@@ -74,14 +73,21 @@ export function ReviewAccounts() {
     return <Navigate to={`${reviewHref(only.account_id)}${search}`} replace />;
   }
 
-  const ready = accounts === null ? [] : readyToAdd(accounts);
+  const addAll = new Set(query.data?.add_all ?? []);
+  const ready = (accounts ?? []).filter((one) => addAll.has(one.account_id));
 
-  async function addAll() {
+  // Add all presses every account listed; the server adds those that can go
+  // in together, and says why it left the rest.
+  async function postAll() {
     setAdding(true);
     setAddError(null);
     try {
       const result = await draftTransactionsApi.postReadyDrafts({
-        body: { base_account_ids: ready.map((one) => one.account_id) },
+        body: {
+          base_account_ids: (accounts ?? [])
+            .filter((one) => one.drafts > 0)
+            .map((one) => one.account_id),
+        },
       });
       setAdded(result);
       if (result.first_post) {
@@ -121,7 +127,7 @@ export function ReviewAccounts() {
           accounts={accounts}
           ready={ready}
           adding={adding}
-          addAll={addAll}
+          addAll={postAll}
           error={addError}
         />
       )}
@@ -231,9 +237,9 @@ function LeftAcrossAccounts({
 
 /**
  * The counts of what is left, those above zero: each check's count over
- * every account (an account Add all can add has none), the accounts that
- * wait for one Add all can't add, and the rule requests waiting for the
- * agent.
+ * every account (an account Add all can add has none), the accounts nothing
+ * of their own blocks that Add all leaves for relying on an account it
+ * can't add, and the rule requests waiting for the agent.
  */
 export function leftFacts(
   accounts: readonly ReviewAccount[],
@@ -241,14 +247,13 @@ export function leftFacts(
 ): Fact[] {
   const sum = (count: (account: ReviewAccount) => number) =>
     accounts.reduce((total, account) => total + count(account), 0);
-  // Accounts whose only block is a wait that Add all can't get past; one
-  // with another block is counted under that block.
-  const waiting = accounts.filter((account) => {
-    const blocks = postingBlocks(account);
-    return (
-      blocks.length > 0 && blocks.every(isWaitBlock) && !ready.includes(account)
-    );
-  }).length;
+  // One with a block of its own is counted under that block.
+  const waiting = accounts.filter(
+    (account) =>
+      account.drafts > 0 &&
+      postingBlocks(account).length === 0 &&
+      !ready.includes(account),
+  ).length;
   return [
     { label: "Need an account", value: sum((one) => one.uncategorised) },
     { label: "Possible duplicates", value: sum((one) => one.duplicates) },
@@ -351,6 +356,9 @@ function accountStatus(account: ReviewAccount): {
   const balances = postingCheck(account, "balance-checks");
   if (balances.state === "blocks") {
     return { tone: balances.severity, label: checkText(balances) };
+  }
+  if (account.relies_on.length > 0) {
+    return { tone: "attention", label: goesInWithText(account.relies_on) };
   }
   return { tone: "ok", label: "Ready to add" };
 }

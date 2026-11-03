@@ -4,7 +4,6 @@ import {
   type DatedBalance,
   type DateSpan,
   type DraftCounts,
-  type PostingInputs,
 } from "../../../shared/index.js";
 import {
   duplicateDraftRowsSql,
@@ -13,10 +12,11 @@ import {
   type DuplicateDiagnostic,
   type DuplicateDraftSourceRow,
   type DuplicateJournalEntrySourceRow,
-  baseAccountRunningBalanceCtes,
+  runningBalanceCtes,
   otherStatementDraftSql,
   draftOrderSql,
   failingDraftAssertionsSelect,
+  type OtherDrafts,
 } from "../reconciliation/index.js";
 import { allRows, type LedgerAuth } from "../ledger-sql/index.js";
 
@@ -54,13 +54,19 @@ export interface DraftAccountStatus {
   closing: DatedBalance | null;
   failing: FailingCheck[];
   duplicates: DuplicateDiagnostic[];
-  /** Accounts whose drafts its balance checks rely on, by id (`addFirst`). */
-  add_first: number[];
 }
 
 /** Narrows every query to one base account. */
 export interface DraftStatusFilter {
   accountId?: number;
+}
+
+/**
+ * Narrows the failing checks to one base account, and the other statements'
+ * drafts they count to those of `otherDrafts` (every account's by default).
+ */
+export interface FailingChecksFilter extends DraftStatusFilter {
+  otherDrafts?: OtherDrafts;
 }
 
 type DraftCountRow = {
@@ -127,7 +133,6 @@ export function loadDraftStatus(
     findDraftDuplicates(sqlite, auth, filter),
     (row) => row.base_account_id,
   );
-  const addFirstById = addFirst(sqlite, auth);
 
   return new Map(
     counts.map((row) => {
@@ -145,17 +150,13 @@ export function loadDraftStatus(
             : null,
           failing: failingById.get(row.account_id) ?? [],
           duplicates: duplicatesById.get(row.account_id) ?? [],
-          add_first: addFirstById.get(row.account_id) ?? [],
         },
       ];
     }),
   );
 }
 
-/**
- * An account's counts, as the contracts carry them; none without drafts.
- * The accounts it waits for are apart, in `postingInputs`.
- */
+/** An account's counts, as the contracts carry them; none without drafts. */
 export function draftCounts(
   status: DraftAccountStatus | undefined,
 ): DraftCounts {
@@ -169,34 +170,16 @@ export function draftCounts(
   };
 }
 
-/**
- * What the posting checks decide from: the counts, and the accounts to add
- * first, named as `names` has them, the caller's names for the ledger's
- * accounts.
- */
-export function postingInputs(
-  status: DraftAccountStatus | undefined,
-  names: ReadonlyMap<number, string>,
-): PostingInputs {
-  return {
-    ...draftCounts(status),
-    add_first: (status?.add_first ?? []).map((accountId) => ({
-      account_id: accountId,
-      name: names.get(accountId) ?? `account ${accountId}`,
-    })),
-  };
-}
-
 /** The failing draft balance checks, by account, date and draft. */
 export function findFailingChecks(
   sqlite: Database.Database,
   auth: LedgerAuth,
-  filter: DraftStatusFilter = {},
+  filter: FailingChecksFilter = {},
 ): FailingCheck[] {
   return allRows<FailingCheck>(
     sqlite,
     auth,
-    `${baseAccountRunningBalanceCtes}
+    `${runningBalanceCtes(filter.otherDrafts ?? "every account")}
     SELECT r.account_id, r.date, r.draft_id, r.running_balance, r.assertion, r.diff
     FROM (${failingDraftAssertionsSelect}) r
     ${accountCondition(filter, "r.account_id", "WHERE")}
@@ -206,10 +189,9 @@ export function findFailingChecks(
 }
 
 /**
- * Drafts that look like another draft or a posted entry. A draft matches
- * drafts of its own account, posted entries of any, and the drafts of other
- * accounts categorized to its own. Narrowing to one account loads its drafts
- * and those, and keeps only its rows, which leaves them unchanged.
+ * Drafts that look like another draft or a posted entry. A draft only ever
+ * matches drafts of its own account, and posted entries of any, so narrowing
+ * the drafts to one account leaves that account's rows unchanged.
  */
 export function findDraftDuplicates(
   sqlite: Database.Database,
@@ -219,83 +201,46 @@ export function findDraftDuplicates(
   const drafts = allRows<DuplicateDraftSourceRow>(
     sqlite,
     auth,
-    filter.accountId === undefined
-      ? duplicateDraftRowsSql
-      : `${duplicateDraftRowsSql}
-        AND (dt.base_account_id = @accountId OR dt.account_id = @accountId)`,
+    `${duplicateDraftRowsSql}${accountCondition(filter, "dt.base_account_id")}`,
     accountParams(filter),
   );
-  if (!drafts.some((draft) => inFilter(filter, draft.base_account_id))) {
-    return [];
-  }
+  if (drafts.length === 0) return [];
   const journalEntries = allRows<DuplicateJournalEntrySourceRow>(
     sqlite,
     auth,
     duplicateJournalEntryRowsSql,
   );
-  return findDuplicateDiagnostics(drafts, journalEntries).filter((row) =>
-    inFilter(filter, row.base_account_id),
-  );
+  return findDuplicateDiagnostics(drafts, journalEntries);
 }
-
-function inFilter(filter: DraftStatusFilter, accountId: number): boolean {
-  return filter.accountId === undefined || filter.accountId === accountId;
-}
-
-type RelianceRow = { account_id: number; other_id: number };
 
 /**
- * The accounts each account must wait for (`add_first` in the posting
- * checks), by id: the other accounts with a draft categorized to it dated on
- * or before its last draft balance check, which that check counts. An
- * account that, through others, relies on this one back is left out, so two
- * accounts never each wait for the other. Read over every account, since a
- * reliance back can run through any.
+ * Another statement's drafts on an account: `other_id`'s drafts categorized
+ * to `account_id`, the first dated `first_date`.
  */
-export function addFirst(
+export interface OtherStatementDrafts {
+  account_id: number;
+  other_id: number;
+  first_date: string;
+}
+
+/**
+ * Every account's drafts from other statements, an account a row each: what
+ * its balance checks count beside its own drafts and its posted entries.
+ */
+export function loadOtherStatementDrafts(
   sqlite: Database.Database,
   auth: LedgerAuth,
-): Map<number, number[]> {
-  const rows = allRows<RelianceRow>(
+): OtherStatementDrafts[] {
+  return allRows<OtherStatementDrafts>(
     sqlite,
     auth,
     `
-    , last_check AS (
-      SELECT base_account_id AS account_id, MAX(date) AS date
-      FROM scoped_draft_transactions
-      WHERE base_account_id IS NOT NULL
-        AND balance_assertion_base_account IS NOT NULL
-      GROUP BY base_account_id
-    )
-    SELECT DISTINCT lc.account_id, dt.base_account_id AS other_id
-    FROM last_check lc
-    JOIN scoped_draft_transactions dt
-      ON ${otherStatementDraftSql("dt")}
-      AND dt.account_id = lc.account_id
-      AND dt.date <= lc.date`,
+    SELECT dt.account_id, dt.base_account_id AS other_id, MIN(dt.date) AS first_date
+    FROM scoped_draft_transactions dt
+    WHERE ${otherStatementDraftSql("dt")}
+    GROUP BY dt.account_id, dt.base_account_id
+    ORDER BY dt.account_id, dt.base_account_id`,
   );
-  const reliesOn = groupBy(rows, (row) => row.account_id);
-  const reaches = (from: number, to: number): boolean => {
-    const seen = new Set<number>();
-    const stack = [from];
-    while (stack.length > 0) {
-      const id = stack.pop()!;
-      if (id === to) return true;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      for (const row of reliesOn.get(id) ?? []) stack.push(row.other_id);
-    }
-    return false;
-  };
-  const waits = new Map<number, number[]>();
-  for (const [accountId, others] of reliesOn) {
-    const first = others
-      .filter((row) => !reaches(row.other_id, accountId))
-      .map((row) => row.other_id)
-      .sort((a, b) => a - b);
-    if (first.length > 0) waits.set(accountId, first);
-  }
-  return waits;
 }
 
 function accountCondition(

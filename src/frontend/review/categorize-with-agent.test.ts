@@ -22,7 +22,7 @@ const detail: ReviewAccountDetail = {
     duplicates: 0,
     balance_checks: 0,
     failing_checks: 0,
-    add_first: [],
+    relies_on: [],
     draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
     rule_requests: 0,
   },

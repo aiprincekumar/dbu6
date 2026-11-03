@@ -64,7 +64,9 @@ so you can skip OpenAPI discovery. For anything not covered here, use the
 - The balances printed on statements are the bank's numbers. Never change
   `balance_assertion_base_account` or `account_balance_assertion`, and never
   delete transactions, just to make a check pass. Find what is wrong with the
-  transactions instead.
+  transactions instead. The one exception is a transfer counted twice: the
+  `double-counted-transfers` playbook says which checks between its two
+  dates may be blanked.
 - Only a day's last draft carries that day's statement balance. Before deleting
   it, move its balance onto the day's new last draft.
 - Adding drafts to the books deletes them, and the app has no undo.
@@ -180,21 +182,15 @@ or to a `from_date` after `to_date`; leave a date out rather than guess one.
   A draft is compared with other drafts on the same account, and with
   transactions in the books on that account that don't say which statement row
   they came from (entered by hand, or an older import), or that came from this
-  same row. It is also compared with the drafts of other accounts' statements
-  categorized to this account: a transfer or card payment drafted from both
-  statements is `match_kind` `draft-transfer` (same amount, the other way, a
-  few days apart; `matched_account` is the other statement's account). Settle
-  it into one draft: `npx dbu6 docs playbook cross-account-transfers`. One
-  already added to the books from the other account's statement shows up as a
-  failing balance check instead (see below).
+  same row. A transfer or card payment that both statements carry is not a
+  duplicate here: it shows up as a failing balance check (see below), and
+  `npx dbu6 docs playbook double-counted-transfers` fixes it.
 - **"Add them to my books."** Say which accounts are ready, and give
-  Review's link: the user adds them there. An account's
-  `add_first` (`GET /api/review/accounts`) means every check passes, but
-  counting drafts of those accounts, which are categorized to this one:
-  they go in first, and Review adds them in that order. Two
-  accounts whose checks count each other's drafts never wait for each other;
-  the first one added has balances in the books that miss until the other is
-  added.
+  Review's link: the user adds them there. `GET /api/review/accounts`
+  answers `add_all`, the accounts Review's Add all would add. An account's
+  `relies_on` means every check passes, but counting drafts of those
+  accounts, which are categorized to this one: it goes into the books with
+  them, in one go, and its own Add is refused naming them.
 - **"Remove this one."** `npx sapporta rows delete draft_transactions <id>`.
 
 ### "Always put this under X" — adding a mapping
@@ -542,8 +538,9 @@ Usual causes:
   (`/settings/balances?account=<name>`).
 - **A difference that starts on one day:** a transfer or card payment is
   already in the books, or in the drafts, from the other account's statement,
-  and a draft repeats it. `diff` equals its amount. When the other side is a
-  draft, Duplicates lists the pair as `draft-transfer`.
+  and a draft repeats it. `diff` equals its amount, whether the other side is
+  a draft or in the books:
+  `npx dbu6 docs playbook double-counted-transfers`.
 - **A missing or extra draft:** the parser dropped or doubled a row.
 - **A statement between the last one in the books and this one** was never
   imported.

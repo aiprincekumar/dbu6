@@ -69,7 +69,7 @@ function detail(account: Partial<ReviewAccountDetail["account"]> = {}) {
       duplicates: 0,
       balance_checks: 13,
       failing_checks: 0,
-      add_first: [],
+      relies_on: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-15" },
       rule_requests: 0,
       ...account,

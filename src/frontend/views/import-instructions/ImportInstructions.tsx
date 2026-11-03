@@ -59,7 +59,7 @@ export function ImportInstructions() {
     accounts[0] ??
     null;
   const improve = improveTarget(
-    review.data,
+    review.data?.accounts,
     chosen?.account.account_id ?? null,
   );
   const show = (tab: RuleTab, accountId = view.accountId) =>

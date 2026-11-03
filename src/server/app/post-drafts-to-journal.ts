@@ -11,7 +11,7 @@ import {
 import type { Ledger } from "../modules/ledger-sql/index.js";
 import { loadImportPresets } from "../modules/import-presets/index.js";
 import { accountNames } from "./account-names.js";
-import { postDrafts, postReady } from "../workflows/posting.js";
+import { postDrafts, postPress } from "../workflows/posting.js";
 import { writeCommentsSoon } from "../workflows/comment-writer.js";
 import { requireWorkflowLedger } from "./workflow-auth.js";
 
@@ -88,9 +88,9 @@ type PostReadyResponse = ServerInferResponses<
 >;
 
 /**
- * Add all: posts the accounts of `base_account_ids` that nothing blocks,
- * each on its own, answered with what was added and what was left and why,
- * the accounts named as the presets' `institutions` name them.
+ * Add all: posts the accounts of `base_account_ids` that can go in
+ * together, in one transaction, answered with what was added and what was
+ * left and why, the accounts named as the presets' `institutions` name them.
  */
 export function postReadyDraftsToJournal(
   ledger: Ledger,
@@ -98,7 +98,7 @@ export function postReadyDraftsToJournal(
   institutions: readonly ImportInstitution[],
 ): PostReadyResponse {
   const names = accountNames(ledger.sqlite, ledger.auth, institutions);
-  const outcome = postReady(ledger, base_account_ids, names);
+  const outcome = postPress(ledger, base_account_ids, names);
   if (outcome.kind === "accounts-not-found") {
     return {
       status: 404,
@@ -146,25 +146,20 @@ function refusal(block: PostingBlock, account: string): PostingResponse {
           duplicate_count: block.count,
         },
       };
-    case "balance-checks":
-      if (block.severity === "attention") {
-        const names = block.add_first.map((other) => other.name).join(", ");
-        return {
-          status: 422,
-          body: {
-            error: `${account}'s balance checks rely on drafts from ${names}. Add ${names} first.`,
-            code: "ADD_OTHER_ACCOUNT_FIRST",
-            add_first: block.add_first,
-          },
-        };
-      }
+    case "balance-checks": {
+      const names = block.relies_on.map((other) => other.name).join(", ");
       return {
         status: 422,
         body: {
-          error: `${block.count} draft balance assertion(s) failing under ${account}`,
+          error:
+            names === ""
+              ? `${block.count} draft balance assertion(s) failing under ${account}`
+              : `${block.count} draft balance assertion(s) failing under ${account} without the drafts of ${names}. Add all adds them together.`,
           code: "FAILING_ASSERTIONS",
           failing_count: block.count,
+          relies_on: block.relies_on,
         },
       };
+    }
   }
 }

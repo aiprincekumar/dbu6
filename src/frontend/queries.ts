@@ -62,8 +62,7 @@ export const homeSummaryQuery = queryOptions({
 
 export const reviewAccountsQuery = queryOptions({
   queryKey: [...DRAFT_STATUS_KEY, "review-accounts"],
-  queryFn: () =>
-    reviewApi.accounts({ query: {} }).then((body) => body.accounts),
+  queryFn: () => reviewApi.accounts({ query: {} }),
   ...FRESH_QUERY,
 });
 

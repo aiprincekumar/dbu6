@@ -143,57 +143,41 @@ describe("postDraftsToJournal", () => {
       return books;
     }
 
-    it("finds the card's copy a duplicate of the bank's draft", () => {
+    it("fails the card's balance check while both statements' copies are drafts", () => {
       const { posting } = withCardPayment();
       expect(postDraftsToJournal(posting, 4, [])).toMatchObject({
         status: 422,
-        body: { code: "DUPLICATE_DRAFTS", duplicate_count: 1 },
+        body: { code: "FAILING_ASSERTIONS", failing_count: 1, relies_on: [] },
       });
     });
 
-    it("refuses the card until the bank whose draft its checks count is added, then adds both", () => {
+    it("refuses the card alone, naming the bank whose draft its checks count, and adds both together", () => {
       const { sqlite, posting, count } = withCardPayment();
       sqlite.exec(`DELETE FROM draft_transactions WHERE id = 205`);
 
       expect(postDraftsToJournal(posting, 4, [])).toMatchObject({
         status: 422,
         body: {
-          code: "ADD_OTHER_ACCOUNT_FIRST",
-          add_first: [{ account_id: 1, name: "Sample Savings" }],
+          code: "FAILING_ASSERTIONS",
+          failing_count: 1,
+          relies_on: [{ account_id: 1, name: "Sample Savings" }],
         },
       });
       expect(count("draft_transactions")).toBe(4);
-
-      expect(postDraftsToJournal(posting, 1, [])).toMatchObject({
-        status: 200,
-      });
-      expect(postDraftsToJournal(posting, 4, [])).toMatchObject({
-        status: 200,
-      });
-      expect(
-        countPostedAssertionFailures(sqlite, auth, { accountId: 4 }),
-      ).toEqual(new Map());
-    });
-
-    it("adds both in the order the card's checks need, whatever order they're asked in", () => {
-      const { sqlite, posting, count } = withCardPayment();
-      sqlite.exec(`DELETE FROM draft_transactions WHERE id = 205`);
 
       expect(postReadyDraftsToJournal(posting, [4, 1], [])).toEqual({
         status: 200,
         body: {
           posted: [
-            { account_id: 1, name: "Sample Savings", drafts_posted: 3 },
             { account_id: 4, name: "Sample Card", drafts_posted: 1 },
+            { account_id: 1, name: "Sample Savings", drafts_posted: 3 },
           ],
           left: [],
           first_post: false,
         },
       });
       expect(count("draft_transactions")).toBe(0);
-      expect(
-        countPostedAssertionFailures(sqlite, auth, { accountId: 4 }),
-      ).toEqual(new Map());
+      expect(countPostedAssertionFailures(sqlite, auth)).toEqual(new Map());
     });
 
     it("adds what it can and leaves the rest with what blocks it", () => {
@@ -213,16 +197,6 @@ describe("postDraftsToJournal", () => {
           posted: [{ account_id: 5, name: "Sample Wallet", drafts_posted: 1 }],
           left: [
             {
-              account_id: 4,
-              name: "Sample Card",
-              block: {
-                kind: "balance-checks",
-                state: "blocks",
-                severity: "attention",
-                add_first: [{ account_id: 1, name: "Sample Savings" }],
-              },
-            },
-            {
               account_id: 1,
               name: "Sample Savings",
               block: {
@@ -230,6 +204,17 @@ describe("postDraftsToJournal", () => {
                 state: "blocks",
                 severity: "attention",
                 count: 1,
+              },
+            },
+            {
+              account_id: 4,
+              name: "Sample Card",
+              block: {
+                kind: "balance-checks",
+                state: "blocks",
+                severity: "problem",
+                count: 1,
+                relies_on: [{ account_id: 1, name: "Sample Savings" }],
               },
             },
           ],

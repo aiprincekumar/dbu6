@@ -18,16 +18,21 @@ to do their books, or points you at their statements, follow
 
 A transfer or card payment that both statements carry is now caught while
 both sides are still drafts. A draft sent to another account counts on that
-account's balance checks, so the transfer counted twice fails them, and
-Duplicates lists the pair. `POST /api/draft-transactions/settle-transfer`
-settles it into one draft, dated the earlier day: the later draft is
-deleted, its day's balance moved onto that day's last draft, and its
-account's statement balances between the two dates are cleared. An account
-whose checks count another account's drafts waits until that account is
-added (`ADD_OTHER_ACCOUNT_FIRST`), and Review says "Add <account> first".
-Because the balance checks now count those drafts, the opening balance
-Settings › Opening balances suggests can change for an account with
+account's balance checks, so the transfer counted twice fails them. The
+agent fixes it after every statement is imported and categorized, as the
+`double-counted-transfers` playbook says: it deletes the second copy, and
+blanks only the balance checks between the two dates that the transfer
+explains. Because the balance checks now count those drafts, the opening
+balance Settings › Opening balances suggests can change for an account with
 transfers.
+
+Adding drafts to the books counts other accounts' drafts only from the
+accounts added in the same press. Accounts whose checks count each other's
+drafts go in together on Review's Add all, in one transaction. Add on one of
+them alone is refused with `FAILING_ASSERTIONS`, whose new `relies_on` names
+the accounts it goes in with, and Review says "Goes in with <account>".
+`GET /api/review/accounts` answers `add_all`, the accounts Add all would
+add, and each account's `relies_on`.
 
 `/add-account/read`, `/add-account/add` and `/import-draft/statements/auto`
 also take statements waiting in the inbox by path (`inbox_files`, repeated),

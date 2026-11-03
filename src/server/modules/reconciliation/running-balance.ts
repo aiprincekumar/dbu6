@@ -14,6 +14,11 @@ import { assertionFailsSql, draftOrderSql } from "./balance-check.js";
 // account's drafts are added, ahead of this account's own drafts on its
 // date, so a check that passes now still passes after that post, and a
 // transfer both statements print fails here before either is posted.
+//
+// The posting gate narrows the other accounts' drafts to those of the
+// accounts it adds together (`OtherDrafts`): a draft goes into the books only
+// with its own account, so a check that counts it can pass only when both go
+// in. Review, the reports and the implied openings count every account's.
 /**
  * A draft of another account's statement that counts on the account it is
  * categorized to (`dt.account_id`), as the running balance adds it.
@@ -27,7 +32,18 @@ export function otherStatementDraftSql(alias: string): string {
 export const BASE_ACCOUNT_ACTIVITY_ORDER =
   "activity_date, source_rank, ord_journal, ord_entry";
 
-export const baseAccountRunningBalanceCtes = `
+/**
+ * Whose drafts of other statements count on an account's running balance:
+ * every account's, or only those of the accounts listed by id.
+ */
+export type OtherDrafts = "every account" | readonly number[];
+
+/**
+ * The running balance CTEs, counting other statements' drafts from
+ * `otherDrafts` only. `baseAccountRunningBalanceCtes` counts every account's.
+ */
+export function runningBalanceCtes(otherDrafts: OtherDrafts): string {
+  return `
 , base_account_activity AS (
   SELECT
     je.account_id AS account_id,
@@ -55,7 +71,7 @@ export const baseAccountRunningBalanceCtes = `
     dt.id AS draft_id,
     NULL AS assertion
   FROM scoped_draft_transactions dt
-  WHERE ${otherStatementDraftSql("dt")}
+  WHERE ${otherStatementDraftSql("dt")}${otherDraftsCondition(otherDrafts)}
   UNION ALL
   SELECT
     dt.base_account_id AS account_id,
@@ -86,6 +102,20 @@ base_account_running AS (
     ) AS running_balance
   FROM base_account_activity activity
 )`;
+}
+
+export const baseAccountRunningBalanceCtes =
+  runningBalanceCtes("every account");
+
+// The ids go into the SQL as written, so each must be an integer.
+function otherDraftsCondition(otherDrafts: OtherDrafts): string {
+  if (otherDrafts === "every account") return "";
+  for (const id of otherDrafts) {
+    if (!Number.isSafeInteger(id)) throw new Error(`Not an account id: ${id}`);
+  }
+  return `
+    AND dt.base_account_id IN (${otherDrafts.join(", ")})`;
+}
 
 /**
  * The opening balance each account's first balance check implies, by id: the

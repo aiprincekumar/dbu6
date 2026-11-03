@@ -23,7 +23,7 @@ function detail(
       duplicates: 0,
       balance_checks: 13,
       failing_checks: 0,
-      add_first: [],
+      relies_on: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
       rule_requests: 0,
       ...account,
@@ -119,22 +119,21 @@ describe("overviewView", () => {
     ]);
   });
 
-  it("waits for the account whose drafts the balance checks count, linking to it", () => {
+  it("goes in with the account whose drafts the balance checks count, on Add all", () => {
     const view = overviewView(
-      detail({ add_first: [{ account_id: 7, name: "Sample Bank" }] }),
+      detail({ relies_on: [{ account_id: 7, name: "Sample Bank" }] }),
     );
 
-    expect(view.verdict).toBe("Not ready to add yet");
-    expect(view.waiting).toBe("Add Sample Bank first");
-    // Adding Sample Bank is the person's; the agent has nothing to fix.
+    expect(view.verdict).toBe("Goes in with Sample Bank");
+    expect(view.waiting).toBe("Goes in with Sample Bank, on Review's Add all");
+    // Adding them together is the person's; the agent has nothing to fix.
     expect(view.fix).toBe(false);
     expect(view.checks[2]).toEqual({
       check: "balance-checks",
-      tone: "attention",
-      text: "Add Sample Bank first",
-      note: "Balance checks pass, counting drafts from Sample Bank",
-      link: { label: "Review Sample Bank", to: "/review/7" },
+      tone: "ok",
+      text: "Your books agree with the bank",
     });
+    expect(view.posting).toBeDefined();
   });
 
   it("doesn't block drafts that carry no balance checks", () => {
@@ -309,18 +308,15 @@ describe("the notice after an import", () => {
     expect(notice.action).toBe("fix");
   });
 
-  it("sends the user to the account to add first, which no agent can do", () => {
+  it("sends the user to Review's Add all for drafts that go in with another account's, which no agent can do", () => {
     const notice = arrivalNotice(
-      detail({ add_first: [{ account_id: 1, name: "Sample Card" }] }),
+      detail({ relies_on: [{ account_id: 1, name: "Sample Card" }] }),
       { drafts: 21, categorized: 21 },
     );
     expect(notice.next).toBe(
-      "Next: add Sample Card to your books first. These balance checks count its drafts.",
+      "Next: add them with Sample Card, on Review's Add all. These balance checks count its drafts.",
     );
-    expect(notice.action).toEqual({
-      label: "Review Sample Card",
-      to: "/review/1",
-    });
+    expect(notice.action).toEqual({ label: "Go to Review", to: "/review" });
   });
 
   it("leaves the add to the Overview when nothing blocks it", () => {

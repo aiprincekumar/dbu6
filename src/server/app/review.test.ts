@@ -98,7 +98,7 @@ const presets = [
 
 describe("listReviewAccounts", () => {
   it("lists only the accounts with drafts, named from presets or their own name, by name, with their rule requests", () => {
-    expect(listReviewAccounts(ledger(), presets)).toEqual([
+    expect(listReviewAccounts(ledger(), presets).accounts).toEqual([
       {
         account_id: 1,
         path: "Sample Card",
@@ -110,7 +110,7 @@ describe("listReviewAccounts", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
-        add_first: [],
+        relies_on: [],
         draft_span: { first_date: "2026-03-04", last_date: "2026-03-04" },
         rule_requests: 0,
       },
@@ -125,7 +125,7 @@ describe("listReviewAccounts", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
-        add_first: [],
+        relies_on: [],
         draft_span: { first_date: "2026-03-05", last_date: "2026-03-05" },
         rule_requests: 0,
       },
@@ -140,7 +140,7 @@ describe("listReviewAccounts", () => {
         duplicates: 1,
         balance_checks: 2,
         failing_checks: 1,
-        add_first: [],
+        relies_on: [],
         draft_span: { first_date: "2026-03-02", last_date: "2026-03-13" },
         rule_requests: 1,
       },
@@ -214,7 +214,7 @@ describe("loadReviewAccount", () => {
         duplicates: 0,
         balance_checks: 0,
         failing_checks: 0,
-        add_first: [],
+        relies_on: [],
         draft_span: null,
         rule_requests: 0,
       },

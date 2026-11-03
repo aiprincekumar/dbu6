@@ -28,6 +28,9 @@ const NOTE = "Your transactions are imported.";
 let host: HTMLDivElement;
 let root: Root;
 let accounts: ReviewAccount[];
+// The accounts the server says Add all would add; null for every account
+// with no block of its own and no other account's drafts to wait on.
+let addAllIds: number[] | null;
 let addAll: PostReadyResult;
 let posts: { url: string; body: unknown }[];
 let clipboard: string[];
@@ -45,6 +48,7 @@ beforeEach(() => {
   document.body.appendChild(host);
   root = createRoot(host);
   accounts = [];
+  addAllIds = null;
   posts = [];
   clipboard = [];
   listGate = null;
@@ -68,6 +72,7 @@ beforeEach(() => {
         // What Add all left is what the list holds after it.
         const leftIds = addAll.left.map((one) => one.account_id);
         accounts = accounts.filter((one) => leftIds.includes(one.account_id));
+        addAllIds = null;
         return Response.json(addAll);
       }
       // No agent the server can start: Fix these copies its prompt.
@@ -75,7 +80,16 @@ beforeEach(() => {
         return Response.json({ error: "none" }, { status: 404 });
       }
       if (listGate) await listGate;
-      return Response.json({ accounts });
+      const add_all =
+        addAllIds ??
+        accounts
+          .filter(
+            (one) =>
+              one.uncategorised + one.duplicates + one.failing_checks === 0 &&
+              one.relies_on.length === 0,
+          )
+          .map((one) => one.account_id);
+      return Response.json({ accounts, add_all });
     }),
   );
 });
@@ -102,7 +116,7 @@ function account(
     duplicates: 0,
     balance_checks: 0,
     failing_checks: 0,
-    add_first: [],
+    relies_on: [],
     draft_span: { first_date: "2026-09-01", last_date: "2026-09-15" },
     rule_requests: 0,
     ...overrides,
@@ -149,6 +163,8 @@ async function renderAt(url: string) {
 
 const text = () => host.textContent ?? "";
 const where = () => host.querySelector("code")?.textContent;
+const rows = () =>
+  Array.from(host.querySelectorAll("li a"), (a) => a.textContent ?? "");
 const button = (label: string) =>
   Array.from(host.querySelectorAll("button")).find((one) =>
     one.textContent?.startsWith(label),
@@ -235,28 +251,37 @@ describe("the account picker after /add", () => {
 });
 
 describe("what is left across the accounts", () => {
-  // Sample Card waits for Sample Savings, which is ready: Add all adds
-  // both. Sample Loan waits for Sample Wallet, which needs an account and
-  // has rule requests.
+  // Sample Card goes in with Sample Savings, which is ready: Add all adds
+  // both. Sample Loan goes in with Sample Wallet, which needs an account
+  // and has rule requests.
   function books() {
     return [
       account(5, "Sample Savings", { uncategorised: 0, drafts: 20 }),
       account(6, "Sample Card", {
         uncategorised: 0,
         drafts: 7,
-        add_first: [{ account_id: 5, name: "Sample Savings" }],
+        relies_on: [{ account_id: 5, name: "Sample Savings" }],
       }),
       account(7, "Sample Wallet", { uncategorised: 3, rule_requests: 2 }),
       account(8, "Sample Loan", {
         uncategorised: 0,
-        add_first: [{ account_id: 7, name: "Sample Wallet" }],
+        relies_on: [{ account_id: 7, name: "Sample Wallet" }],
       }),
     ];
   }
 
   it("counts what is left, and hands all of it to the agent in one run", async () => {
     accounts = books();
+    addAllIds = [5, 6];
     await renderAt("/review");
+
+    // Each row's text ends in its status, before the arrow.
+    expect(rows().map((row) => row.replace(/^.*Sep/, ""))).toEqual([
+      "Ready to add›",
+      "Goes in with Sample Savings›",
+      "3 need an account›",
+      "Goes in with Sample Wallet›",
+    ]);
 
     expect(facts("Left to fix")).toEqual([
       ["Need an account", "3"],
@@ -269,8 +294,9 @@ describe("what is left across the accounts", () => {
     expect(clipboard).toEqual([fixReviewPrompt()]);
   });
 
-  it("adds every account nothing blocks, and says what it added and left", async () => {
+  it("presses every account, and says what it added and left", async () => {
     accounts = books();
+    addAllIds = [5, 6];
     addAll = {
       posted: [{ account_id: 5, name: "Sample Savings", drafts_posted: 20 }],
       left: [
@@ -309,7 +335,7 @@ describe("what is left across the accounts", () => {
     expect(posts).toEqual([
       {
         url: expect.stringContaining("/api/draft-transactions/post-ready"),
-        body: { base_account_ids: [5, 6] },
+        body: { base_account_ids: [5, 6, 7, 8] },
       },
     ]);
     expect(facts("Added to your books")).toEqual([
@@ -429,7 +455,6 @@ describe("what is left across the accounts", () => {
       account(6, "Sample Card", {
         uncategorised: 0,
         failing_checks: 2,
-        add_first: [{ account_id: 5, name: "Sample Savings" }],
       }),
     ];
     await renderAt("/review");

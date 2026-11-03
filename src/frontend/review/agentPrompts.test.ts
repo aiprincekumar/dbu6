@@ -55,7 +55,7 @@ function detail(overrides: Partial<ReviewAccountDetail>): ReviewAccountDetail {
       duplicates: 0,
       balance_checks: 13,
       failing_checks: 0,
-      add_first: [],
+      relies_on: [],
       draft_span: { first_date: "2026-09-01", last_date: "2026-09-13" },
       rule_requests: 0,
     },
@@ -94,28 +94,6 @@ describe("duplicatesPrompt", () => {
     expect(prompt).not.toMatch(/packages\/|src\/|\.ts\b/);
     expect(prompt).toContain(PLAN_FIRST_RULE);
     expect(prompt).toMatch(/\n\*\*Next\*\*: ask whether to apply it\.$/);
-  });
-
-  it("names the other statement's account for a transfer both statements print", () => {
-    const prompt = duplicatesPrompt(
-      detail({
-        duplicates: [
-          {
-            ...duplicate(812),
-            other_draft_id: 640,
-            matched_journal_id: null,
-            matched_journal_entry_id: null,
-            match_kind: "draft-transfer",
-            match_type: "other-statement-transfer",
-            matched_account: "Sample Savings",
-          },
-        ],
-      }),
-    );
-
-    expect(prompt).toContain(
-      `· Sample Savings's draft 640 "NOPII payment received" (a transfer on both statements) · other-statement-transfer, 80%`,
-    );
   });
 
   it("lists at most 50 duplicates and leaves the rest to the app", () => {

@@ -3,7 +3,7 @@ import { initContract } from "@sapporta/rest-core";
 import { errorBodySchema } from "@sapporta/shared/contracts";
 import { accountKindSchema } from "./account-kind.js";
 import { datedBalanceSchema } from "./dated-balance.js";
-import { draftCountsSchema, postingInputsSchema } from "./posting-checks.js";
+import { draftCountsSchema } from "./posting-checks.js";
 
 const c = initContract();
 
@@ -45,7 +45,7 @@ export const homeAccountSchema = z.discriminatedUnion("in_ledger", [
     // Posted balance assertions its books miss: an entry changed after the
     // statement was added. The Reconciliation Differences report lists them.
     statement_differences: z.number(),
-    ...postingInputsSchema.shape,
+    ...draftCountsSchema.shape,
   }),
 ]);
 export type HomeAccount = z.infer<typeof homeAccountSchema>;

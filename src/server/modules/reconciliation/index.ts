@@ -14,12 +14,9 @@ export {
   duplicateDraftRowsSql,
   duplicateJournalEntryRowsSql,
   findDuplicateDiagnostics,
-  isTransferPair,
-  TRANSFER_MATCH_DAYS,
   type DuplicateDiagnostic,
   type DuplicateDraftSourceRow,
   type DuplicateJournalEntrySourceRow,
-  type TransferSide,
 } from "./duplicate-diagnostics.js";
 export { AmbiguousDuplicateError, findDuplicate } from "./duplicate-store.js";
 export {
@@ -29,6 +26,8 @@ export {
   loadImpliedOpenings,
   otherStatementDraftSql,
   postedAssertionFailuresCtes,
+  runningBalanceCtes,
+  type OtherDrafts,
 } from "./running-balance.js";
 export {
   newTransactionsSinceReconciliation,

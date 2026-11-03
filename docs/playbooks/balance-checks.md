@@ -24,9 +24,10 @@ for an amount equal to `diff`, or to the change in `diff` between two
 failing days. Propose each change as date, description, amount, and what it
 becomes.
 
-A difference equal to a transfer or card payment that another account's
-statement also carries is the `cross-account-transfers` playbook, whether
-its other side is a draft or already in the books.
+A difference that a transfer or card payment between two of the user's
+accounts could explain goes to the `double-counted-transfers` playbook,
+whether its other side is a draft or already in the books. In a run, that
+is its own task, after every statement is imported and categorized.
 
 ## Never
 
