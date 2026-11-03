@@ -16,7 +16,6 @@ import {
 } from "./context.js";
 import { createProjectAuthRoutes } from "./routes.js";
 import type { ProjectAuthEnv } from "./env.js";
-export { DEMO_ACCOUNT, isSampleAccount } from "./demo-account.js";
 import {
   rejectAnonymousByDefault,
   requireAuthContext,

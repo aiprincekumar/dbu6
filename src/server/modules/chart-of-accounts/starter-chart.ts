@@ -4,8 +4,7 @@ import type { ChartAccount, LedgerAccountType } from "../../../shared/index.js";
  * The chart of accounts a new user starts from: a salaried household in
  * India, with no bank, card, fund or person named. The group accounts that
  * the banks and cards step files accounts under (Bank Accounts, Credit
- * Cards, Loans) are here so that it has parents. dbu6-seed-sample-data's demo
- * books are this chart with its demo accounts added (`chartWithAccounts`).
+ * Cards, Loans) are here so that it has parents.
  *
  * Each type has one top account. Where an account sits comes from where it
  * is written here, never from its name.

@@ -4,8 +4,8 @@
  * takes it before it opens the database and `serveDbu6` releases it at
  * shutdown; `migrateSafely` holds it while it swaps the file. So a migration
  * never runs under a live server and two servers never share a folder.
- * dbu6-seed-sample-data, a development tool outside this package, writes rows
- * beside a running server without it, which is allowed: it changes no schema.
+ * Writing rows beside a running server without it is allowed: it changes no
+ * schema.
  *
  * The lock is a file created with `wx`, which fails when the file exists. A
  * lock whose pid is no longer running was left by a crash or a kill and is

@@ -9,7 +9,7 @@
  * in it: one token, written to `.env.agent` beside `.env.development` and
  * gitignored, which the `sapporta` bin reads and the server itself does not.
  * The token is minted straight into the database, so no app has to be
- * running.
+ * running, and one that is running accepts it at its next request.
  *
  * It is also the command the project's AGENTS.md names, so an agent that finds
  * `SAPPORTA_API_TOKEN` missing has a way to provision it that does not involve
@@ -40,7 +40,6 @@ import {
   writeAgentToken,
 } from "../server/modules/coding-agent/index.js";
 import { openDbu6Runtime } from "../server/runtime.js";
-import { migrateSafely } from "../server/migrate-safely.js";
 import { databaseFile } from "../server/paths.js";
 import {
   AgentEnvError,
@@ -107,19 +106,13 @@ export async function agentCommand(
 
   const { user, print } = parsed.values;
 
-  // The token is a row in the books' database, so a database an upgrade left
-  // behind is migrated first — the same safety `dbu6 dev` uses, on a verified
-  // copy. A project with no database yet says which command makes one.
+  // The token is a row in the books' database. A project with no database
+  // yet is told which command makes one; `openDbu6Runtime` refuses one with
+  // migrations pending, naming `dbu6 migrate`. This command never migrates,
+  // so it takes no lock.
   if (!existsSync(databaseFile(root))) {
     console.error(
       `No database at ${databaseFile(root)}. Run \`dbu6 dev\` or \`dbu6 migrate\` first.`,
-    );
-    return 1;
-  }
-  const migration = await migrateSafely(root);
-  if (migration.status === "rejected") {
-    console.error(
-      `${migration.reason}\nThe database is unchanged; nothing was written.`,
     );
     return 1;
   }
@@ -200,9 +193,8 @@ export async function agentCommand(
 
 /**
  * Every account that can own a token here: a member of a workspace, with the
- * email and workspace the command reports. The database can hold more than one
- * (a seeded demo account beside the owner's), which is why the choice is made
- * rather than assumed.
+ * email and workspace the command reports. The database can hold more than one,
+ * which is why the choice is made rather than assumed.
  */
 function agentAccounts(conn: {
   sqlite: { prepare: (sql: string) => { all: () => unknown[] } };

@@ -31,8 +31,8 @@ theirs: `user-config/`, `custom-built-parsers/`, `reports/`, and the ledger in
   `agent env` writes the token to `.env.agent` (gitignored) and revokes the
   coding-agent tokens dbu6 wrote for that account before, a prompt handoff's
   included; it reads the project's database directly, so it needs no running
-  server. The second command does need one, and names the user and workspace
-  the token acts as. Use `npx sapporta rows …` and
+  server and works beside one. The second command does need one, and names
+  the user and workspace the token acts as. Use `npx sapporta rows …` and
   `npx sapporta api …` as the guides say.
 
 - Read `npx dbu6 docs books` before you read or change the ledger. It maps each

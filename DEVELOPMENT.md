@@ -238,10 +238,9 @@ personal finances, and each run replaces that account's ledger and import
 presets. Its README says the rest.
 
 It loads its dbu6 from the project's `node_modules/@dbu6/app` and imports
-internals from `dist/` by file: the runtime, the starter chart, the
-categorization instructions, paths, and `DEMO_ACCOUNT`
-(`src/server/project-auth/demo-account.ts`). These are not on the promised
-surface. When you move or rename one, follow it in the seed's `dbu6.mjs`.
+internals from `dist/` by file, each a `load` call in the seed's `dbu6.mjs`.
+These are not on the promised surface; when you move or rename one, follow
+it there.
 When you change the schema, follow it in the seed's SQL.
 
 ## Ports and environment
@@ -355,12 +354,11 @@ minted for a request that may not manage tokens (`requestMayManageTokens`).
 Both write through `modules/coding-agent/agent-access.ts`, which writes the
 file with Sapporta's `writeProjectApiToken`, owner-only however it got there,
 and `dbu6 agent env --print` exports the same working token
-(`workingAgentToken`). Its `mintAgentToken` refuses the sample
-account [the seed](#sample-data) makes (`isSampleAccount`,
-`project-auth/demo-account.ts`), because seeding replaces that account's books;
-the handoff skips it rather than fail. Which account `agent env` uses is
-`chooseAgentAccount` in `src/cli/agent-env.ts`: the single non-sample
-account, or `--user <email>` — or `<user id>`, when one email is in more than one
+(`workingAgentToken`). dbu6 knows no sample or seeded accounts: every
+account is a person's, and gets a token like any other. Why `agent env` runs
+beside a running app is in `src/cli/agent.ts`. Which account `agent env` uses is
+`chooseAgentAccount` in `src/cli/agent-env.ts`: the single account, or
+`--user <email>` — or `<user id>`, when one email is in more than one
 workspace — when a project holds more. `--print` exports the token the
 project's file already holds, so `eval "$(dbu6 agent env --print)"` mints
 nothing.
@@ -687,8 +685,7 @@ built, tested and understood without anything above it. Lowest first:
 
 Beneath the tiers, `project-auth/` and `authz/` are the request's auth, from
 Sapporta's starter: who is asking, agent access tokens as rows and whether
-one is valid, the sample account's identity (`demo-account.ts`), and the auth
-routes. They import only `mailer.ts`, each other and, in tests, `paths.ts`,
+one is valid, and the auth routes. They import only `mailer.ts`, each other and, in tests, `paths.ts`,
 so any tier may import them; dbu6's own uses of a token, such as the coding
 agent's `.env.agent`, sit in the tier that needs them.
 

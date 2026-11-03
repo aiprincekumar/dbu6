@@ -21,8 +21,8 @@ import { cents } from "./insert-plan.js";
  *
  * A standalone one, a journal of the account's line and one Equity line and
  * nothing else, can be rewritten or deleted in place (Settings › Opening
- * balances). One that opens other accounts too, as the seeded books' and an
- * hledger import's do, is the user's to change in the journal itself.
+ * balances). One that opens other accounts too, as an hledger import's does,
+ * is the user's to change in the journal itself.
  */
 
 /** An account's opening entry: debits positive, as a balance assertion is. */

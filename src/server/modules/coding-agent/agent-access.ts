@@ -26,7 +26,6 @@ import {
 import type { AppPrincipal } from "../../authz/types.js";
 import {
   createAuthToken,
-  isSampleAccount,
   revokeAuthTokensWithPurpose,
   tokenIsLive,
 } from "../../project-auth/index.js";
@@ -52,31 +51,14 @@ export interface MintedAgentToken {
 }
 
 /**
- * The refusal to mint an agent token for the sample account
- * dbu6-seed-sample-data makes, so a caller that goes ahead without a token can
- * tell it from a failure.
- */
-export class SampleAccountError extends Error {}
-
-/**
  * Mints a coding-agent token for `owner`'s workspace, named after what
  * minted it.
- *
- * Never for the sample account dbu6-seed-sample-data makes: it is a real
- * account with real tokens, but the next seed replaces its books, so an agent
- * must not be handed one. This is the one place that refuses it, with a
- * `SampleAccountError`.
  */
 export function mintAgentToken(
   conn: ProjectDbConnection,
   owner: AgentTokenOwner,
   mintedBy: AgentTokenMinter,
 ): MintedAgentToken {
-  if (isSampleAccount(owner.user)) {
-    throw new SampleAccountError(
-      `${owner.user.email} is the sample account dbu6-seed-sample-data makes, whose books the next run replaces. Sign up in the app and use that account.`,
-    );
-  }
   const created = createAuthToken(
     conn,
     owner,
@@ -140,9 +122,6 @@ export function workingAgentToken(
 /**
  * Gives the project a token for `owner` when it has no working one, so the
  * agent does not start with a credential the app refuses.
- *
- * Nothing for the sample account: the handoff goes ahead, and its agent asks
- * for access as it would without this.
  */
 export function ensureAgentToken(
   conn: ProjectDbConnection,
@@ -150,10 +129,5 @@ export function ensureAgentToken(
   root: string,
 ): void {
   if (workingAgentToken(conn, root) !== undefined) return;
-  try {
-    writeAgentToken(conn, owner, root, "Prompt handoff");
-  } catch (err) {
-    if (err instanceof SampleAccountError) return;
-    throw err;
-  }
+  writeAgentToken(conn, owner, root, "Prompt handoff");
 }

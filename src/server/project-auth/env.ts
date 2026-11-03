@@ -114,7 +114,7 @@ function readRequiredPublicAppUrl(env: NodeJS.ProcessEnv): PublicAppUrl {
 
 /**
  * The port the API listens on: SAPPORTA_API_PORT, else a hosting platform's
- * PORT, else 3000. The dev server's `/api` proxy and `dbu6 seed` ask here too.
+ * PORT, else 3000. The dev server's `/api` proxy asks here too.
  */
 export function resolveApiPort(env: NodeJS.ProcessEnv): number {
   const sapportaPort = readOptionalIntegerEnv(env, "SAPPORTA_API_PORT");

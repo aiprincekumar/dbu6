@@ -15,14 +15,6 @@ const OWNER: AgentAccount = {
   organizationName: "NOPII OWNER's Workspace",
 };
 
-const DEMO: AgentAccount = {
-  userId: "05050500-demo",
-  email: "demo@example.com",
-  name: "Demo User",
-  organizationId: "05050500-demo-org",
-  organizationName: "Demo's Workspace",
-};
-
 const VALUES = { apiToken: "spat_05050500_050505" };
 
 describe("agentEnvExports", () => {
@@ -50,16 +42,7 @@ describe("chooseAgentAccount", () => {
     expect(chooseAgentAccount([OWNER])).toEqual(OWNER);
   });
 
-  it("never hands the agent a sample account, even when it is the only one", () => {
-    expect(() => chooseAgentAccount([DEMO])).toThrow(AgentEnvError);
-    expect(() => chooseAgentAccount([DEMO])).toThrow(/only sample accounts/);
-  });
-
-  it("ignores a sample account when the owner is there beside it", () => {
-    expect(chooseAgentAccount([DEMO, OWNER])).toEqual(OWNER);
-  });
-
-  it("asks which account when two are real, naming both emails", () => {
+  it("asks which account when there are two, naming both emails", () => {
     const second = {
       ...OWNER,
       userId: "05050500-two",
@@ -86,12 +69,6 @@ describe("chooseAgentAccount", () => {
     expect(
       chooseAgentAccount([OWNER, second], { user: "two@example.com" }),
     ).toEqual(second);
-  });
-
-  it("takes a sample account --user names, which minting then refuses", () => {
-    expect(chooseAgentAccount([DEMO, OWNER], { user: DEMO.email })).toEqual(
-      DEMO,
-    );
   });
 
   it("asks which workspace when one email is in two, and takes the user id", () => {
@@ -139,6 +116,7 @@ describe("chooseAgentAccount", () => {
   });
 
   it("tells a project with no account to sign up first", () => {
+    expect(() => chooseAgentAccount([])).toThrow(AgentEnvError);
     expect(() => chooseAgentAccount([])).toThrow(/sign up/i);
   });
 });

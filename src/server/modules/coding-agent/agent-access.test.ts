@@ -20,7 +20,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { packageDir } from "../../paths.js";
 import {
   createAuthToken,
-  DEMO_ACCOUNT,
   findMembership,
   listAuthTokens,
   membershipFromRow,
@@ -29,7 +28,6 @@ import {
 import {
   ensureAgentToken,
   mintAgentToken,
-  SampleAccountError,
   workingAgentToken,
   writeAgentToken,
   type AgentTokenOwner,
@@ -53,7 +51,7 @@ const SAMPLE_TOKEN = "spat_05050500_050505";
 const OWNER_EMAIL = "owner@example.com";
 
 /** A migrated database holding one user, the owner of one workspace. */
-function books(email = OWNER_EMAIL): {
+function books(): {
   conn: ProjectDbConnection;
   owner: AgentTokenOwner;
 } {
@@ -63,7 +61,7 @@ function books(email = OWNER_EMAIL): {
   migrate(db, { migrationsFolder: packageDir("migrations") });
   sqlite.exec(`
     INSERT INTO user (id, name, email, emailVerified)
-      VALUES ('05050500-owner', 'NOPII OWNER', '${email}', 1);
+      VALUES ('05050500-owner', 'NOPII OWNER', '${OWNER_EMAIL}', 1);
     INSERT INTO organization (id, name, slug, createdAt)
       VALUES ('05050500-org', 'NOPII Workspace', 'nopii', 0);
     INSERT INTO member (id, organizationId, userId, role, createdAt)
@@ -74,7 +72,7 @@ function books(email = OWNER_EMAIL): {
   const owner = userPrincipal({
     user: {
       id: "05050500-owner",
-      email,
+      email: OWNER_EMAIL,
       name: "NOPII OWNER",
       emailVerified: true,
     },
@@ -114,15 +112,6 @@ describe("mintAgentToken", () => {
     expect(token?.id).toBe(minted.tokenId);
     expect(token?.name).toBe("dbu6 agent env");
     expect(purposes(conn)[minted.tokenId]).toBe("coding-agent");
-  });
-
-  it("refuses the sample account, and mints nothing", () => {
-    const { conn, owner } = books(DEMO_ACCOUNT.email);
-
-    expect(() => mintAgentToken(conn, owner, "dbu6 agent env")).toThrow(
-      SampleAccountError,
-    );
-    expect(liveTokens(conn, owner)).toEqual([]);
   });
 });
 
@@ -288,27 +277,6 @@ describe("ensureAgentToken", () => {
     ensureAgentToken(conn, owner, root);
 
     expect(readProjectApiToken(root)).toMatch(/^spat_/);
-  });
-
-  it("leaves a dead token in place for the sample account, and mints nothing", () => {
-    const { conn, owner } = books(DEMO_ACCOUNT.email);
-    const root = tempRoot();
-    writeFile(root, `SAPPORTA_API_TOKEN=${SAMPLE_TOKEN}\n`);
-
-    ensureAgentToken(conn, owner, root);
-
-    expect(readProjectApiToken(root)).toBe(SAMPLE_TOKEN);
-    expect(liveTokens(conn, owner)).toEqual([]);
-  });
-
-  it("writes and mints nothing for the sample account", () => {
-    const { conn, owner } = books(DEMO_ACCOUNT.email);
-    const root = tempRoot();
-
-    ensureAgentToken(conn, owner, root);
-
-    expect(readProjectApiToken(root)).toBeUndefined();
-    expect(liveTokens(conn, owner)).toEqual([]);
   });
 });
 

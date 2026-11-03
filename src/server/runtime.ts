@@ -4,8 +4,8 @@
  * Opening the database, loading our tables, checking our migrations, and
  * building auth and mail are the same steps whether the process is about to
  * serve requests or a script is about to write rows. `open.ts` opens the
- * runtime and mounts Hono on it (`mount.ts`); `dbu6 seed` (`seed/sample-data.ts`)
- * opens it and writes to its connection.
+ * runtime and mounts Hono on it (`mount.ts`); a command that writes rows opens
+ * it and writes to its connection.
  *
  * Two directories are involved (see `paths.ts`). What is the user's comes from
  * `root`. What is ours, the compiled tables and the migrations, comes from the

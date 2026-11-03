@@ -753,8 +753,7 @@ it could belong to), it keeps the file, `dbu6 migrate` prints why, and
   - `npx dbu6 agent env` gives this project one: it mints a token, writes it to
     the gitignored `.env.agent`, and revokes the coding-agent tokens dbu6
     wrote for that account before, a prompt handoff's included.
-    It names the account it used, and refuses a project that holds only the
-    sample account dbu6-seed-sample-data makes.
+    It names the account it used.
   - `npx sapporta` reads that file by itself. Anything else — an older
     Sapporta CLI, or the `curl` uploads below — does not, so put the token in
     its environment first: `set -a; . ./.env.agent; set +a`. A CLI that
@@ -799,9 +798,9 @@ The owner allows reading SQLite directly for diagnosis:
 - `data/` is under the project root, unless `SAPPORTA_DATA_DIR` in the
   project's env file says otherwise.
 - `accounts` is the chart of accounts; `account` is sign-in data.
-- The file can hold more than one user's books, for example a seeded demo
-  user. If `SELECT COUNT(DISTINCT scoped_to_user_id) FROM accounts` is above 1,
-  filter every table by the owner's `scoped_to_user_id` (`user.id` for their
+- The file can hold more than one user's books. If
+  `SELECT COUNT(DISTINCT scoped_to_user_id) FROM accounts` is above 1, filter
+  every table by the owner's `scoped_to_user_id` (`user.id` for their
   email).
 
 ## The data

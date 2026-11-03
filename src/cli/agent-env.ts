@@ -5,8 +5,6 @@
  * the token and writes `.env.agent` (modules/coding-agent/agent-access.ts).
  */
 
-import { isSampleAccount } from "../server/project-auth/index.js";
-
 /** The `export …` line `dbu6 agent env --print` writes, for `eval`. */
 export function agentEnvExports({ apiToken }: { apiToken: string }): string {
   return `export SAPPORTA_API_TOKEN=${shellQuote(apiToken)}\n`;
@@ -40,10 +38,6 @@ export class AgentEnvError extends Error {}
  * Which account the token is for. A books folder is one person's, so the
  * common case has a single account and needs no asking; more than one is
  * reported with the emails, and `--user` picks by email.
- *
- * The sample account dbu6-seed-sample-data makes is never picked for you. One
- * named with `--user` is chosen like any other, and minting refuses it
- * (`mintAgentToken`, modules/coding-agent/agent-access.ts).
  */
 export function chooseAgentAccount(
   accounts: readonly AgentAccount[],
@@ -69,18 +63,15 @@ export function chooseAgentAccount(
     }
     return matches[0]!;
   }
-  const candidates = accounts.filter((account) => !isSampleAccount(account));
-  if (candidates.length === 1) return candidates[0]!;
-  if (candidates.length === 0) {
+  if (accounts.length === 1) return accounts[0]!;
+  if (accounts.length === 0) {
     throw new AgentEnvError(
-      accounts.length === 0
-        ? "This project has no account yet. Open the app, sign up, then run this again."
-        : `This project has only sample accounts (${accounts.map((account) => account.email).join(", ")}). Sign up in the app and run this again.`,
+      "This project has no account yet. Open the app, sign up, then run this again.",
     );
   }
   throw new AgentEnvError(
     `This project has more than one account, so say which one the agent is for:\n` +
-      `${listAccounts(candidates)}\n` +
+      `${listAccounts(accounts)}\n` +
       "Run this again with `--user <email>`, or with the `user id` shown when one email is in more than one workspace.",
   );
 }
