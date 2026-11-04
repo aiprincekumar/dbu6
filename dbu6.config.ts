@@ -84,92 +84,103 @@ async function callGeminiList<Name extends string>(
     };
   }
 
-  const model = getGeminiModel("categorization");
+  const configuredModel = getGeminiModel("categorization");
+  const fallbackModels = ["gemini-flash-lite-latest", "gemini-3.1-flash-lite"];
+  const modelsToTry = [configuredModel, ...fallbackModels.filter((m) => m !== configuredModel)];
   const outputField = request.output.name;
   const userContent = `${request.prompt}\n\nPlease categorize each transaction below and return a JSON array of objects where each object has:\n- "id": string (the transaction ID)\n- "${outputField}": string (the exact matched account name from the accounts list, or empty string if uncertain/uncategorized)\n\nTransactions to categorize:\n${JSON.stringify(request.rows, null, 2)}`;
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    const payload = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: userContent }],
-        },
-      ],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "ARRAY",
-          items: {
-            type: "OBJECT",
-            properties: {
-              id: { type: "STRING" },
-              [outputField]: { type: "STRING" },
+  let lastError = "";
+
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: userContent }],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                id: { type: "STRING" },
+                [outputField]: { type: "STRING" },
+              },
+              required: ["id", outputField],
             },
-            required: ["id", outputField],
           },
         },
-      },
-    };
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      return {
-        ok: false,
-        error: `Gemini API error (${response.status} ${response.statusText}): ${errText.slice(0, 300)}`,
       };
-    }
 
-    const data = (await response.json()) as any;
-    const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!candidateText) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        lastError = `Gemini API error (${response.status} ${response.statusText}): ${errText.slice(0, 300)}`;
+        if (response.status === 429 || response.status === 404) {
+          console.warn(`[dbu6-gemini] Model ${model} returned ${response.status}, attempting fallback model...`);
+          continue;
+        }
+        return {
+          ok: false,
+          error: lastError,
+        };
+      }
+
+      const data = (await response.json()) as any;
+      const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!candidateText) {
+        lastError = "Gemini API returned an empty response or unexpected structure.";
+        continue;
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(candidateText);
+      } catch (parseErr) {
+        return {
+          ok: false,
+          error: `Failed to parse Gemini response as JSON: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+        };
+      }
+
+      if (!Array.isArray(parsed)) {
+        return {
+          ok: false,
+          error: "Gemini API response is not a JSON array as required.",
+        };
+      }
+
+      const rows = parsed.map((item: any) => ({
+        id: item.id,
+        [outputField]: typeof item[outputField] === "string" ? item[outputField].trim() : "",
+      })) as ({ id: string | number } & Record<Name, string>)[];
+
       return {
-        ok: false,
-        error: "Gemini API returned an empty response or unexpected structure.",
+        ok: true,
+        rows,
       };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
     }
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(candidateText);
-    } catch (parseErr) {
-      return {
-        ok: false,
-        error: `Failed to parse Gemini response as JSON: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
-      };
-    }
-
-    if (!Array.isArray(parsed)) {
-      return {
-        ok: false,
-        error: "Gemini API response is not a JSON array as required.",
-      };
-    }
-
-    const rows = parsed.map((item: any) => ({
-      id: item.id,
-      [outputField]: typeof item[outputField] === "string" ? item[outputField].trim() : "",
-    })) as ({ id: string | number } & Record<Name, string>)[];
-
-    return {
-      ok: true,
-      rows,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
   }
+
+  return {
+    ok: false,
+    error: lastError,
+  };
 }
 
 /** Normalize narrations before matching */
