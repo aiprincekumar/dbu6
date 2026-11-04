@@ -269,7 +269,7 @@ patchFile('dist/server/modules/coding-agent/agents.js', (content) => {
       `export const CODING_AGENT_RUN = {
     antigravity: {
         models: [
-            { model: "gemini-3.8-pro", label: "Gemini 3.8 Pro" },
+            { model: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
             { model: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
         ],
     },`
@@ -279,7 +279,7 @@ patchFile('dist/server/modules/coding-agent/agents.js', (content) => {
       /antigravity:\s*\{\s*models:\s*\[[\s\S]*?\](?:,|\s)*\},?/,
       `antigravity: {
         models: [
-            { model: "gemini-3.8-pro", label: "Gemini 3.8 Pro" },
+            { model: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
             { model: "gemini-3.8-flash", label: "Gemini 3.8 Flash" },
         ],
     },`
