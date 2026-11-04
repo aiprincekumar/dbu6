@@ -1,5 +1,5 @@
-import { defineConfig, type LoadCategorizer } from "@dbu6/app/server";
-import { existsSync, readFileSync } from "node:fs";
+import { defineConfig, type Dbu6App, type LoadCategorizer } from "@dbu6/app/server";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { register } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -351,4 +351,113 @@ const categorizerLoader: LoadCategorizer = async (settings) => {
 
 export default defineConfig({
   loadCategorizer: categorizerLoader,
+  extend(app: Dbu6App) {
+    const userConfigDir = join(import.meta.dirname, "user-config");
+
+    // Helper to get all prompt files from user-config/
+    const getPromptFiles = () => {
+      if (!existsSync(userConfigDir)) return [];
+      const files = readdirSync(userConfigDir);
+      return files
+        .filter((f) => f.endsWith(".prompt") || f.endsWith(".txt"))
+        .map((f) => {
+          const fullPath = join(userConfigDir, f);
+          const stat = statSync(fullPath);
+          const content = readFileSync(fullPath, "utf-8");
+          const isSystem = f.toLowerCase() === "custom_mappings_default.prompt" || f.toLowerCase().startsWith("system_");
+          return {
+            filename: f,
+            name: f.replace(/\.(prompt|txt)$/, "").replace(/[_-]/g, " "),
+            content,
+            isSystem,
+            updatedAt: stat.mtime.toISOString(),
+          };
+        });
+    };
+
+    // GET /api/custom-prompts - List all prompts or get a specific one
+    app.hono.get("/api/custom-prompts", async (c) => {
+      try {
+        const requestedFile = c.req.query("file");
+        const prompts = getPromptFiles();
+
+        if (requestedFile) {
+          const found = prompts.find((p) => p.filename.toLowerCase() === requestedFile.toLowerCase());
+          if (!found) {
+            return c.json({ ok: false, error: `Prompt file '${requestedFile}' not found.` }, 404);
+          }
+          return c.json({ ok: true, prompt: found });
+        }
+
+        return c.json({
+          ok: true,
+          prompts,
+        });
+      } catch (err) {
+        return c.json({
+          ok: false,
+          error: `Failed to retrieve custom prompts: ${err instanceof Error ? err.message : String(err)}`,
+        }, 500);
+      }
+    });
+
+    // POST /api/custom-prompts - Save new or edited custom prompt to user-config/
+    app.hono.post("/api/custom-prompts", async (c) => {
+      try {
+        const body = (await c.req.json()) as { filename?: string; content?: string };
+        const rawFilename = (body.filename || "").trim();
+        const content = typeof body.content === "string" ? body.content : "";
+
+        if (!rawFilename) {
+          return c.json({ ok: false, error: "Filename is required." }, 400);
+        }
+
+        // Auto-append .prompt extension if missing
+        let safeFilename = rawFilename;
+        if (!safeFilename.endsWith(".prompt") && !safeFilename.endsWith(".txt")) {
+          safeFilename = `${safeFilename}.prompt`;
+        }
+
+        // Strict sanitization: alphanumeric, hyphens, underscores, dots only; prevent path traversal
+        if (safeFilename.includes("..") || safeFilename.includes("/") || safeFilename.includes("\\") || !/^[a-zA-Z0-9_\-.]+\.(prompt|txt)$/.test(safeFilename)) {
+          return c.json({
+            ok: false,
+            error: "Invalid filename. Only alphanumeric characters, dashes, underscores, and dots are permitted.",
+          }, 400);
+        }
+
+        // Critical defense-in-depth: Protect core system prompt from direct overwrite
+        const normalized = safeFilename.toLowerCase();
+        if (normalized === "custom_mappings_default.prompt" || normalized.startsWith("system")) {
+          return c.json({
+            ok: false,
+            error: "Built-in system prompt cannot be directly modified. Please use a unique custom filename.",
+          }, 400);
+        }
+
+        const targetPath = join(userConfigDir, safeFilename);
+        writeFileSync(targetPath, content, "utf-8");
+
+        return c.json({
+          ok: true,
+          filename: safeFilename,
+          message: `Custom prompt '${safeFilename}' saved successfully.`,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        return c.json({
+          ok: false,
+          error: `Failed to save custom prompt: ${err instanceof Error ? err.message : String(err)}`,
+        }, 500);
+      }
+    });
+
+    // CORS preflight handler
+    app.hono.options("/api/custom-prompts", (c) => {
+      c.header("Access-Control-Allow-Origin", "*");
+      c.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      c.header("Access-Control-Allow-Headers", "Content-Type");
+      return c.body(null, 204);
+    });
+  },
 });
